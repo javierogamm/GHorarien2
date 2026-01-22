@@ -12,3 +12,6 @@
 
 ## v0.1.2
 - Ajuste de tipado Appwrite para compatibilidad con `Models.Document`.
+
+## v0.1.3
+- Configuración de Vercel para forzar la detección de Next.js.
