@@ -218,6 +218,7 @@ export default function CalendarPage() {
         error: "",
         success: "Evento creado correctamente."
       });
+      setIsCreateModalOpen(false);
       await loadAllEvents();
     } catch (err) {
       setFormStatus({
@@ -442,7 +443,6 @@ export default function CalendarPage() {
                   type="text"
                   value={eventName}
                   onChange={(event) => setEventName(event.target.value)}
-                  placeholder="Ej: Taller de creatividad"
                 />
               </label>
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
@@ -468,7 +468,6 @@ export default function CalendarPage() {
                 className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
                 value={attendees}
                 onChange={(event) => setAttendees(event.target.value)}
-                placeholder="ej: ana, carlos, maria"
               />
             </label>
             {formStatus.error ? (

@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.8
+- Tarjetas de eventos sin texto de tipo, con franja de color más compacta y colores por categoría.
+- Cierre automático del modal al crear eventos correctamente.
+- Eliminados ejemplos de texto en los campos del modal de creación.
+- Añadida la configuración de la colección `establecimiento` desde Appwrite para uso futuro.
+
 ## v0.2.7
 - El formulario de creación de eventos ahora se abre en un modal animado al seleccionar un día del calendario.
 - Visualización de eventos como franjas apiladas de ancho completo con nombre y contador de asistentes.

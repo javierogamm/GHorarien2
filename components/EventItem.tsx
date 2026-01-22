@@ -22,13 +22,14 @@ export const EventItem = ({ event, onSelect }: EventItemProps) => {
         eventClick.stopPropagation();
         onSelect(event);
       }}
-      className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-[11px] font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass}`}
+      className={`relative flex w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-[11px] font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass}`}
     >
-      <span className="truncate text-left text-[11px] font-semibold text-slate-800">
+      <span
+        className={`absolute left-2 top-1/2 h-3 w-1 -translate-y-1/2 rounded-full ${meta.dotClass}`}
+        aria-hidden="true"
+      />
+      <span className="truncate pl-2 text-left text-[11px] font-semibold text-slate-800">
         {event.nombre ? event.nombre : "Evento"} ({event.attendeeCount})
-      </span>
-      <span className="rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-semibold text-slate-600">
-        {meta.label}
       </span>
     </button>
   );
