@@ -11,6 +11,7 @@ export type CalendarEvent = Models.Document & {
   horaFin: string;
   duration: number;
   notas?: string;
+  establecimiento?: string;
 };
 
 export const fetchEventsForUser = async (
@@ -56,6 +57,7 @@ type CreateEventsInput = {
   horaFin: string;
   duration: number;
   notas?: string;
+  establecimiento?: string;
 };
 
 export const createEventsForAttendees = async ({
@@ -66,7 +68,8 @@ export const createEventsForAttendees = async ({
   horaInicio,
   horaFin,
   duration,
-  notas
+  notas,
+  establecimiento
 }: CreateEventsInput): Promise<CalendarEvent[]> => {
   ensureAppwriteConfig();
   const payloads = attendees.map((attendee) =>
@@ -82,10 +85,47 @@ export const createEventsForAttendees = async ({
         horaInicio,
         horaFin,
         duration,
-        notas: notas ?? ""
+        notas: notas ?? "",
+        establecimiento: establecimiento ?? ""
       }
     )
   );
 
   return Promise.all(payloads);
+};
+
+export const updateEvent = async (
+  documentId: string,
+  data: Partial<CalendarEvent>
+): Promise<CalendarEvent> => {
+  ensureAppwriteConfig();
+  return databases.updateDocument<CalendarEvent>(
+    appwriteConfig.databaseId,
+    appwriteConfig.eventsCollectionId,
+    documentId,
+    data
+  );
+};
+
+export const deleteEvent = async (documentId: string): Promise<void> => {
+  ensureAppwriteConfig();
+  await databases.deleteDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.eventsCollectionId,
+    documentId
+  );
+};
+
+export type EstablishmentRecord = Models.Document & {
+  nombre: string;
+};
+
+export const fetchEstablishments = async (): Promise<EstablishmentRecord[]> => {
+  ensureAppwriteConfig();
+  const response = await databases.listDocuments<EstablishmentRecord>(
+    appwriteConfig.databaseId,
+    appwriteConfig.establishmentCollectionId
+  );
+
+  return response.documents;
 };

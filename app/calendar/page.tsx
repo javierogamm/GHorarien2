@@ -11,7 +11,10 @@ import {
 import {
   type CalendarEvent,
   createEventsForAttendees,
-  fetchAllEvents
+  deleteEvent,
+  fetchAllEvents,
+  fetchEstablishments,
+  updateEvent
 } from "../../services/eventsService";
 import { parseDateWithoutTime } from "../../utils/calendarDates";
 import type { CalendarEventDisplay } from "../../components/calendarTypes";
@@ -40,11 +43,36 @@ export default function CalendarPage() {
   const [allEventsError, setAllEventsError] = useState("");
   const [eventName, setEventName] = useState("");
   const [eventType, setEventType] = useState<EventCategory>(EVENT_CATEGORIES[0]);
+  const [eventStartTime, setEventStartTime] = useState(
+    EVENT_CATEGORY_META[EVENT_CATEGORIES[0]].startTime
+  );
+  const [eventEndTime, setEventEndTime] = useState(
+    EVENT_CATEGORY_META[EVENT_CATEGORIES[0]].endTime
+  );
+  const [eventNotes, setEventNotes] = useState("");
+  const [eventEstablishment, setEventEstablishment] = useState("");
   const [attendees, setAttendees] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventDisplay | null>(
     null
   );
+  const [establishments, setEstablishments] = useState<string[]>([]);
+  const [establishmentsError, setEstablishmentsError] = useState("");
+  const [editForm, setEditForm] = useState({
+    nombre: "",
+    eventType: EVENT_CATEGORIES[0],
+    fecha: "",
+    horaInicio: "",
+    horaFin: "",
+    attendees: "",
+    notas: "",
+    establecimiento: ""
+  });
+  const [editStatus, setEditStatus] = useState({
+    loading: false,
+    error: "",
+    success: ""
+  });
   const [formStatus, setFormStatus] = useState({
     loading: false,
     error: "",
@@ -80,6 +108,62 @@ export default function CalendarPage() {
     if (!username) return;
     loadAllEvents();
   }, [loadAllEvents, username]);
+
+  useEffect(() => {
+    if (!username) return;
+    const loadEstablishments = async () => {
+      setEstablishmentsError("");
+      try {
+        const data = await fetchEstablishments();
+        const names = data
+          .map((item) => item.nombre?.trim())
+          .filter((name): name is string => Boolean(name));
+        names.sort((a, b) => a.localeCompare(b));
+        setEstablishments(names);
+        setEventEstablishment((prev) => (prev ? prev : names[0] ?? ""));
+      } catch (err) {
+        setEstablishmentsError(
+          "No se pudo cargar la lista de establecimientos."
+        );
+      }
+    };
+    loadEstablishments();
+  }, [username]);
+
+  useEffect(() => {
+    const meta = EVENT_CATEGORY_META[eventType];
+    setEventStartTime(meta.startTime);
+    setEventEndTime(meta.endTime);
+  }, [eventType]);
+
+  useEffect(() => {
+    if (!selectedEvent) {
+      setEditForm({
+        nombre: "",
+        eventType: EVENT_CATEGORIES[0],
+        fecha: "",
+        horaInicio: "",
+        horaFin: "",
+        attendees: "",
+        notas: "",
+        establecimiento: ""
+      });
+      setEditStatus({ loading: false, error: "", success: "" });
+      return;
+    }
+
+    setEditForm({
+      nombre: selectedEvent.nombre ?? "",
+      eventType: selectedEvent.eventType,
+      fecha: formatDateInput(selectedEvent.fecha),
+      horaInicio: formatTimeInput(selectedEvent.horaInicio),
+      horaFin: formatTimeInput(selectedEvent.horaFin),
+      attendees: selectedEvent.attendees.join("\n"),
+      notas: selectedEvent.notas ?? "",
+      establecimiento: selectedEvent.establecimiento ?? ""
+    });
+    setEditStatus({ loading: false, error: "", success: "" });
+  }, [selectedEvent]);
 
   useEffect(() => {
     if (
@@ -125,6 +209,30 @@ export default function CalendarPage() {
       hour: "2-digit",
       minute: "2-digit"
     });
+  };
+
+  const formatDateInput = (value?: string) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    const pad = (item: number) => String(item).padStart(2, "0");
+    return `${parsed.getFullYear()}-${pad(parsed.getMonth() + 1)}-${pad(
+      parsed.getDate()
+    )}`;
+  };
+
+  const formatTimeInput = (value?: string) => {
+    if (!value) return "";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+    const pad = (item: number) => String(item).padStart(2, "0");
+    return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+  };
+
+  const parseDateInput = (value: string) => {
+    const [year, month, day] = value.split("-").map(Number);
+    if (!year || !month || !day) return null;
+    return new Date(year, month - 1, day);
   };
 
   const buildEventDateTime = (date: Date, time: string) => {
@@ -182,20 +290,57 @@ export default function CalendarPage() {
       return;
     }
 
+    if (!eventStartTime) {
+      setFormStatus({
+        loading: false,
+        error: "Indica la hora de inicio.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!eventEndTime) {
+      setFormStatus({
+        loading: false,
+        error: "Indica la hora de fin.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!eventEstablishment) {
+      setFormStatus({
+        loading: false,
+        error: "Selecciona un establecimiento.",
+        success: ""
+      });
+      return;
+    }
+
     setFormStatus({ loading: true, error: "", success: "" });
     try {
-      const meta = EVENT_CATEGORY_META[eventType];
-      const startDate = buildEventDateTime(selectedDate, meta.startTime);
-      const endDate = buildEventDateTime(selectedDate, meta.endTime);
-      const fecha = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        selectedDate.getDate(),
-        0,
-        0,
-        0,
-        0
-      );
+      const startDate = buildEventDateTime(selectedDate, eventStartTime);
+      const endDate = buildEventDateTime(selectedDate, eventEndTime);
+      if (
+        Number.isNaN(startDate.getTime()) ||
+        Number.isNaN(endDate.getTime())
+      ) {
+        setFormStatus({
+          loading: false,
+          error: "Las horas indicadas no son válidas.",
+          success: ""
+        });
+        return;
+      }
+
+      if (endDate.getTime() <= startDate.getTime()) {
+        setFormStatus({
+          loading: false,
+          error: "La hora de fin debe ser posterior a la hora de inicio.",
+          success: ""
+        });
+        return;
+      }
       const duration = Math.round(
         (endDate.getTime() - startDate.getTime()) / 60000
       );
@@ -204,15 +349,17 @@ export default function CalendarPage() {
         nombre: trimmedName,
         eventType,
         attendees: attendeeList,
-        fecha: formatDateTime(fecha),
+        fecha: formatDateTime(startDate),
         horaInicio: formatDateTime(startDate),
         horaFin: formatDateTime(endDate),
         duration,
-        notas: ""
+        notas: eventNotes.trim(),
+        establecimiento: eventEstablishment
       });
 
       setEventName("");
       setAttendees("");
+      setEventNotes("");
       setFormStatus({
         loading: false,
         error: "",
@@ -232,6 +379,9 @@ export default function CalendarPage() {
   const handleDaySelect = (date: Date) => {
     setSelectedDate(date);
     setFormStatus({ loading: false, error: "", success: "" });
+    const meta = EVENT_CATEGORY_META[eventType];
+    setEventStartTime(meta.startTime);
+    setEventEndTime(meta.endTime);
     setIsCreateModalOpen(true);
   };
 
@@ -246,6 +396,156 @@ export default function CalendarPage() {
 
   const closeEventModal = () => {
     setSelectedEvent(null);
+  };
+
+  const handleUpdateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selectedEvent) return;
+
+    const trimmedName = editForm.nombre.trim();
+    const attendeeList = parseAttendees(editForm.attendees);
+    const selectedDateValue = parseDateInput(editForm.fecha);
+
+    if (!trimmedName) {
+      setEditStatus({
+        loading: false,
+        error: "Indica el nombre del evento.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!selectedDateValue) {
+      setEditStatus({
+        loading: false,
+        error: "Selecciona una fecha válida.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!editForm.horaInicio) {
+      setEditStatus({
+        loading: false,
+        error: "Indica la hora de inicio.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!editForm.horaFin) {
+      setEditStatus({
+        loading: false,
+        error: "Indica la hora de fin.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!editForm.establecimiento) {
+      setEditStatus({
+        loading: false,
+        error: "Selecciona un establecimiento.",
+        success: ""
+      });
+      return;
+    }
+
+    if (attendeeList.length === 0) {
+      setEditStatus({
+        loading: false,
+        error: "Agrega al menos un asistente.",
+        success: ""
+      });
+      return;
+    }
+
+    const startDate = buildEventDateTime(selectedDateValue, editForm.horaInicio);
+    const endDate = buildEventDateTime(selectedDateValue, editForm.horaFin);
+    if (
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
+    ) {
+      setEditStatus({
+        loading: false,
+        error: "Las horas indicadas no son válidas.",
+        success: ""
+      });
+      return;
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      setEditStatus({
+        loading: false,
+        error: "La hora de fin debe ser posterior a la hora de inicio.",
+        success: ""
+      });
+      return;
+    }
+
+    setEditStatus({ loading: true, error: "", success: "" });
+    try {
+      const duration = Math.round(
+        (endDate.getTime() - startDate.getTime()) / 60000
+      );
+      const payload = {
+        nombre: trimmedName,
+        eventType: editForm.eventType,
+        fecha: formatDateTime(startDate),
+        horaInicio: formatDateTime(startDate),
+        horaFin: formatDateTime(endDate),
+        duration,
+        notas: editForm.notas.trim(),
+        establecimiento: editForm.establecimiento
+      };
+
+      const groupedEvents = allEvents.filter(
+        (eventItem) =>
+          eventItem.nombre === selectedEvent.nombre &&
+          eventItem.eventType === selectedEvent.eventType &&
+          eventItem.fecha === selectedEvent.fecha &&
+          eventItem.horaInicio === selectedEvent.horaInicio &&
+          eventItem.horaFin === selectedEvent.horaFin
+      );
+      const existingUsers = new Set(groupedEvents.map((item) => item.user));
+      const desiredUsers = new Set(attendeeList);
+
+      await Promise.all(
+        groupedEvents.map((eventItem) => {
+          if (desiredUsers.has(eventItem.user)) {
+            return updateEvent(eventItem.$id, {
+              ...payload,
+              user: eventItem.user
+            });
+          }
+          return deleteEvent(eventItem.$id);
+        })
+      );
+
+      const newAttendees = attendeeList.filter(
+        (attendee) => !existingUsers.has(attendee)
+      );
+      if (newAttendees.length > 0) {
+        await createEventsForAttendees({
+          ...payload,
+          attendees: newAttendees
+        });
+      }
+
+      setEditStatus({
+        loading: false,
+        error: "",
+        success: "Evento actualizado correctamente."
+      });
+      setSelectedEvent(null);
+      await loadAllEvents();
+    } catch (err) {
+      setEditStatus({
+        loading: false,
+        error: "No se pudo actualizar el evento.",
+        success: ""
+      });
+    }
   };
 
   const calendarEvents = useMemo(
@@ -342,6 +642,7 @@ export default function CalendarPage() {
                     <th className="px-4 py-3">Inicio</th>
                     <th className="px-4 py-3">Fin</th>
                     <th className="px-4 py-3">Duración</th>
+                    <th className="px-4 py-3">Establecimiento</th>
                     <th className="px-4 py-3">Notas</th>
                   </tr>
                 </thead>
@@ -349,7 +650,7 @@ export default function CalendarPage() {
                   {allEvents.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={8}
+                        colSpan={9}
                         className="px-4 py-6 text-center text-sm text-slate-400"
                       >
                         No hay registros en la tabla todavía.
@@ -377,6 +678,9 @@ export default function CalendarPage() {
                         </td>
                         <td className="px-4 py-3">
                           {event.duration ? `${event.duration} min` : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {event.establecimiento?.trim() || "—"}
                         </td>
                         <td className="px-4 py-3">
                           {event.notas?.trim() || "—"}
@@ -462,12 +766,59 @@ export default function CalendarPage() {
                 </select>
               </label>
             </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Hora inicio
+                <input
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  type="time"
+                  value={eventStartTime}
+                  onChange={(event) => setEventStartTime(event.target.value)}
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Hora fin
+                <input
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  type="time"
+                  value={eventEndTime}
+                  onChange={(event) => setEventEndTime(event.target.value)}
+                />
+              </label>
+            </div>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Establecimiento
+              <select
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                value={eventEstablishment}
+                onChange={(event) => setEventEstablishment(event.target.value)}
+                disabled={establishments.length === 0}
+              >
+                <option value="">Selecciona un establecimiento</option>
+                {establishments.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              {establishmentsError ? (
+                <span className="text-xs text-rose-500">{establishmentsError}</span>
+              ) : null}
+            </label>
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
               Asistentes
               <textarea
                 className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
                 value={attendees}
                 onChange={(event) => setAttendees(event.target.value)}
+              />
+            </label>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Notas
+              <textarea
+                className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                value={eventNotes}
+                onChange={(event) => setEventNotes(event.target.value)}
               />
             </label>
             {formStatus.error ? (
@@ -533,29 +884,148 @@ export default function CalendarPage() {
             </button>
           </div>
           {selectedEvent ? (
-            <div className="mt-4 space-y-4 text-sm text-slate-600">
-              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Asistentes
-                </p>
-                {selectedEvent.attendees.length ? (
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
-                    {selectedEvent.attendees.map((attendee) => (
-                      <li key={attendee}>{attendee}</li>
+            <form className="mt-4 flex flex-col gap-4" onSubmit={handleUpdateEvent}>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Nombre
+                <input
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  type="text"
+                  value={editForm.nombre}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, nombre: event.target.value }))
+                  }
+                />
+              </label>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Tipo de evento
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={editForm.eventType}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        eventType: event.target.value as EventCategory
+                      }))
+                    }
+                  >
+                    {EVENT_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {EVENT_CATEGORY_META[category].label}
+                      </option>
                     ))}
-                  </ul>
-                ) : (
-                  <p className="mt-2 text-sm text-slate-400">
-                    No hay asistentes registrados.
-                  </p>
-                )}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Fecha
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    type="date"
+                    value={editForm.fecha}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, fecha: event.target.value }))
+                    }
+                  />
+                </label>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-600">
-                  {selectedEvent.attendeeCount} asistentes
-                </span>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Hora inicio
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    type="time"
+                    value={editForm.horaInicio}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        horaInicio: event.target.value
+                      }))
+                    }
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Hora fin
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    type="time"
+                    value={editForm.horaFin}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, horaFin: event.target.value }))
+                    }
+                  />
+                </label>
               </div>
-            </div>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Establecimiento
+                <select
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  value={editForm.establecimiento}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      establecimiento: event.target.value
+                    }))
+                  }
+                  disabled={establishments.length === 0}
+                >
+                  <option value="">Selecciona un establecimiento</option>
+                  {establishments.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Asistentes
+                <textarea
+                  className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  value={editForm.attendees}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      attendees: event.target.value
+                    }))
+                  }
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Notas
+                <textarea
+                  className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  value={editForm.notas}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, notas: event.target.value }))
+                  }
+                />
+              </label>
+              {editStatus.error ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+                  {editStatus.error}
+                </p>
+              ) : null}
+              {editStatus.success ? (
+                <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-600">
+                  {editStatus.success}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={closeEventModal}
+                  className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={editStatus.loading}
+                  className="rounded-full border border-indigo-200 bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
+                >
+                  {editStatus.loading ? "Guardando..." : "Guardar cambios"}
+                </button>
+              </div>
+            </form>
           ) : null}
         </div>
       </div>
