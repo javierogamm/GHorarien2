@@ -7,11 +7,32 @@ import { validateUserCredentials } from "../../services/usersService";
 const SESSION_KEY = "calendar_user";
 
 export default function LoginPage() {
+  // Temporal: diagnóstico de variables de entorno en frontend.
+  console.log("ENDPOINT", process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT);
+  console.log("PROJECT", process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
+
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [connectionLog, setConnectionLog] = useState<
+    { id: number; message: string; status: "info" | "success" | "error"; time: string }[]
+  >([]);
+
+  const createLogEntry = (
+    message: string,
+    status: "info" | "success" | "error" = "info"
+  ) => ({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    message,
+    status,
+    time: new Date().toLocaleTimeString("es-CL", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    })
+  });
 
   useEffect(() => {
     const savedUser = window.localStorage.getItem(SESSION_KEY);
@@ -24,17 +45,45 @@ export default function LoginPage() {
     event.preventDefault();
     setError("");
     setLoading(true);
+    setConnectionLog([
+      createLogEntry("Iniciando verificación de credenciales con Appwrite.")
+    ]);
 
     try {
+      setConnectionLog((prev) => [
+        ...prev,
+        createLogEntry("Validando configuración de Appwrite.")
+      ]);
       const userRecord = await validateUserCredentials(username, password);
+      setConnectionLog((prev) => [
+        ...prev,
+        createLogEntry("Respuesta recibida desde Appwrite.", "success")
+      ]);
       if (!userRecord) {
         setError("Credenciales inválidas. Inténtalo de nuevo.");
+        setConnectionLog((prev) => [
+          ...prev,
+          createLogEntry(
+            "Appwrite respondió correctamente, pero no se encontraron credenciales válidas.",
+            "error"
+          )
+        ]);
         return;
       }
       window.localStorage.setItem(SESSION_KEY, userRecord.user);
+      setConnectionLog((prev) => [
+        ...prev,
+        createLogEntry("Sesión iniciada y usuario autenticado.", "success")
+      ]);
       router.push("/calendar");
-    } catch (err) {
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Error inesperado al conectar.";
       setError("No se pudo conectar con Appwrite.");
+      setConnectionLog((prev) => [
+        ...prev,
+        createLogEntry(`Error de conexión: ${message}`, "error")
+      ]);
     } finally {
       setLoading(false);
     }
@@ -101,6 +150,46 @@ export default function LoginPage() {
             {loading ? "Validando..." : "Entrar"}
           </button>
         </form>
+
+        <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+          <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <span>Estado de conexión con Appwrite</span>
+            {loading ? (
+              <span className="rounded-full bg-indigo-100 px-2 py-1 text-[10px] text-indigo-600">
+                En curso
+              </span>
+            ) : null}
+          </div>
+          <div className="max-h-40 space-y-2 overflow-y-auto text-xs text-slate-600">
+            {connectionLog.length ? (
+              connectionLog.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-start gap-2 rounded-xl bg-white px-3 py-2 shadow-sm"
+                >
+                  <span className="min-w-[52px] text-[10px] font-semibold text-slate-400">
+                    {entry.time}
+                  </span>
+                  <span
+                    className={
+                      entry.status === "error"
+                        ? "text-rose-500"
+                        : entry.status === "success"
+                        ? "text-emerald-600"
+                        : "text-slate-600"
+                    }
+                  >
+                    {entry.message}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-[11px] text-slate-400">
+                Sin actividad registrada todavía.
+              </p>
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );
