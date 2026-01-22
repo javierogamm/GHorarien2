@@ -26,6 +26,27 @@ export const fetchEventsForUser = async (
   return response.documents;
 };
 
+export const fetchAllEvents = async (): Promise<CalendarEvent[]> => {
+  ensureAppwriteConfig();
+  const limit = 100;
+  let offset = 0;
+  let allDocuments: CalendarEvent[] = [];
+  let fetched = 0;
+
+  do {
+    const response = await databases.listDocuments<CalendarEvent>(
+      appwriteConfig.databaseId,
+      appwriteConfig.eventsCollectionId,
+      [Query.limit(limit), Query.offset(offset)]
+    );
+    fetched = response.documents.length;
+    allDocuments = allDocuments.concat(response.documents);
+    offset += fetched;
+  } while (fetched === limit);
+
+  return allDocuments;
+};
+
 type CreateEventsInput = {
   nombre: string;
   eventType: EventCategory;

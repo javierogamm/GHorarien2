@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.5
+- Listado completo de la colección `tabla` debajo del calendario con detalle de campos.
+- Carga paginada de todos los registros de eventos desde Appwrite para la tabla completa.
+- Recarga de la tabla completa tras crear eventos para reflejar los nuevos registros.
+
 ## v0.2.4
 - Carga de eventos filtrada por mes/año desde `fecha` usando comparación por año/mes/día.
 - Comparación diaria basada en `Date` para ubicar eventos en la celda correcta del calendario.
