@@ -1,8 +1,7 @@
-import { Query } from "appwrite";
+import { Models, Query } from "appwrite";
 import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClient";
 
-export type UserRecord = {
-  $id: string;
+export type UserRecord = Models.Document & {
   user: string;
   pass: string;
 };

@@ -1,9 +1,8 @@
-import { Query } from "appwrite";
+import { Models, Query } from "appwrite";
 import type { EventCategory } from "../constants/eventCategories";
 import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClient";
 
-export type CalendarEvent = {
-  $id: string;
+export type CalendarEvent = Models.Document & {
   eventType: EventCategory;
   user: string;
   horaInicio: string;
