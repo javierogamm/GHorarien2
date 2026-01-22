@@ -18,6 +18,3 @@
 
 ## v0.1.4
 - Registro detallado en la pantalla de acceso con estados de conexión a Appwrite.
-
-## v0.1.5
-- Registro temporal en consola de endpoint y project ID de Appwrite para diagnóstico.
