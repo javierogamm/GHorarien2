@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.3
+- Agrupación de filas por evento para compactar la representación diaria en el calendario.
+- Tarjetas de evento con nombre y tipo visibles, más conteo de asistentes cuando aplica.
+- Tipado compartido para eventos compactos en la vista calendario.
+
 ## v0.2.2
 - Ajuste del calendario para emparejar eventos por la columna `fecha`, garantizando la coincidencia diaria.
 - Visualización de eventos como franjas compactas dentro de cada día del calendario.

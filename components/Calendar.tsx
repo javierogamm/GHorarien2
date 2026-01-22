@@ -1,6 +1,7 @@
 import { EVENT_CATEGORIES, EVENT_CATEGORY_META } from "../constants/eventCategories";
 import type { CalendarEvent } from "../services/eventsService";
 import { DayCell } from "./DayCell";
+import type { CalendarEventDisplay } from "./calendarTypes";
 
 const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -58,10 +59,48 @@ const getEventDateKey = (event: CalendarEvent) => {
   return value.split("T")[0];
 };
 
-const getEventsForDay = (events: CalendarEvent[], date: Date | null) => {
+const buildEventGroupKey = (event: CalendarEvent) => {
+  const dateKey = getEventDateKey(event);
+  return [
+    dateKey,
+    event.nombre ?? "",
+    event.eventType ?? "",
+    event.horaInicio ?? "",
+    event.horaFin ?? ""
+  ].join("|");
+};
+
+const getEventsForDay = (
+  events: CalendarEvent[],
+  date: Date | null
+): CalendarEventDisplay[] => {
   if (!date) return [];
   const target = getDateKey(date);
-  return events.filter((event) => getEventDateKey(event) === target);
+  const grouped = new Map<string, CalendarEventDisplay>();
+
+  events.forEach((event) => {
+    if (getEventDateKey(event) !== target) return;
+    const groupKey = buildEventGroupKey(event);
+    const existing = grouped.get(groupKey);
+    if (existing) {
+      existing.attendeeCount += 1;
+      if (event.user && !existing.attendees.includes(event.user)) {
+        existing.attendees.push(event.user);
+      }
+      return;
+    }
+
+    grouped.set(groupKey, {
+      ...event,
+      attendeeCount: 1,
+      attendees: event.user ? [event.user] : [],
+      groupKey
+    });
+  });
+
+  return Array.from(grouped.values()).sort((a, b) =>
+    (a.horaInicio ?? "").localeCompare(b.horaInicio ?? "")
+  );
 };
 
 export const Calendar = ({

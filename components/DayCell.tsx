@@ -1,11 +1,11 @@
-import type { CalendarEvent } from "../services/eventsService";
+import type { CalendarEventDisplay } from "./calendarTypes";
 import { EventItem } from "./EventItem";
 
 type DayCellProps = {
   date: Date | null;
   isToday: boolean;
   isSelected: boolean;
-  events: CalendarEvent[];
+  events: CalendarEventDisplay[];
   onSelect: (date: Date) => void;
 };
 
@@ -43,7 +43,7 @@ export const DayCell = ({
       </div>
       <div className="flex flex-1 flex-col gap-2">
         {events.map((event) => (
-          <EventItem key={event.$id} event={event} />
+          <EventItem key={event.groupKey} event={event} />
         ))}
       </div>
     </button>
