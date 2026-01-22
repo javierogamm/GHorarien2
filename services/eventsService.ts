@@ -6,6 +6,7 @@ export type CalendarEvent = Models.Document & {
   eventType: EventCategory;
   user: string;
   nombre?: string;
+  fecha: string;
   horaInicio: string;
   horaFin: string;
   duration: number;
@@ -35,6 +36,7 @@ type CreateEventsInput = {
   nombre: string;
   eventType: EventCategory;
   attendees: string[];
+  fecha: string;
   horaInicio: string;
   horaFin: string;
   duration: number;
@@ -45,6 +47,7 @@ export const createEventsForAttendees = async ({
   nombre,
   eventType,
   attendees,
+  fecha,
   horaInicio,
   horaFin,
   duration,
@@ -60,6 +63,7 @@ export const createEventsForAttendees = async ({
         nombre,
         eventType,
         user: attendee,
+        fecha,
         horaInicio,
         horaFin,
         duration,

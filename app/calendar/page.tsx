@@ -29,6 +29,7 @@ export default function CalendarPage() {
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [eventName, setEventName] = useState("");
@@ -68,6 +69,16 @@ export default function CalendarPage() {
     loadEvents();
   }, [loadEvents]);
 
+  useEffect(() => {
+    if (
+      selectedDate &&
+      (selectedDate.getMonth() !== currentMonth ||
+        selectedDate.getFullYear() !== currentYear)
+    ) {
+      setSelectedDate(null);
+    }
+  }, [currentMonth, currentYear, selectedDate]);
+
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
@@ -91,9 +102,17 @@ export default function CalendarPage() {
     router.push("/login");
   };
 
-  const buildEventDateTime = (time: string) => {
+  const buildEventDateTime = (date: Date, time: string) => {
     const [hour, minute] = time.split(":").map(Number);
-    return new Date(currentYear, currentMonth, 1, hour, minute, 0, 0);
+    return new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      hour,
+      minute,
+      0,
+      0
+    );
   };
 
   const parseAttendees = (value: string) =>
@@ -110,6 +129,15 @@ export default function CalendarPage() {
     event.preventDefault();
     const trimmedName = eventName.trim();
     const attendeeList = parseAttendees(attendees);
+
+    if (!selectedDate) {
+      setFormStatus({
+        loading: false,
+        error: "Selecciona un día del calendario.",
+        success: ""
+      });
+      return;
+    }
 
     if (!trimmedName) {
       setFormStatus({
@@ -132,8 +160,17 @@ export default function CalendarPage() {
     setFormStatus({ loading: true, error: "", success: "" });
     try {
       const meta = EVENT_CATEGORY_META[eventType];
-      const startDate = buildEventDateTime(meta.startTime);
-      const endDate = buildEventDateTime(meta.endTime);
+      const startDate = buildEventDateTime(selectedDate, meta.startTime);
+      const endDate = buildEventDateTime(selectedDate, meta.endTime);
+      const fecha = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        selectedDate.getDate(),
+        0,
+        0,
+        0,
+        0
+      ).toISOString();
       const duration = Math.round(
         (endDate.getTime() - startDate.getTime()) / 60000
       );
@@ -142,6 +179,7 @@ export default function CalendarPage() {
         nombre: trimmedName,
         eventType,
         attendees: attendeeList,
+        fecha,
         horaInicio: startDate.toISOString(),
         horaFin: endDate.toISOString(),
         duration,
@@ -198,6 +236,22 @@ export default function CalendarPage() {
             Crea un evento nuevo y asigna asistentes. Cada asistente generará una
             fila en la tabla.
           </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+            <span className="font-semibold text-slate-700">Fecha seleccionada:</span>
+            {selectedDate ? (
+              <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-600">
+                {selectedDate.toLocaleDateString("es-ES", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric"
+                })}
+              </span>
+            ) : (
+              <span className="text-sm text-slate-400">
+                Selecciona un día en el calendario para asignar la fecha.
+              </span>
+            )}
+          </div>
           <form className="mt-6 flex flex-col gap-4" onSubmit={handleCreateEvent}>
             <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
@@ -267,10 +321,12 @@ export default function CalendarPage() {
             currentMonth={currentMonth}
             currentYear={currentYear}
             events={events}
+            selectedDate={selectedDate}
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}
             onMonthChange={setCurrentMonth}
             onYearChange={setCurrentYear}
+            onDaySelect={setSelectedDate}
           />
         )}
       </div>

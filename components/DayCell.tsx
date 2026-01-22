@@ -4,15 +4,28 @@ import { EventItem } from "./EventItem";
 type DayCellProps = {
   date: Date | null;
   isToday: boolean;
+  isSelected: boolean;
   events: CalendarEvent[];
+  onSelect: (date: Date) => void;
 };
 
-export const DayCell = ({ date, isToday, events }: DayCellProps) => {
+export const DayCell = ({
+  date,
+  isToday,
+  isSelected,
+  events,
+  onSelect
+}: DayCellProps) => {
   return (
-    <div
-      className={`flex min-h-[140px] flex-col gap-2 rounded-2xl border bg-white/70 p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
+    <button
+      type="button"
+      disabled={!date}
+      onClick={() => (date ? onSelect(date) : null)}
+      className={`flex min-h-[140px] flex-col gap-2 rounded-2xl border bg-white/70 p-3 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
         isToday ? "border-indigo-400/70 bg-indigo-50/60" : "border-slate-200/70"
-      } ${!date ? "opacity-40" : ""}`}
+      } ${isSelected ? "ring-2 ring-indigo-400/70" : ""} ${
+        !date ? "cursor-not-allowed opacity-40" : ""
+      }`}
     >
       <div className="flex items-center justify-between">
         <span
@@ -33,6 +46,6 @@ export const DayCell = ({ date, isToday, events }: DayCellProps) => {
           <EventItem key={event.$id} event={event} />
         ))}
       </div>
-    </div>
+    </button>
   );
 };
