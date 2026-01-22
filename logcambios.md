@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.6
+- Normalización del campo `fecha` para ignorar horas al filtrar eventos mensuales y agruparlos en el calendario.
+- Reutilización del listado completo de eventos para pintar todas las fechas en el calendario.
+- Utilidad compartida para parsear fechas en formato ISO o `dd/MM/yyyy`.
+
 ## v0.2.5
 - Listado completo de la colección `tabla` debajo del calendario con detalle de campos.
 - Carga paginada de todos los registros de eventos desde Appwrite para la tabla completa.

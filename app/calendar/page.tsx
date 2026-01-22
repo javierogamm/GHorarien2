@@ -11,9 +11,9 @@ import {
 import {
   type CalendarEvent,
   createEventsForAttendees,
-  fetchAllEvents,
-  fetchEventsForUser
+  fetchAllEvents
 } from "../../services/eventsService";
+import { parseDateWithoutTime } from "../../utils/calendarDates";
 
 const SESSION_KEY = "calendar_user";
 
@@ -33,10 +33,7 @@ export default function CalendarPage() {
   const [username, setUsername] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
   const [allEventsLoading, setAllEventsLoading] = useState(false);
   const [allEventsError, setAllEventsError] = useState("");
@@ -58,26 +55,6 @@ export default function CalendarPage() {
     setUsername(savedUser);
   }, [router]);
 
-  const loadEvents = useCallback(async () => {
-    if (!username) return;
-    setLoading(true);
-    setError("");
-    try {
-      const data = await fetchEventsForUser(username);
-      const filtered = data.filter((eventItem) => {
-        if (!eventItem.fecha) return false;
-        const eventDate = new Date(eventItem.fecha);
-        if (Number.isNaN(eventDate.getTime())) return false;
-        return isSameMonthAndYear(eventDate, currentMonth, currentYear);
-      });
-      setEvents(filtered);
-    } catch (err) {
-      setError("No se pudieron cargar los eventos.");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentMonth, currentYear, username]);
-
   const loadAllEvents = useCallback(async () => {
     setAllEventsLoading(true);
     setAllEventsError("");
@@ -93,10 +70,6 @@ export default function CalendarPage() {
       setAllEventsLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
 
   useEffect(() => {
     if (!username) return;
@@ -240,7 +213,6 @@ export default function CalendarPage() {
         error: "",
         success: "Evento creado correctamente."
       });
-      await loadEvents();
       await loadAllEvents();
     } catch (err) {
       setFormStatus({
@@ -250,6 +222,16 @@ export default function CalendarPage() {
       });
     }
   };
+
+  const calendarEvents = useMemo(
+    () =>
+      allEvents.filter((eventItem) => {
+        const eventDate = parseDateWithoutTime(eventItem.fecha);
+        if (!eventDate) return false;
+        return isSameMonthAndYear(eventDate, currentMonth, currentYear);
+      }),
+    [allEvents, currentMonth, currentYear]
+  );
 
   return (
     <main className="min-h-screen px-6 py-12">
@@ -272,9 +254,9 @@ export default function CalendarPage() {
           </button>
         </div>
 
-        {error ? (
+        {allEventsError ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-            {error}
+            {allEventsError}
           </div>
         ) : null}
 
@@ -360,7 +342,7 @@ export default function CalendarPage() {
           </form>
         </section>
 
-        {loading ? (
+        {allEventsLoading ? (
           <div className="flex items-center justify-center rounded-3xl border border-white/70 bg-white/70 px-6 py-16 text-sm font-semibold text-slate-500 shadow-soft">
             Cargando eventos...
           </div>
@@ -368,7 +350,7 @@ export default function CalendarPage() {
           <Calendar
             currentMonth={currentMonth}
             currentYear={currentYear}
-            events={events}
+            events={calendarEvents}
             selectedDate={selectedDate}
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}

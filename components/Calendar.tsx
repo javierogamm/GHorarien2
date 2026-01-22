@@ -1,5 +1,6 @@
 import { EVENT_CATEGORIES, EVENT_CATEGORY_META } from "../constants/eventCategories";
 import type { CalendarEvent } from "../services/eventsService";
+import { parseDateWithoutTime } from "../utils/calendarDates";
 import { DayCell } from "./DayCell";
 import type { CalendarEventDisplay } from "./calendarTypes";
 
@@ -65,8 +66,8 @@ const isSameDay = (left: Date, right: Date) => {
 };
 
 const buildEventGroupKey = (event: CalendarEvent) => {
-  const eventDate = new Date(event.fecha);
-  const dateKey = Number.isNaN(eventDate.getTime())
+  const eventDate = parseDateWithoutTime(event.fecha);
+  const dateKey = !eventDate
     ? ""
     : `${eventDate.getFullYear()}-${eventDate.getMonth() + 1}-${eventDate.getDate()}`;
   return [
@@ -87,8 +88,8 @@ const getEventsForDay = (
 
   events.forEach((event) => {
     if (!event.fecha) return;
-    const eventDate = new Date(event.fecha);
-    if (Number.isNaN(eventDate.getTime())) return;
+    const eventDate = parseDateWithoutTime(event.fecha);
+    if (!eventDate) return;
     if (!isSameDay(eventDate, date)) return;
     const groupKey = buildEventGroupKey(event);
     const existing = grouped.get(groupKey);
