@@ -5,10 +5,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        "category-1": "#6366F1",
-        "category-2": "#10B981",
-        "category-3": "#F59E0B",
-        "category-4": "#EC4899"
+        "category-1": "#6FBF73",
+        "category-2": "#3F8F4A",
+        "category-3": "#F2A65A",
+        "category-4": "#E46E64"
       },
       boxShadow: {
         soft: "0 15px 35px rgba(15, 23, 42, 0.08)"

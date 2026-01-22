@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.7
+- El formulario de creación de eventos ahora se abre en un modal animado al seleccionar un día del calendario.
+- Visualización de eventos como franjas apiladas de ancho completo con nombre y contador de asistentes.
+- Modal de detalle al pulsar un evento, mostrando el listado de asistentes.
+- Actualización de categorías y colores para Comida, Cena, Taller y Visita cultural.
+
 ## v0.2.6
 - Normalización del campo `fecha` para ignorar horas al filtrar eventos mensuales y agruparlos en el calendario.
 - Reutilización del listado completo de eventos para pintar todas las fechas en el calendario.

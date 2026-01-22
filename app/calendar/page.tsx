@@ -14,6 +14,7 @@ import {
   fetchAllEvents
 } from "../../services/eventsService";
 import { parseDateWithoutTime } from "../../utils/calendarDates";
+import type { CalendarEventDisplay } from "../../components/calendarTypes";
 
 const SESSION_KEY = "calendar_user";
 
@@ -40,6 +41,10 @@ export default function CalendarPage() {
   const [eventName, setEventName] = useState("");
   const [eventType, setEventType] = useState<EventCategory>(EVENT_CATEGORIES[0]);
   const [attendees, setAttendees] = useState("");
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEventDisplay | null>(
+    null
+  );
   const [formStatus, setFormStatus] = useState({
     loading: false,
     error: "",
@@ -223,6 +228,25 @@ export default function CalendarPage() {
     }
   };
 
+  const handleDaySelect = (date: Date) => {
+    setSelectedDate(date);
+    setFormStatus({ loading: false, error: "", success: "" });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEventSelect = (event: CalendarEventDisplay) => {
+    setSelectedEvent(event);
+  };
+
+  const closeCreateModal = () => {
+    setIsCreateModalOpen(false);
+    setFormStatus({ loading: false, error: "", success: "" });
+  };
+
+  const closeEventModal = () => {
+    setSelectedEvent(null);
+  };
+
   const calendarEvents = useMemo(
     () =>
       allEvents.filter((eventItem) => {
@@ -260,88 +284,6 @@ export default function CalendarPage() {
           </div>
         ) : null}
 
-        <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
-          <h3 className="text-lg font-semibold text-slate-900">Crear evento</h3>
-          <p className="mt-1 text-sm text-slate-500">
-            Crea un evento nuevo y asigna asistentes. Cada asistente generará una
-            fila en la tabla.
-          </p>
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-            <span className="font-semibold text-slate-700">Fecha seleccionada:</span>
-            {selectedDate ? (
-              <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-600">
-                {selectedDate.toLocaleDateString("es-ES", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric"
-                })}
-              </span>
-            ) : (
-              <span className="text-sm text-slate-400">
-                Selecciona un día en el calendario para asignar la fecha.
-              </span>
-            )}
-          </div>
-          <form className="mt-6 flex flex-col gap-4" onSubmit={handleCreateEvent}>
-            <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Nombre del evento
-                <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  type="text"
-                  value={eventName}
-                  onChange={(event) => setEventName(event.target.value)}
-                  placeholder="Ej: Taller de creatividad"
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Tipo de evento
-                <select
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  value={eventType}
-                  onChange={(event) =>
-                    setEventType(event.target.value as EventCategory)
-                  }
-                >
-                  {EVENT_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {EVENT_CATEGORY_META[category].label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Asistentes (separados por coma o salto de línea)
-              <textarea
-                className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                value={attendees}
-                onChange={(event) => setAttendees(event.target.value)}
-                placeholder="ej: ana, carlos, maria"
-              />
-            </label>
-            {formStatus.error ? (
-              <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
-                {formStatus.error}
-              </p>
-            ) : null}
-            {formStatus.success ? (
-              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-600">
-                {formStatus.success}
-              </p>
-            ) : null}
-            <div>
-              <button
-                type="submit"
-                disabled={formStatus.loading}
-                className="rounded-full border border-indigo-200 bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
-              >
-                {formStatus.loading ? "Creando..." : "Crear evento"}
-              </button>
-            </div>
-          </form>
-        </section>
-
         {allEventsLoading ? (
           <div className="flex items-center justify-center rounded-3xl border border-white/70 bg-white/70 px-6 py-16 text-sm font-semibold text-slate-500 shadow-soft">
             Cargando eventos...
@@ -356,7 +298,8 @@ export default function CalendarPage() {
             onNextMonth={handleNextMonth}
             onMonthChange={setCurrentMonth}
             onYearChange={setCurrentYear}
-            onDaySelect={setSelectedDate}
+            onDaySelect={handleDaySelect}
+            onEventSelect={handleEventSelect}
           />
         )}
 
@@ -445,6 +388,177 @@ export default function CalendarPage() {
             </div>
           )}
         </section>
+      </div>
+
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-10 backdrop-blur-sm transition ${
+          isCreateModalOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={closeCreateModal}
+      >
+        <div
+          className={`w-full max-w-2xl rounded-3xl border border-white/70 bg-white/90 p-6 shadow-soft transition ${
+            isCreateModalOpen ? "translate-y-0 scale-100" : "translate-y-4 scale-95"
+          }`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Crear evento</h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Completa los datos del evento y añade asistentes.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeCreateModal}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+            >
+              Cerrar
+            </button>
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-slate-600">
+            <span className="font-semibold text-slate-700">Fecha:</span>
+            {selectedDate ? (
+              <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-600">
+                {selectedDate.toLocaleDateString("es-ES", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric"
+                })}
+              </span>
+            ) : (
+              <span className="text-sm text-slate-400">
+                Selecciona un día en el calendario.
+              </span>
+            )}
+          </div>
+          <form className="mt-6 flex flex-col gap-4" onSubmit={handleCreateEvent}>
+            <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Nombre
+                <input
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  type="text"
+                  value={eventName}
+                  onChange={(event) => setEventName(event.target.value)}
+                  placeholder="Ej: Taller de creatividad"
+                />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Tipo de evento
+                <select
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  value={eventType}
+                  onChange={(event) =>
+                    setEventType(event.target.value as EventCategory)
+                  }
+                >
+                  {EVENT_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {EVENT_CATEGORY_META[category].label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Asistentes
+              <textarea
+                className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                value={attendees}
+                onChange={(event) => setAttendees(event.target.value)}
+                placeholder="ej: ana, carlos, maria"
+              />
+            </label>
+            {formStatus.error ? (
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+                {formStatus.error}
+              </p>
+            ) : null}
+            {formStatus.success ? (
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-600">
+                {formStatus.success}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={formStatus.loading}
+                className="rounded-full border border-indigo-200 bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
+              >
+                {formStatus.loading ? "Creando..." : "Crear evento"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-10 backdrop-blur-sm transition ${
+          selectedEvent ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={closeEventModal}
+      >
+        <div
+          className={`w-full max-w-lg rounded-3xl border border-white/70 bg-white/90 p-6 shadow-soft transition ${
+            selectedEvent ? "translate-y-0 scale-100" : "translate-y-4 scale-95"
+          }`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                {selectedEvent?.nombre || "Detalle del evento"}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                {selectedEvent
+                  ? EVENT_CATEGORY_META[selectedEvent.eventType]?.label ??
+                    selectedEvent.eventType
+                  : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeEventModal}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+            >
+              Cerrar
+            </button>
+          </div>
+          {selectedEvent ? (
+            <div className="mt-4 space-y-4 text-sm text-slate-600">
+              <div className="rounded-2xl border border-slate-200 bg-white/70 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Asistentes
+                </p>
+                {selectedEvent.attendees.length ? (
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
+                    {selectedEvent.attendees.map((attendee) => (
+                      <li key={attendee}>{attendee}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-400">
+                    No hay asistentes registrados.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-full bg-slate-100 px-2 py-1 font-semibold text-slate-600">
+                  {selectedEvent.attendeeCount} asistentes
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </div>
     </main>
   );

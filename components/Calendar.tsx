@@ -31,6 +31,7 @@ type CalendarProps = {
   onMonthChange: (month: number) => void;
   onYearChange: (year: number) => void;
   onDaySelect: (date: Date) => void;
+  onEventSelect: (event: CalendarEventDisplay) => void;
 };
 
 const buildCalendarDays = (year: number, month: number) => {
@@ -123,7 +124,8 @@ export const Calendar = ({
   onNextMonth,
   onMonthChange,
   onYearChange,
-  onDaySelect
+  onDaySelect,
+  onEventSelect
 }: CalendarProps) => {
   const days = buildCalendarDays(currentYear, currentMonth);
   const today = new Date();
@@ -238,6 +240,7 @@ export const Calendar = ({
                   isSelected={Boolean(isSelected)}
                   events={getEventsForDay(events, date)}
                   onSelect={onDaySelect}
+                  onEventSelect={onEventSelect}
                 />
               );
             })}

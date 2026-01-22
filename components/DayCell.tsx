@@ -7,6 +7,7 @@ type DayCellProps = {
   isSelected: boolean;
   events: CalendarEventDisplay[];
   onSelect: (date: Date) => void;
+  onEventSelect: (event: CalendarEventDisplay) => void;
 };
 
 export const DayCell = ({
@@ -14,17 +15,26 @@ export const DayCell = ({
   isToday,
   isSelected,
   events,
-  onSelect
+  onSelect,
+  onEventSelect
 }: DayCellProps) => {
   return (
-    <button
-      type="button"
-      disabled={!date}
+    <div
+      role={date ? "button" : undefined}
+      tabIndex={date ? 0 : -1}
+      aria-disabled={!date}
       onClick={() => (date ? onSelect(date) : null)}
+      onKeyDown={(event) => {
+        if (!date) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect(date);
+        }
+      }}
       className={`flex min-h-[140px] flex-col gap-2 rounded-2xl border bg-white/70 p-3 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
         isToday ? "border-indigo-400/70 bg-indigo-50/60" : "border-slate-200/70"
       } ${isSelected ? "ring-2 ring-indigo-400/70" : ""} ${
-        !date ? "cursor-not-allowed opacity-40" : ""
+        !date ? "cursor-not-allowed opacity-40" : "cursor-pointer"
       }`}
     >
       <div className="flex items-center justify-between">
@@ -43,9 +53,9 @@ export const DayCell = ({
       </div>
       <div className="flex flex-1 flex-col gap-2">
         {events.map((event) => (
-          <EventItem key={event.groupKey} event={event} />
+          <EventItem key={event.groupKey} event={event} onSelect={onEventSelect} />
         ))}
       </div>
-    </button>
+    </div>
   );
 };
