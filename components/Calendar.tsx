@@ -48,7 +48,9 @@ const buildCalendarDays = (year: number, month: number) => {
 const getEventsForDay = (events: CalendarEvent[], date: Date | null) => {
   if (!date) return [];
   const target = date.toISOString().split("T")[0];
-  return events.filter((event) => event.horaInicio.startsWith(target));
+  return events.filter((event) =>
+    (event.fecha ?? event.horaInicio).startsWith(target)
+  );
 };
 
 export const Calendar = ({

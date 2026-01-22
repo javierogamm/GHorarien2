@@ -23,8 +23,8 @@ export const fetchEventsForUserAndRange = async (
     appwriteConfig.eventsCollectionId,
     [
       Query.equal("user", username),
-      Query.greaterThanEqual("horaInicio", startISO),
-      Query.lessThanEqual("horaInicio", endISO)
+      Query.greaterThanEqual("fecha", startISO),
+      Query.lessThanEqual("fecha", endISO)
     ]
   );
 
