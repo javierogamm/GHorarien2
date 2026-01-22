@@ -3,11 +3,13 @@ import { Client, Databases } from "appwrite";
 const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
 const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
 
-if (!endpoint || !projectId) {
-  throw new Error("Faltan variables de entorno de Appwrite.");
+const client = new Client();
+if (endpoint) {
+  client.setEndpoint(endpoint);
 }
-
-const client = new Client().setEndpoint(endpoint).setProject(projectId);
+if (projectId) {
+  client.setProject(projectId);
+}
 
 export const databases = new Databases(client);
 

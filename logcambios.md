@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.10
+- Ajuste del cliente Appwrite para evitar errores de despliegue al cargar sin variables de entorno.
+- Indicador visual por color en la columna de tipo de evento dentro de la tabla.
+
 ## v0.2.9
 - Selección de hora de inicio y fin en creación/edición, guardando la hora en `fecha`, `horaInicio` y `horaFin`.
 - Edición completa de eventos desde el modal, con actualización de asistentes y valores asociados.

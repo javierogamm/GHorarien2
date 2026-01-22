@@ -663,8 +663,16 @@ export default function CalendarPage() {
                           {event.nombre || "Sin nombre"}
                         </td>
                         <td className="px-4 py-3">
-                          {EVENT_CATEGORY_META[event.eventType]?.label ??
-                            event.eventType}
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${
+                                EVENT_CATEGORY_META[event.eventType]?.dotClass ??
+                                "bg-slate-300"
+                              }`}
+                            />
+                            {EVENT_CATEGORY_META[event.eventType]?.label ??
+                              event.eventType}
+                          </span>
                         </td>
                         <td className="px-4 py-3">{event.user}</td>
                         <td className="px-4 py-3">
