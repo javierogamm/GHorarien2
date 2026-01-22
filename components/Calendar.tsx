@@ -47,12 +47,21 @@ const buildCalendarDays = (year: number, month: number) => {
   });
 };
 
+const getDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+    date.getDate()
+  ).padStart(2, "0")}`;
+
+const getEventDateKey = (event: CalendarEvent) => {
+  const value = event.fecha ?? event.horaInicio;
+  if (!value) return "";
+  return value.split("T")[0];
+};
+
 const getEventsForDay = (events: CalendarEvent[], date: Date | null) => {
   if (!date) return [];
-  const target = date.toISOString().split("T")[0];
-  return events.filter((event) =>
-    (event.fecha ?? event.horaInicio).startsWith(target)
-  );
+  const target = getDateKey(date);
+  return events.filter((event) => getEventDateKey(event) === target);
 };
 
 export const Calendar = ({

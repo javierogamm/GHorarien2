@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.2
+- Ajuste del calendario para emparejar eventos por la columna `fecha`, garantizando la coincidencia diaria.
+- Visualización de eventos como franjas compactas dentro de cada día del calendario.
+- Documentación ampliada para exigir el campo `fecha` en la colección `tabla`.
+
 ## v0.2.1
 - Creación de eventos desde un día concreto del calendario con fecha asignada a la columna `fecha`.
 - Resaltado del día seleccionado y validación para exigir la selección de fecha antes de crear eventos.

@@ -24,6 +24,7 @@ NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID=
    - `eventType` (string)
    - `nombre` (string)
    - `user` (string)
+   - `fecha` (datetime, ISO)
    - `horaInicio` (datetime, ISO)
    - `horaFin` (datetime, ISO)
    - `duration` (number)
@@ -82,6 +83,12 @@ appwrite databases createStringAttribute \
   --collectionId "<EVENTS_COLLECTION_ID>" \
   --key "user" \
   --size 255 \
+  --required true
+
+appwrite databases createDatetimeAttribute \
+  --databaseId "<DATABASE_ID>" \
+  --collectionId "<EVENTS_COLLECTION_ID>" \
+  --key "fecha" \
   --required true
 
 appwrite databases createDatetimeAttribute \
