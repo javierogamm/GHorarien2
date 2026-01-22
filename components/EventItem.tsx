@@ -7,10 +7,6 @@ type EventItemProps = {
 
 export const EventItem = ({ event }: EventItemProps) => {
   const meta = EVENT_CATEGORY_META[event.eventType];
-  const timeRange =
-    event.horaInicio && event.horaFin
-      ? `${event.horaInicio.slice(11, 16)}-${event.horaFin.slice(11, 16)}`
-      : "";
 
   return (
     <div
@@ -25,9 +21,6 @@ export const EventItem = ({ event }: EventItemProps) => {
           {meta.label}
         </span>
       </div>
-      {timeRange ? (
-        <span className="text-[10px] font-medium text-slate-600">{timeRange}</span>
-      ) : null}
       {event.attendeeCount > 1 ? (
         <span className="rounded-full bg-white/70 px-2 py-0.5 text-[9px] font-semibold text-slate-500">
           {event.attendeeCount} asistentes

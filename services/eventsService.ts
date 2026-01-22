@@ -13,20 +13,14 @@ export type CalendarEvent = Models.Document & {
   notas?: string;
 };
 
-export const fetchEventsForUserAndRange = async (
-  username: string,
-  startISO: string,
-  endISO: string
+export const fetchEventsForUser = async (
+  username: string
 ): Promise<CalendarEvent[]> => {
   ensureAppwriteConfig();
   const response = await databases.listDocuments<CalendarEvent>(
     appwriteConfig.databaseId,
     appwriteConfig.eventsCollectionId,
-    [
-      Query.equal("user", username),
-      Query.greaterThanEqual("fecha", startISO),
-      Query.lessThanEqual("fecha", endISO)
-    ]
+    [Query.equal("user", username)]
   );
 
   return response.documents;

@@ -48,19 +48,27 @@ const buildCalendarDays = (year: number, month: number) => {
   });
 };
 
-const getDateKey = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-    date.getDate()
-  ).padStart(2, "0")}`;
+const getDateParts = (date: Date) => ({
+  year: date.getFullYear(),
+  month: date.getMonth(),
+  day: date.getDate()
+});
 
-const getEventDateKey = (event: CalendarEvent) => {
-  const value = event.fecha ?? event.horaInicio;
-  if (!value) return "";
-  return value.split("T")[0];
+const isSameDay = (left: Date, right: Date) => {
+  const leftParts = getDateParts(left);
+  const rightParts = getDateParts(right);
+  return (
+    leftParts.year === rightParts.year &&
+    leftParts.month === rightParts.month &&
+    leftParts.day === rightParts.day
+  );
 };
 
 const buildEventGroupKey = (event: CalendarEvent) => {
-  const dateKey = getEventDateKey(event);
+  const eventDate = new Date(event.fecha);
+  const dateKey = Number.isNaN(eventDate.getTime())
+    ? ""
+    : `${eventDate.getFullYear()}-${eventDate.getMonth() + 1}-${eventDate.getDate()}`;
   return [
     dateKey,
     event.nombre ?? "",
@@ -75,11 +83,13 @@ const getEventsForDay = (
   date: Date | null
 ): CalendarEventDisplay[] => {
   if (!date) return [];
-  const target = getDateKey(date);
   const grouped = new Map<string, CalendarEventDisplay>();
 
   events.forEach((event) => {
-    if (getEventDateKey(event) !== target) return;
+    if (!event.fecha) return;
+    const eventDate = new Date(event.fecha);
+    if (Number.isNaN(eventDate.getTime())) return;
+    if (!isSameDay(eventDate, date)) return;
     const groupKey = buildEventGroupKey(event);
     const existing = grouped.get(groupKey);
     if (existing) {
@@ -99,7 +109,7 @@ const getEventsForDay = (
   });
 
   return Array.from(grouped.values()).sort((a, b) =>
-    (a.horaInicio ?? "").localeCompare(b.horaInicio ?? "")
+    (a.nombre ?? "").localeCompare(b.nombre ?? "")
   );
 };
 

@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.4
+- Carga de eventos filtrada por mes/año desde `fecha` usando comparación por año/mes/día.
+- Comparación diaria basada en `Date` para ubicar eventos en la celda correcta del calendario.
+- Eliminación de la visualización de horarios en las tarjetas del calendario.
+- Formateo local de fechas para persistencia sin depender de `toISOString()`.
+
 ## v0.2.3
 - Agrupación de filas por evento para compactar la representación diaria en el calendario.
 - Tarjetas de evento con nombre y tipo visibles, más conteo de asistentes cuando aplica.

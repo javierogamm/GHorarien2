@@ -11,16 +11,20 @@ import {
 import {
   type CalendarEvent,
   createEventsForAttendees,
-  fetchEventsForUserAndRange
+  fetchEventsForUser
 } from "../../services/eventsService";
 
 const SESSION_KEY = "calendar_user";
 
-const getMonthRangeISO = (year: number, month: number) => {
-  const start = new Date(year, month, 1, 0, 0, 0, 0);
-  const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
-  return { startISO: start.toISOString(), endISO: end.toISOString() };
+const formatDateTime = (date: Date) => {
+  const pad = (value: number, length = 2) => String(value).padStart(length, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 };
+
+const isSameMonthAndYear = (date: Date, month: number, year: number) =>
+  date.getFullYear() === year && date.getMonth() === month;
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -55,9 +59,14 @@ export default function CalendarPage() {
     setLoading(true);
     setError("");
     try {
-      const { startISO, endISO } = getMonthRangeISO(currentYear, currentMonth);
-      const data = await fetchEventsForUserAndRange(username, startISO, endISO);
-      setEvents(data);
+      const data = await fetchEventsForUser(username);
+      const filtered = data.filter((eventItem) => {
+        if (!eventItem.fecha) return false;
+        const eventDate = new Date(eventItem.fecha);
+        if (Number.isNaN(eventDate.getTime())) return false;
+        return isSameMonthAndYear(eventDate, currentMonth, currentYear);
+      });
+      setEvents(filtered);
     } catch (err) {
       setError("No se pudieron cargar los eventos.");
     } finally {
@@ -170,7 +179,7 @@ export default function CalendarPage() {
         0,
         0,
         0
-      ).toISOString();
+      );
       const duration = Math.round(
         (endDate.getTime() - startDate.getTime()) / 60000
       );
@@ -179,9 +188,9 @@ export default function CalendarPage() {
         nombre: trimmedName,
         eventType,
         attendees: attendeeList,
-        fecha,
-        horaInicio: startDate.toISOString(),
-        horaFin: endDate.toISOString(),
+        fecha: formatDateTime(fecha),
+        horaInicio: formatDateTime(startDate),
+        horaFin: formatDateTime(endDate),
         duration,
         notas: ""
       });
