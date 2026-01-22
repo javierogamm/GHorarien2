@@ -1,9 +1,5 @@
 # Log de cambios
 
-## v0.2.1
-- Añadido el campo `fecha` para crear eventos y renderizar el calendario por fecha.
-- Actualización de documentación y versión de la app.
-
 ## v0.2.0
 - Renombradas las categorías del calendario a "Talleres de tarde", "Comida", "Cena" y "Visita turística".
 - Selector de mes en el calendario mensual.

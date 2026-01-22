@@ -23,7 +23,6 @@ NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID=
 3. Crea la colección `tabla` con los campos EXACTOS:
    - `eventType` (string)
    - `nombre` (string)
-   - `fecha` (datetime, ISO)
    - `user` (string)
    - `horaInicio` (datetime, ISO)
    - `horaFin` (datetime, ISO)
@@ -76,12 +75,6 @@ appwrite databases createStringAttribute \
   --collectionId "<EVENTS_COLLECTION_ID>" \
   --key "nombre" \
   --size 255 \
-  --required true
-
-appwrite databases createDatetimeAttribute \
-  --databaseId "<DATABASE_ID>" \
-  --collectionId "<EVENTS_COLLECTION_ID>" \
-  --key "fecha" \
   --required true
 
 appwrite databases createStringAttribute \

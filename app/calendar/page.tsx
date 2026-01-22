@@ -34,12 +34,6 @@ export default function CalendarPage() {
   const [eventName, setEventName] = useState("");
   const [eventType, setEventType] = useState<EventCategory>(EVENT_CATEGORIES[0]);
   const [attendees, setAttendees] = useState("");
-  const [eventDate, setEventDate] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      .toISOString()
-      .split("T")[0];
-  });
   const [formStatus, setFormStatus] = useState({
     loading: false,
     error: "",
@@ -97,10 +91,9 @@ export default function CalendarPage() {
     router.push("/login");
   };
 
-  const buildEventDateTime = (time: string, baseDate: string) => {
+  const buildEventDateTime = (time: string) => {
     const [hour, minute] = time.split(":").map(Number);
-    const [year, month, day] = baseDate.split("-").map(Number);
-    return new Date(year, month - 1, day, hour, minute, 0, 0);
+    return new Date(currentYear, currentMonth, 1, hour, minute, 0, 0);
   };
 
   const parseAttendees = (value: string) =>
@@ -116,22 +109,12 @@ export default function CalendarPage() {
   const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = eventName.trim();
-    const trimmedDate = eventDate.trim();
     const attendeeList = parseAttendees(attendees);
 
     if (!trimmedName) {
       setFormStatus({
         loading: false,
         error: "Indica el nombre del evento.",
-        success: ""
-      });
-      return;
-    }
-
-    if (!trimmedDate) {
-      setFormStatus({
-        loading: false,
-        error: "Indica la fecha del evento.",
         success: ""
       });
       return;
@@ -149,9 +132,8 @@ export default function CalendarPage() {
     setFormStatus({ loading: true, error: "", success: "" });
     try {
       const meta = EVENT_CATEGORY_META[eventType];
-      const startDate = buildEventDateTime(meta.startTime, trimmedDate);
-      const endDate = buildEventDateTime(meta.endTime, trimmedDate);
-      const fechaISO = new Date(`${trimmedDate}T00:00:00`).toISOString();
+      const startDate = buildEventDateTime(meta.startTime);
+      const endDate = buildEventDateTime(meta.endTime);
       const duration = Math.round(
         (endDate.getTime() - startDate.getTime()) / 60000
       );
@@ -160,7 +142,6 @@ export default function CalendarPage() {
         nombre: trimmedName,
         eventType,
         attendees: attendeeList,
-        fecha: fechaISO,
         horaInicio: startDate.toISOString(),
         horaFin: endDate.toISOString(),
         duration,
@@ -218,7 +199,7 @@ export default function CalendarPage() {
             fila en la tabla.
           </p>
           <form className="mt-6 flex flex-col gap-4" onSubmit={handleCreateEvent}>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                 Nombre del evento
                 <input
@@ -227,15 +208,6 @@ export default function CalendarPage() {
                   value={eventName}
                   onChange={(event) => setEventName(event.target.value)}
                   placeholder="Ej: Taller de creatividad"
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Fecha
-                <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  type="date"
-                  value={eventDate}
-                  onChange={(event) => setEventDate(event.target.value)}
                 />
               </label>
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
