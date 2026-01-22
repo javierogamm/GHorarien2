@@ -7,6 +7,10 @@ import { validateUserCredentials } from "../../services/usersService";
 const SESSION_KEY = "calendar_user";
 
 export default function LoginPage() {
+  // Temporal: diagnóstico de variables de entorno en frontend.
+  console.log("ENDPOINT", process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT);
+  console.log("PROJECT", process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
+
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
