@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.16
+- Adaptación al nuevo campo `role` en la colección `users`, con persistencia del rol en sesión.
+- Selector visual de asistentes basado en la tabla de usuarios, usando botones + por usuario y chips de selección.
+- Colores por usuario para hacer más visuales los asistentes y el listado de la tabla principal.
+- Validaciones para evitar asistentes fuera de la colección `users`.
+
 ## v0.2.15
 - Botón + en cada día para abrir el modal de creación, manteniendo el clic del día para ver detalles.
 - Nuevo modal animado con el detalle diario de eventos en formato franjas (nombre, tipo, ubicación) y datos de asistentes/horas.

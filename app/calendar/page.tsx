@@ -17,10 +17,12 @@ import {
   fetchEstablishments,
   updateEvent
 } from "../../services/eventsService";
+import { fetchUsers, type UserRecord } from "../../services/usersService";
 import { parseDateWithoutTime } from "../../utils/calendarDates";
 import type { CalendarEventDisplay } from "../../components/calendarTypes";
 
 const SESSION_KEY = "calendar_user";
+const ROLE_SESSION_KEY = "calendar_role";
 
 const formatDateTime = (date: Date) => {
   const pad = (value: number, length = 2) => String(value).padStart(length, "0");
@@ -31,6 +33,38 @@ const formatDateTime = (date: Date) => {
 
 const isSameMonthAndYear = (date: Date, month: number, year: number) =>
   date.getFullYear() === year && date.getMonth() === month;
+
+const USER_COLOR_PALETTE = [
+  {
+    badgeClass: "bg-rose-100 text-rose-700 ring-rose-200",
+    dotClass: "bg-rose-400"
+  },
+  {
+    badgeClass: "bg-amber-100 text-amber-700 ring-amber-200",
+    dotClass: "bg-amber-400"
+  },
+  {
+    badgeClass: "bg-emerald-100 text-emerald-700 ring-emerald-200",
+    dotClass: "bg-emerald-400"
+  },
+  {
+    badgeClass: "bg-sky-100 text-sky-700 ring-sky-200",
+    dotClass: "bg-sky-400"
+  },
+  {
+    badgeClass: "bg-indigo-100 text-indigo-700 ring-indigo-200",
+    dotClass: "bg-indigo-400"
+  },
+  {
+    badgeClass: "bg-fuchsia-100 text-fuchsia-700 ring-fuchsia-200",
+    dotClass: "bg-fuchsia-400"
+  }
+];
+
+const DEFAULT_USER_COLOR = {
+  badgeClass: "bg-slate-100 text-slate-600 ring-slate-200",
+  dotClass: "bg-slate-300"
+};
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -52,7 +86,7 @@ export default function CalendarPage() {
   );
   const [eventNotes, setEventNotes] = useState("");
   const [eventEstablishment, setEventEstablishment] = useState("");
-  const [attendees, setAttendees] = useState("");
+  const [attendees, setAttendees] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState(false);
   const [dayDetailEvents, setDayDetailEvents] = useState<CalendarEventDisplay[]>(
@@ -63,6 +97,10 @@ export default function CalendarPage() {
   );
   const [establishments, setEstablishments] = useState<string[]>([]);
   const [establishmentsError, setEstablishmentsError] = useState("");
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<EventCategory | null>(null);
   const [establishmentSearch, setEstablishmentSearch] = useState("");
   const [newEstablishmentName, setNewEstablishmentName] = useState("");
@@ -81,7 +119,7 @@ export default function CalendarPage() {
     fecha: string;
     horaInicio: string;
     horaFin: string;
-    attendees: string;
+    attendees: string[];
     notas: string;
     establecimiento: string;
   };
@@ -92,7 +130,7 @@ export default function CalendarPage() {
     fecha: "",
     horaInicio: "",
     horaFin: "",
-    attendees: "",
+    attendees: [],
     notas: "",
     establecimiento: ""
   });
@@ -114,6 +152,8 @@ export default function CalendarPage() {
       return;
     }
     setUsername(savedUser);
+    const savedRole = window.localStorage.getItem(ROLE_SESSION_KEY);
+    setUserRole(savedRole);
   }, [router]);
 
   const loadAllEvents = useCallback(async () => {
@@ -159,6 +199,31 @@ export default function CalendarPage() {
   }, [username]);
 
   useEffect(() => {
+    if (!username) return;
+    const loadUsers = async () => {
+      setUsersLoading(true);
+      setUsersError("");
+      try {
+        const data = await fetchUsers();
+        const sorted = [...data].sort((a, b) => a.user.localeCompare(b.user));
+        setUsers(sorted);
+        if (!userRole) {
+          const matchedRole = sorted.find((entry) => entry.user === username)?.role;
+          if (matchedRole) {
+            setUserRole(matchedRole);
+            window.localStorage.setItem(ROLE_SESSION_KEY, matchedRole);
+          }
+        }
+      } catch (err) {
+        setUsersError("No se pudo cargar la lista de usuarios.");
+      } finally {
+        setUsersLoading(false);
+      }
+    };
+    loadUsers();
+  }, [username, userRole]);
+
+  useEffect(() => {
     const meta = EVENT_CATEGORY_META[eventType];
     setEventStartTime(meta.startTime);
     setEventEndTime(meta.endTime);
@@ -172,7 +237,7 @@ export default function CalendarPage() {
         fecha: "",
         horaInicio: "",
         horaFin: "",
-        attendees: "",
+        attendees: [],
         notas: "",
         establecimiento: ""
       });
@@ -186,7 +251,7 @@ export default function CalendarPage() {
       fecha: formatDateInput(selectedEvent.fecha),
       horaInicio: formatTimeInput(selectedEvent.horaInicio),
       horaFin: formatTimeInput(selectedEvent.horaFin),
-      attendees: selectedEvent.attendees.join("\n"),
+      attendees: selectedEvent.attendees,
       notas: selectedEvent.notas ?? "",
       establecimiento: selectedEvent.establecimiento ?? ""
     });
@@ -286,15 +351,47 @@ export default function CalendarPage() {
     );
   };
 
-  const parseAttendees = (value: string) =>
-    Array.from(
-      new Set(
-        value
-          .split(/[\n,]+/)
-          .map((entry) => entry.trim())
-          .filter(Boolean)
-      )
-    );
+  const sortedUsers = useMemo(
+    () => [...users].sort((a, b) => a.user.localeCompare(b.user)),
+    [users]
+  );
+  const validUsernames = useMemo(
+    () => new Set(sortedUsers.map((user) => user.user)),
+    [sortedUsers]
+  );
+  const userColorMap = useMemo(() => {
+    const map = new Map<string, (typeof USER_COLOR_PALETTE)[number]>();
+    sortedUsers.forEach((user, index) => {
+      map.set(user.user, USER_COLOR_PALETTE[index % USER_COLOR_PALETTE.length]);
+    });
+    return map;
+  }, [sortedUsers]);
+  const getUserColor = (value: string) => userColorMap.get(value) ?? DEFAULT_USER_COLOR;
+
+  const handleAddAttendee = (value: string, target: "create" | "edit") => {
+    if (!validUsernames.has(value)) return;
+    if (target === "create") {
+      setAttendees((prev) => (prev.includes(value) ? prev : [...prev, value]));
+      return;
+    }
+    setEditForm((prev) => ({
+      ...prev,
+      attendees: prev.attendees.includes(value)
+        ? prev.attendees
+        : [...prev.attendees, value]
+    }));
+  };
+
+  const handleRemoveAttendee = (value: string, target: "create" | "edit") => {
+    if (target === "create") {
+      setAttendees((prev) => prev.filter((item) => item !== value));
+      return;
+    }
+    setEditForm((prev) => ({
+      ...prev,
+      attendees: prev.attendees.filter((item) => item !== value)
+    }));
+  };
 
   const filteredEstablishments = useMemo(() => {
     const term = establishmentSearch.trim().toLowerCase();
@@ -303,6 +400,15 @@ export default function CalendarPage() {
       name.toLowerCase().includes(term)
     );
   }, [establishmentSearch, establishments]);
+
+  const invalidCreateAttendees = useMemo(
+    () => attendees.filter((attendee) => !validUsernames.has(attendee)),
+    [attendees, validUsernames]
+  );
+  const invalidEditAttendees = useMemo(
+    () => editForm.attendees.filter((attendee) => !validUsernames.has(attendee)),
+    [editForm.attendees, validUsernames]
+  );
 
   const openEstablishmentModal = (target: "create" | "edit") => {
     setEstablishmentTarget(target);
@@ -366,7 +472,7 @@ export default function CalendarPage() {
   const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedName = eventName.trim();
-    const attendeeList = parseAttendees(attendees);
+    const attendeeList = attendees;
 
     if (!selectedDate) {
       setFormStatus({
@@ -386,10 +492,37 @@ export default function CalendarPage() {
       return;
     }
 
+    if (usersLoading) {
+      setFormStatus({
+        loading: false,
+        error: "Estamos cargando los usuarios disponibles.",
+        success: ""
+      });
+      return;
+    }
+
+    if (usersError || validUsernames.size === 0) {
+      setFormStatus({
+        loading: false,
+        error: "No hay usuarios disponibles para asignar asistentes.",
+        success: ""
+      });
+      return;
+    }
+
     if (attendeeList.length === 0) {
       setFormStatus({
         loading: false,
         error: "Agrega al menos un asistente.",
+        success: ""
+      });
+      return;
+    }
+
+    if (invalidCreateAttendees.length > 0) {
+      setFormStatus({
+        loading: false,
+        error: "Hay asistentes que no existen en la tabla de usuarios.",
         success: ""
       });
       return;
@@ -463,7 +596,7 @@ export default function CalendarPage() {
       });
 
       setEventName("");
-      setAttendees("");
+      setAttendees([]);
       setEventNotes("");
       setFormStatus({
         loading: false,
@@ -493,6 +626,7 @@ export default function CalendarPage() {
     const meta = EVENT_CATEGORY_META[eventType];
     setEventStartTime(meta.startTime);
     setEventEndTime(meta.endTime);
+    setAttendees([]);
     setIsCreateModalOpen(true);
     setIsDayDetailModalOpen(false);
   };
@@ -524,7 +658,7 @@ export default function CalendarPage() {
     if (!selectedEvent) return;
 
     const trimmedName = editForm.nombre.trim();
-    const attendeeList = parseAttendees(editForm.attendees);
+    const attendeeList = editForm.attendees;
     const selectedDateValue = parseDateInput(editForm.fecha);
 
     if (!trimmedName) {
@@ -572,10 +706,37 @@ export default function CalendarPage() {
       return;
     }
 
+    if (usersLoading) {
+      setEditStatus({
+        loading: false,
+        error: "Estamos cargando los usuarios disponibles.",
+        success: ""
+      });
+      return;
+    }
+
+    if (usersError || validUsernames.size === 0) {
+      setEditStatus({
+        loading: false,
+        error: "No hay usuarios disponibles para asignar asistentes.",
+        success: ""
+      });
+      return;
+    }
+
     if (attendeeList.length === 0) {
       setEditStatus({
         loading: false,
         error: "Agrega al menos un asistente.",
+        success: ""
+      });
+      return;
+    }
+
+    if (invalidEditAttendees.length > 0) {
+      setEditStatus({
+        loading: false,
+        error: "Hay asistentes que no existen en la tabla de usuarios.",
         success: ""
       });
       return;
@@ -691,9 +852,16 @@ export default function CalendarPage() {
             <p className="text-sm font-semibold text-slate-500">
               Sesión activa
             </p>
-            <h2 className="text-2xl font-semibold text-slate-900">
-              {username ? `Hola, ${username}` : "Cargando..."}
-            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-2xl font-semibold text-slate-900">
+                {username ? `Hola, ${username}` : "Cargando..."}
+              </h2>
+              {userRole ? (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  {userRole}
+                </span>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
@@ -802,7 +970,19 @@ export default function CalendarPage() {
                               event.eventType}
                           </span>
                         </td>
-                        <td className="px-4 py-3">{event.user}</td>
+                        <td className="px-4 py-3">
+                          <span className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${getUserColor(event.user).dotClass}`}
+                              aria-hidden="true"
+                            />
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${getUserColor(event.user).badgeClass}`}
+                            >
+                              {event.user}
+                            </span>
+                          </span>
+                        </td>
                         <td className="px-4 py-3">
                           {formatDisplayDate(event.fecha)}
                         </td>
@@ -916,12 +1096,24 @@ export default function CalendarPage() {
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-4 pl-2 text-xs font-medium text-slate-600">
-                      <span>
-                        Asistentes ({event.attendeeCount}):{" "}
-                        {event.attendees.length > 0
-                          ? event.attendees.join(", ")
-                          : "Sin asistentes"}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>Asistentes ({event.attendeeCount}):</span>
+                        {event.attendees.length > 0 ? (
+                          event.attendees.map((attendee) => {
+                            const color = getUserColor(attendee);
+                            return (
+                              <span
+                                key={attendee}
+                                className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                              >
+                                {attendee}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <span className="text-slate-400">Sin asistentes</span>
+                        )}
+                      </div>
                       <span>Inicio: {formatDisplayTime(event.horaInicio)}</span>
                       <span>Fin: {formatDisplayTime(event.horaFin)}</span>
                     </div>
@@ -1055,14 +1247,113 @@ export default function CalendarPage() {
                 <span className="text-xs text-rose-500">{establishmentsError}</span>
               ) : null}
             </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Asistentes
-              <textarea
-                className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                value={attendees}
-                onChange={(event) => setAttendees(event.target.value)}
-              />
-            </label>
+            <div className="flex flex-col gap-3 text-sm font-medium text-slate-600">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>Asistentes</span>
+                <span className="text-xs font-semibold text-slate-400">
+                  {attendees.length} seleccionados
+                </span>
+              </div>
+              {usersError ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                  {usersError}
+                </p>
+              ) : null}
+              <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Usuarios disponibles
+                  </span>
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                    {usersLoading ? (
+                      <p className="text-xs text-slate-400">Cargando usuarios...</p>
+                    ) : sortedUsers.length === 0 ? (
+                      <p className="text-xs text-slate-400">
+                        No hay usuarios registrados.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {sortedUsers.map((user) => {
+                          const color = getUserColor(user.user);
+                          const isSelected = attendees.includes(user.user);
+                          return (
+                            <div
+                              key={user.$id}
+                              className="flex items-center justify-between gap-3"
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                  aria-hidden="true"
+                                />
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                >
+                                  {user.user}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                  {user.role}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleAddAttendee(user.user, "create")}
+                                disabled={isSelected}
+                                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-indigo-300 hover:text-indigo-500 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
+                                aria-label={`Añadir ${user.user}`}
+                              >
+                                +
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Seleccionados
+                  </span>
+                  <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                    {attendees.length === 0 ? (
+                      <p className="text-xs text-slate-400">
+                        Añade asistentes con el botón +.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {attendees.map((attendee) => {
+                          const color = getUserColor(attendee);
+                          return (
+                            <span
+                              key={attendee}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                            >
+                              {attendee}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveAttendee(attendee, "create")
+                                }
+                                className="rounded-full px-1 text-xs font-bold text-slate-500 transition hover:text-slate-700"
+                                aria-label={`Quitar ${attendee}`}
+                              >
+                                ×
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {invalidCreateAttendees.length > 0 ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                  Hay asistentes que no existen en la tabla de usuarios.
+                </p>
+              ) : null}
+            </div>
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
               Notas
               <textarea
@@ -1233,19 +1524,113 @@ export default function CalendarPage() {
                   </span>
                 </button>
               </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Asistentes
-                <textarea
-                  className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  value={editForm.attendees}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      attendees: event.target.value
-                    }))
-                  }
-                />
-              </label>
+              <div className="flex flex-col gap-3 text-sm font-medium text-slate-600">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>Asistentes</span>
+                  <span className="text-xs font-semibold text-slate-400">
+                    {editForm.attendees.length} seleccionados
+                  </span>
+                </div>
+                {usersError ? (
+                  <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                    {usersError}
+                  </p>
+                ) : null}
+                <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Usuarios disponibles
+                    </span>
+                    <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                      {usersLoading ? (
+                        <p className="text-xs text-slate-400">Cargando usuarios...</p>
+                      ) : sortedUsers.length === 0 ? (
+                        <p className="text-xs text-slate-400">
+                          No hay usuarios registrados.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {sortedUsers.map((user) => {
+                            const color = getUserColor(user.user);
+                            const isSelected = editForm.attendees.includes(user.user);
+                            return (
+                              <div
+                                key={user.$id}
+                                className="flex items-center justify-between gap-3"
+                              >
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span
+                                    className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                    aria-hidden="true"
+                                  />
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                  >
+                                    {user.user}
+                                  </span>
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                    {user.role}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddAttendee(user.user, "edit")}
+                                  disabled={isSelected}
+                                  className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-indigo-300 hover:text-indigo-500 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
+                                  aria-label={`Añadir ${user.user}`}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Seleccionados
+                    </span>
+                    <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                      {editForm.attendees.length === 0 ? (
+                        <p className="text-xs text-slate-400">
+                          Añade asistentes con el botón +.
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {editForm.attendees.map((attendee) => {
+                            const color = getUserColor(attendee);
+                            return (
+                              <span
+                                key={attendee}
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                              >
+                                {attendee}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleRemoveAttendee(attendee, "edit")
+                                  }
+                                  className="rounded-full px-1 text-xs font-bold text-slate-500 transition hover:text-slate-700"
+                                  aria-label={`Quitar ${attendee}`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {invalidEditAttendees.length > 0 ? (
+                  <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                    Hay asistentes que no existen en la tabla de usuarios.
+                  </p>
+                ) : null}
+              </div>
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                 Notas
                 <textarea
