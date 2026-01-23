@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.19
+- Vista laboral activada por defecto con semana laboral en una sola línea en la vista semanal.
+- Nueva vista "Mis eventos" en formato acordeón por año/mes con detalles desplegables.
+- Selector de asistentes actualizado para mover usuarios con clic directo en la lista.
+
 ## v0.2.18
 - Nueva vista semanal centrada en la semana actual, con tarjetas más grandes y eventos detallados.
 - Toggle Natural/Laboral para ocultar sábados y domingos en vistas mensual y semanal.

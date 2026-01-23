@@ -23,6 +23,20 @@ import type { CalendarEventDisplay } from "../../components/calendarTypes";
 
 const SESSION_KEY = "calendar_user";
 const ROLE_SESSION_KEY = "calendar_role";
+const MONTH_NAMES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre"
+];
 
 const formatDateTime = (date: Date) => {
   const pad = (value: number, length = 2) => String(value).padStart(length, "0");
@@ -99,9 +113,9 @@ export default function CalendarPage() {
   const [usersError, setUsersError] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
   const [calendarView, setCalendarView] = useState<"monthly" | "weekly">(
-    "monthly"
+    "weekly"
   );
-  const [workweekOnly, setWorkweekOnly] = useState(false);
+  const [workweekOnly, setWorkweekOnly] = useState(true);
   const [myEventsOnly, setMyEventsOnly] = useState(false);
   const [controlTableEnabled, setControlTableEnabled] = useState(false);
   const [activeCategory, setActiveCategory] = useState<EventCategory | null>(null);
@@ -124,6 +138,10 @@ export default function CalendarPage() {
     attendees: string[];
     notas: string;
     establecimiento: string;
+  };
+  type MyEventGroup = {
+    event: CalendarEvent;
+    attendees: string[];
   };
 
   const [editForm, setEditForm] = useState<EditFormState>({
@@ -328,6 +346,16 @@ export default function CalendarPage() {
     if (Number.isNaN(parsed.getTime())) return "";
     const pad = (item: number) => String(item).padStart(2, "0");
     return `${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
+  };
+
+  const formatShortDate = (value?: string) => {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "—";
+    return parsed.toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "2-digit"
+    });
   };
 
   const parseDateInput = (value: string) => {
@@ -831,6 +859,80 @@ export default function CalendarPage() {
     [allEvents, currentMonth, currentYear]
   );
 
+  const myEvents = useMemo(() => {
+    const grouped = new Map<string, MyEventGroup>();
+
+    allEvents.forEach((eventItem) => {
+      if (!eventItem.fecha) return;
+      const eventDate = parseDateWithoutTime(eventItem.fecha);
+      if (!eventDate) return;
+      const key = [
+        `${eventDate.getFullYear()}-${eventDate.getMonth()}-${eventDate.getDate()}`,
+        eventItem.nombre ?? "",
+        eventItem.eventType ?? "",
+        eventItem.horaInicio ?? ""
+      ].join("|");
+      const existing = grouped.get(key);
+      if (existing) {
+        if (eventItem.user && !existing.attendees.includes(eventItem.user)) {
+          existing.attendees.push(eventItem.user);
+        }
+        return;
+      }
+      grouped.set(key, {
+        event: eventItem,
+        attendees: eventItem.user ? [eventItem.user] : []
+      });
+    });
+
+    return Array.from(grouped.values())
+      .filter((group) =>
+        Boolean(username) && group.attendees.includes(username ?? "")
+      )
+      .sort((a, b) => {
+        const leftDate = new Date(
+          a.event.horaInicio ?? a.event.fecha ?? ""
+        ).getTime();
+        const rightDate = new Date(
+          b.event.horaInicio ?? b.event.fecha ?? ""
+        ).getTime();
+        if (leftDate !== rightDate) return leftDate - rightDate;
+        return (a.event.nombre ?? "").localeCompare(b.event.nombre ?? "");
+      });
+  }, [allEvents, username]);
+
+  const myEventsByYear = useMemo(() => {
+    const yearMap = new Map<number, Map<number, MyEventGroup[]>>();
+
+    myEvents.forEach((group) => {
+      const eventDate = parseDateWithoutTime(group.event.fecha);
+      if (!eventDate) return;
+      const year = eventDate.getFullYear();
+      const month = eventDate.getMonth();
+      if (!yearMap.has(year)) {
+        yearMap.set(year, new Map());
+      }
+      const monthMap = yearMap.get(year);
+      if (!monthMap) return;
+      if (!monthMap.has(month)) {
+        monthMap.set(month, []);
+      }
+      monthMap.get(month)?.push(group);
+    });
+
+    return Array.from(yearMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, monthsMap]) => ({
+        year,
+        months: Array.from(monthsMap.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([month, events]) => ({
+            month,
+            events
+          }))
+      }));
+  }, [myEvents]);
+
   return (
     <main className="min-h-screen px-6 py-12">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
@@ -869,6 +971,164 @@ export default function CalendarPage() {
           <div className="flex items-center justify-center rounded-3xl border border-white/70 bg-white/70 px-6 py-16 text-sm font-semibold text-slate-500 shadow-soft">
             Cargando eventos...
           </div>
+        ) : myEventsOnly ? (
+          <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  Mis eventos
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Resumen organizado por año y mes de los eventos en los que
+                  estás inscrito.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMyEventsOnly(false)}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+              >
+                Volver al calendario
+              </button>
+            </div>
+
+            {myEvents.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
+                No tienes eventos asignados.
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-4">
+                {myEventsByYear.map((yearGroup) => (
+                  <details
+                    key={yearGroup.year}
+                    className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm"
+                    defaultOpen={yearGroup.year === currentYear}
+                  >
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                      <span className="flex items-center justify-between">
+                        <span>{yearGroup.year}</span>
+                        <span className="text-xs text-slate-400">
+                          {yearGroup.months.reduce(
+                            (total, monthGroup) =>
+                              total + monthGroup.events.length,
+                            0
+                          )}{" "}
+                          eventos
+                        </span>
+                      </span>
+                    </summary>
+                    <div className="mt-4 flex flex-col gap-3">
+                      {yearGroup.months.map((monthGroup) => (
+                        <details
+                          key={`${yearGroup.year}-${monthGroup.month}`}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                          defaultOpen={
+                            yearGroup.year === currentYear &&
+                            monthGroup.month === currentMonth
+                          }
+                        >
+                          <summary className="cursor-pointer list-none text-sm font-semibold text-slate-600">
+                            <span className="flex items-center justify-between">
+                              <span>{MONTH_NAMES[monthGroup.month]}</span>
+                              <span className="text-xs text-slate-400">
+                                {monthGroup.events.length} eventos
+                              </span>
+                            </span>
+                          </summary>
+                          <div className="mt-3 flex flex-col gap-3">
+                            {monthGroup.events.map((group) => {
+                              const meta = EVENT_CATEGORY_META[
+                                group.event.eventType
+                              ] ?? {
+                                label: "Evento",
+                                dotClass: "bg-slate-300",
+                                cardClass: "bg-slate-100 text-slate-600 border-slate-200"
+                              };
+                              return (
+                                <details
+                                  key={group.event.$id}
+                                  className={`rounded-2xl border px-4 py-3 ${meta.cardClass}`}
+                                >
+                                  <summary className="cursor-pointer list-none text-sm font-semibold">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span
+                                        className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`}
+                                        aria-hidden="true"
+                                      />
+                                      <span className="text-slate-900">
+                                        {group.event.nombre || "Evento"}
+                                      </span>
+                                      <span className="text-slate-500">·</span>
+                                      <span className="text-slate-600">
+                                        {meta.label}
+                                      </span>
+                                      <span className="text-slate-500">·</span>
+                                      <span className="text-slate-600">
+                                        {formatShortDate(group.event.fecha)}
+                                      </span>
+                                      <span className="text-slate-500">·</span>
+                                      <span className="text-slate-600">
+                                        {formatDisplayTime(group.event.horaInicio)}
+                                      </span>
+                                    </div>
+                                  </summary>
+                                  <div className="mt-3 grid gap-2 text-xs text-slate-600">
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className="font-semibold text-slate-500">
+                                        Fecha:
+                                      </span>
+                                      <span>
+                                        {formatDisplayDate(group.event.fecha)}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className="font-semibold text-slate-500">
+                                        Inicio:
+                                      </span>
+                                      <span>
+                                        {formatDisplayTime(group.event.horaInicio)}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className="font-semibold text-slate-500">
+                                        Establecimiento:
+                                      </span>
+                                      <span>
+                                        {group.event.establecimiento?.trim() ||
+                                          "Sin ubicación"}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className="font-semibold text-slate-500">
+                                        Notas:
+                                      </span>
+                                      <span>
+                                        {group.event.notas?.trim() || "Sin notas"}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      <span className="font-semibold text-slate-500">
+                                        Asistentes:
+                                      </span>
+                                      <span>
+                                        {group.attendees.length > 0
+                                          ? group.attendees.join(", ")
+                                          : "Sin asistentes"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </details>
+                              );
+                            })}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            )}
+          </section>
         ) : (
           <Calendar
             currentMonth={currentMonth}
@@ -899,7 +1159,7 @@ export default function CalendarPage() {
           />
         )}
 
-        {showControlTable ? (
+        {showControlTable && !myEventsOnly ? (
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
@@ -1265,9 +1525,12 @@ export default function CalendarPage() {
                         {availableCreateUsers.map((user) => {
                           const color = getUserColor(user.user);
                           return (
-                            <div
+                            <button
                               key={user.$id}
+                              type="button"
+                              onClick={() => handleAddAttendee(user.user, "create")}
                               className="flex items-center justify-between gap-3"
+                              aria-label={`Añadir ${user.user}`}
                             >
                               <div className="flex flex-wrap items-center gap-2">
                                 <span
@@ -1283,15 +1546,10 @@ export default function CalendarPage() {
                                   {user.role}
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleAddAttendee(user.user, "create")}
-                                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-indigo-300 hover:text-indigo-500 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
-                                aria-label={`Añadir ${user.user}`}
-                              >
-                                +
-                              </button>
-                            </div>
+                              <span className="text-xs text-slate-400">
+                                Clic para añadir
+                              </span>
+                            </button>
                           );
                         })}
                       </div>
@@ -1305,7 +1563,7 @@ export default function CalendarPage() {
                   <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
                     {attendees.length === 0 ? (
                       <p className="text-xs text-slate-400">
-                        Añade asistentes con el botón +.
+                        Haz clic en un usuario para añadirlo.
                       </p>
                     ) : (
                       <div className="flex flex-col gap-2">
@@ -1313,9 +1571,14 @@ export default function CalendarPage() {
                           const color = getUserColor(attendee);
                           const role = userLookup.get(attendee)?.role;
                           return (
-                            <div
+                            <button
                               key={attendee}
+                              type="button"
+                              onClick={() =>
+                                handleRemoveAttendee(attendee, "create")
+                              }
                               className="flex items-center justify-between gap-3"
+                              aria-label={`Quitar ${attendee}`}
                             >
                               <div className="flex flex-wrap items-center gap-2">
                                 <span
@@ -1333,17 +1596,10 @@ export default function CalendarPage() {
                                   </span>
                                 ) : null}
                               </div>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleRemoveAttendee(attendee, "create")
-                                }
-                                className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-rose-200 hover:text-rose-500"
-                                aria-label={`Quitar ${attendee}`}
-                              >
-                                -
-                              </button>
-                            </div>
+                              <span className="text-xs text-rose-500">
+                                Clic para quitar
+                              </span>
+                            </button>
                           );
                         })}
                       </div>
@@ -1552,9 +1808,12 @@ export default function CalendarPage() {
                           {availableEditUsers.map((user) => {
                             const color = getUserColor(user.user);
                             return (
-                              <div
+                              <button
                                 key={user.$id}
+                                type="button"
+                                onClick={() => handleAddAttendee(user.user, "edit")}
                                 className="flex items-center justify-between gap-3"
+                                aria-label={`Añadir ${user.user}`}
                               >
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span
@@ -1570,15 +1829,10 @@ export default function CalendarPage() {
                                     {user.role}
                                   </span>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddAttendee(user.user, "edit")}
-                                  className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-indigo-300 hover:text-indigo-500 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
-                                  aria-label={`Añadir ${user.user}`}
-                                >
-                                  +
-                                </button>
-                              </div>
+                                <span className="text-xs text-slate-400">
+                                  Clic para añadir
+                                </span>
+                              </button>
                             );
                           })}
                         </div>
@@ -1592,7 +1846,7 @@ export default function CalendarPage() {
                     <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
                       {editForm.attendees.length === 0 ? (
                         <p className="text-xs text-slate-400">
-                          Añade asistentes con el botón +.
+                          Haz clic en un usuario para añadirlo.
                         </p>
                       ) : (
                         <div className="flex flex-col gap-2">
@@ -1600,9 +1854,14 @@ export default function CalendarPage() {
                             const color = getUserColor(attendee);
                             const role = userLookup.get(attendee)?.role;
                             return (
-                              <div
+                              <button
                                 key={attendee}
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveAttendee(attendee, "edit")
+                                }
                                 className="flex items-center justify-between gap-3"
+                                aria-label={`Quitar ${attendee}`}
                               >
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span
@@ -1620,17 +1879,10 @@ export default function CalendarPage() {
                                     </span>
                                   ) : null}
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveAttendee(attendee, "edit")
-                                  }
-                                  className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-500 transition hover:border-rose-200 hover:text-rose-500"
-                                  aria-label={`Quitar ${attendee}`}
-                                >
-                                  -
-                                </button>
-                              </div>
+                                <span className="text-xs text-rose-500">
+                                  Clic para quitar
+                                </span>
+                              </button>
                             );
                           })}
                         </div>

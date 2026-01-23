@@ -233,6 +233,8 @@ export const Calendar = ({
   const yearLabel = viewMode === "weekly" ? today.getFullYear() : currentYear;
   const gridColumnsClass = includeWeekends ? "grid-cols-7" : "grid-cols-5";
   const minWidthClass = includeWeekends ? "min-w-[900px]" : "min-w-[720px]";
+  const weeklyColumnsClass = includeWeekends ? "grid-cols-7" : "grid-cols-5";
+  const weeklyMinWidthClass = includeWeekends ? "min-w-[1150px]" : "min-w-[900px]";
 
   return (
     <section className="flex flex-col gap-6">
@@ -396,138 +398,140 @@ export const Calendar = ({
       </header>
 
       {viewMode === "weekly" ? (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {weekDates.map((date) => {
-            const isToday =
-              date.getDate() === today.getDate() &&
-              date.getMonth() === today.getMonth() &&
-              date.getFullYear() === today.getFullYear();
-            const isSelected =
-              selectedDate &&
-              date.getDate() === selectedDate.getDate() &&
-              date.getMonth() === selectedDate.getMonth() &&
-              date.getFullYear() === selectedDate.getFullYear();
-            const dayEvents = getEventsForDay(events, date);
+        <div className="overflow-x-auto pb-2">
+          <div className={`${weeklyMinWidthClass} grid ${weeklyColumnsClass} gap-5`}>
+            {weekDates.map((date) => {
+              const isToday =
+                date.getDate() === today.getDate() &&
+                date.getMonth() === today.getMonth() &&
+                date.getFullYear() === today.getFullYear();
+              const isSelected =
+                selectedDate &&
+                date.getDate() === selectedDate.getDate() &&
+                date.getMonth() === selectedDate.getMonth() &&
+                date.getFullYear() === selectedDate.getFullYear();
+              const dayEvents = getEventsForDay(events, date);
 
-            return (
-              <div
-                key={date.toISOString()}
-                role="button"
-                tabIndex={0}
-                onClick={() => onDaySelect(date, dayEvents)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onDaySelect(date, dayEvents);
-                  }
-                }}
-                className={`flex min-h-[260px] flex-col gap-4 rounded-3xl border bg-white/70 p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
-                  isToday
-                    ? "border-indigo-400/70 bg-indigo-50/60"
-                    : "border-slate-200/70"
-                } ${isSelected ? "ring-2 ring-indigo-400/70" : ""}`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-                      {weekDaysFull[(date.getDay() + 6) % 7]}
-                    </p>
-                    <p className="text-2xl font-semibold text-slate-900">
-                      {date.getDate()} {monthNames[date.getMonth()]}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {isToday ? (
-                      <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                        Hoy
-                      </span>
-                    ) : null}
-                    {allowAddEvent ? (
-                      <button
-                        type="button"
-                        aria-label="Crear evento"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onAddEvent(date);
-                        }}
-                        className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-600 shadow-sm transition hover:border-indigo-200 hover:text-indigo-600"
-                      >
-                        +
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex flex-1 flex-col gap-3">
-                  {dayEvents.length === 0 ? (
-                    <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-6 text-center text-sm text-slate-500">
-                      No hay eventos para este día.
+              return (
+                <div
+                  key={date.toISOString()}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onDaySelect(date, dayEvents)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onDaySelect(date, dayEvents);
+                    }
+                  }}
+                  className={`flex min-h-[260px] flex-col gap-4 rounded-3xl border bg-white/70 p-5 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
+                    isToday
+                      ? "border-indigo-400/70 bg-indigo-50/60"
+                      : "border-slate-200/70"
+                  } ${isSelected ? "ring-2 ring-indigo-400/70" : ""}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                        {weekDaysFull[(date.getDay() + 6) % 7]}
+                      </p>
+                      <p className="text-2xl font-semibold text-slate-900">
+                        {date.getDate()} {monthNames[date.getMonth()]}
+                      </p>
                     </div>
-                  ) : (
-                    dayEvents.map((event) => {
-                      const meta = EVENT_CATEGORY_META[event.eventType] ?? {
-                        label: "Evento",
-                        dotClass: "bg-slate-300",
-                        cardClass: "bg-slate-100 text-slate-600 border-slate-200"
-                      };
-                      const isFiltered = Boolean(activeCategory);
-                      const isHighlighted =
-                        isFiltered && event.eventType === activeCategory;
-
-                      return (
+                    <div className="flex items-center gap-2">
+                      {isToday ? (
+                        <span className="rounded-full bg-indigo-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                          Hoy
+                        </span>
+                      ) : null}
+                      {allowAddEvent ? (
                         <button
-                          key={event.groupKey}
                           type="button"
-                          onClick={(eventClick) => {
-                            eventClick.stopPropagation();
-                            onEventSelect(event);
+                          aria-label="Crear evento"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onAddEvent(date);
                           }}
-                          className={`relative flex w-full flex-col gap-2 rounded-2xl border px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
-                            isFiltered && !isHighlighted ? "opacity-40" : ""
-                          } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
+                          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-600 shadow-sm transition hover:border-indigo-200 hover:text-indigo-600"
                         >
-                          <span
-                            className={`absolute inset-y-0 left-0 w-1.5 rounded-l-2xl ${meta.dotClass}`}
-                            aria-hidden="true"
-                          />
-                          <div className="flex flex-wrap items-center gap-2 pl-2 text-sm font-semibold text-slate-800">
-                            <span className="truncate">
-                              {event.nombre || "Evento"}
-                            </span>
-                            <span className="text-slate-500">-</span>
-                            <span className="text-slate-600">{meta.label}</span>
-                            <span className="text-slate-500">-</span>
-                            <span className="text-slate-600">
-                              {event.establecimiento?.trim() || "Sin ubicación"}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-3 pl-2 text-xs font-medium text-slate-600">
-                            <span>Inicio: {formatEventTime(event.horaInicio)}</span>
-                            <span>Asistentes: {event.attendeeCount}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 pl-2 text-[11px] font-semibold text-slate-600">
-                            {event.attendees.length > 0 ? (
-                              event.attendees.map((attendee) => (
-                                <span
-                                  key={attendee}
-                                  className="rounded-full bg-slate-100 px-2 py-0.5"
-                                >
-                                  {attendee}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-slate-400">
-                                Sin asistentes
-                              </span>
-                            )}
-                          </div>
+                          +
                         </button>
-                      );
-                    })
-                  )}
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="flex flex-1 flex-col gap-3">
+                    {dayEvents.length === 0 ? (
+                      <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-6 text-center text-sm text-slate-500">
+                        No hay eventos para este día.
+                      </div>
+                    ) : (
+                      dayEvents.map((event) => {
+                        const meta = EVENT_CATEGORY_META[event.eventType] ?? {
+                          label: "Evento",
+                          dotClass: "bg-slate-300",
+                          cardClass: "bg-slate-100 text-slate-600 border-slate-200"
+                        };
+                        const isFiltered = Boolean(activeCategory);
+                        const isHighlighted =
+                          isFiltered && event.eventType === activeCategory;
+
+                        return (
+                          <button
+                            key={event.groupKey}
+                            type="button"
+                            onClick={(eventClick) => {
+                              eventClick.stopPropagation();
+                              onEventSelect(event);
+                            }}
+                            className={`relative flex w-full flex-col gap-2 rounded-2xl border px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
+                              isFiltered && !isHighlighted ? "opacity-40" : ""
+                            } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
+                          >
+                            <span
+                              className={`absolute inset-y-0 left-0 w-1.5 rounded-l-2xl ${meta.dotClass}`}
+                              aria-hidden="true"
+                            />
+                            <div className="flex flex-wrap items-center gap-2 pl-2 text-sm font-semibold text-slate-800">
+                              <span className="truncate">
+                                {event.nombre || "Evento"}
+                              </span>
+                              <span className="text-slate-500">-</span>
+                              <span className="text-slate-600">{meta.label}</span>
+                              <span className="text-slate-500">-</span>
+                              <span className="text-slate-600">
+                                {event.establecimiento?.trim() || "Sin ubicación"}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 pl-2 text-xs font-medium text-slate-600">
+                              <span>Inicio: {formatEventTime(event.horaInicio)}</span>
+                              <span>Asistentes: {event.attendeeCount}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 pl-2 text-[11px] font-semibold text-slate-600">
+                              {event.attendees.length > 0 ? (
+                                event.attendees.map((attendee) => (
+                                  <span
+                                    key={attendee}
+                                    className="rounded-full bg-slate-100 px-2 py-0.5"
+                                  >
+                                    {attendee}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-slate-400">
+                                  Sin asistentes
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : (
         <div className="overflow-x-auto pb-2">
