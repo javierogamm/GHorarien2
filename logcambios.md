@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.13
+- Modales de creación/edición con scroll interno para evitar desplazar la app al usar la rueda.
+- Selector de establecimiento convertido en buscador con modal, lupa de acceso y alta rápida con botón +.
+- Banda completa del evento coloreada por tipo y filtros superiores con colores que resaltan eventos del calendario.
+
 ## v0.2.12
 - Colores fijos por `eventType` aplicados a la banda visible de cada evento en el calendario mensual.
 

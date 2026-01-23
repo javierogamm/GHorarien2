@@ -129,3 +129,17 @@ export const fetchEstablishments = async (): Promise<EstablishmentRecord[]> => {
 
   return response.documents;
 };
+
+export const createEstablishment = async (
+  nombre: string
+): Promise<EstablishmentRecord> => {
+  ensureAppwriteConfig();
+  return databases.createDocument<EstablishmentRecord>(
+    appwriteConfig.databaseId,
+    appwriteConfig.establishmentCollectionId,
+    ID.unique(),
+    {
+      nombre
+    }
+  );
+};

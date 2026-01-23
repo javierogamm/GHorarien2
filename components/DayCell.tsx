@@ -6,6 +6,7 @@ type DayCellProps = {
   isToday: boolean;
   isSelected: boolean;
   events: CalendarEventDisplay[];
+  highlightCategory?: CalendarEventDisplay["eventType"] | null;
   onSelect: (date: Date) => void;
   onEventSelect: (event: CalendarEventDisplay) => void;
 };
@@ -15,6 +16,7 @@ export const DayCell = ({
   isToday,
   isSelected,
   events,
+  highlightCategory = null,
   onSelect,
   onEventSelect
 }: DayCellProps) => {
@@ -52,9 +54,21 @@ export const DayCell = ({
         ) : null}
       </div>
       <div className="flex flex-1 flex-col gap-2">
-        {events.map((event) => (
-          <EventItem key={event.groupKey} event={event} onSelect={onEventSelect} />
-        ))}
+        {events.map((event) => {
+          const isFiltered = Boolean(highlightCategory);
+          const isHighlighted =
+            isFiltered && event.eventType === highlightCategory;
+
+          return (
+            <EventItem
+              key={event.groupKey}
+              event={event}
+              onSelect={onEventSelect}
+              isDimmed={isFiltered && !isHighlighted}
+              isHighlighted={isHighlighted}
+            />
+          );
+        })}
       </div>
     </div>
   );

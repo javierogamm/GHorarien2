@@ -4,6 +4,8 @@ import type { CalendarEventDisplay } from "./calendarTypes";
 type EventItemProps = {
   event: CalendarEventDisplay;
   onSelect: (event: CalendarEventDisplay) => void;
+  isDimmed?: boolean;
+  isHighlighted?: boolean;
 };
 
 const fallbackMeta = {
@@ -20,12 +22,18 @@ const fallbackMeta = {
  * - "Comida"
  */
 const EVENT_TYPE_BAND_CLASS: Record<string, string> = {
-  Taller: "bg-sky-400",
-  Cena: "bg-purple-400",
-  Comida: "bg-emerald-400"
+  Taller: "bg-category-3",
+  Cena: "bg-category-2",
+  Comida: "bg-category-1",
+  "Visita cultural": "bg-category-4"
 };
 
-export const EventItem = ({ event, onSelect }: EventItemProps) => {
+export const EventItem = ({
+  event,
+  onSelect,
+  isDimmed = false,
+  isHighlighted = false
+}: EventItemProps) => {
   const meta = EVENT_CATEGORY_META[event.eventType] ?? fallbackMeta;
 
   // eventType VIENE COMO STRING desde Appwrite
@@ -39,11 +47,13 @@ export const EventItem = ({ event, onSelect }: EventItemProps) => {
         eventClick.stopPropagation();
         onSelect(event);
       }}
-      className={`relative flex w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-[11px] font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass}`}
+      className={`relative flex w-full items-center gap-2 rounded-xl border px-3 py-1.5 pl-5 text-[11px] font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
+        isDimmed ? "opacity-35" : ""
+      } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
     >
       {/* Banda de color según eventType */}
       <span
-        className={`absolute left-2 top-1/2 h-3 w-1 -translate-y-1/2 rounded-full ${bandClass}`}
+        className={`absolute inset-y-0 left-0 w-1.5 rounded-l-xl ${bandClass}`}
         aria-hidden="true"
       />
 

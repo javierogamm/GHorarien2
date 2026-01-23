@@ -26,12 +26,14 @@ type CalendarProps = {
   currentYear: number;
   events: CalendarEvent[];
   selectedDate: Date | null;
+  activeCategory: CalendarEventDisplay["eventType"] | null;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onMonthChange: (month: number) => void;
   onYearChange: (year: number) => void;
   onDaySelect: (date: Date) => void;
   onEventSelect: (event: CalendarEventDisplay) => void;
+  onCategoryToggle: (category: CalendarEventDisplay["eventType"]) => void;
 };
 
 const buildCalendarDays = (year: number, month: number) => {
@@ -120,12 +122,14 @@ export const Calendar = ({
   currentYear,
   events,
   selectedDate,
+  activeCategory,
   onPrevMonth,
   onNextMonth,
   onMonthChange,
   onYearChange,
   onDaySelect,
-  onEventSelect
+  onEventSelect,
+  onCategoryToggle
 }: CalendarProps) => {
   const days = buildCalendarDays(currentYear, currentMonth);
   const today = new Date();
@@ -194,15 +198,24 @@ export const Calendar = ({
           </select>
           <div className="flex flex-wrap items-center gap-3">
             {EVENT_CATEGORIES.map((category) => (
-              <span
+              <button
+                type="button"
                 key={category}
-                className="flex items-center gap-2 text-xs text-slate-500"
+                onClick={() => onCategoryToggle(category)}
+                aria-pressed={activeCategory === category}
+                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  EVENT_CATEGORY_META[category].cardClass
+                } ${
+                  activeCategory === category
+                    ? "ring-2 ring-slate-200"
+                    : "opacity-70 hover:opacity-100"
+                }`}
               >
                 <span
                   className={`h-2 w-2 rounded-full ${EVENT_CATEGORY_META[category].dotClass}`}
                 />
                 {EVENT_CATEGORY_META[category].label}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -239,6 +252,7 @@ export const Calendar = ({
                   isToday={Boolean(isToday)}
                   isSelected={Boolean(isSelected)}
                   events={getEventsForDay(events, date)}
+                  highlightCategory={activeCategory}
                   onSelect={onDaySelect}
                   onEventSelect={onEventSelect}
                 />
