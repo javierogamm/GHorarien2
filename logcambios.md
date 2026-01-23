@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.23
+- Botones de exportación a Excel (CSV) añadidos en vistas "Mis eventos" y "Tabla de control".
+- Generación de archivos con detalle de eventos según la vista seleccionada.
+
 ## v0.2.22
 - Navegación semanal habilitada con botones de semana anterior/siguiente.
 - Tarjetas semanales muestran solo la hora en formato HH:MM.

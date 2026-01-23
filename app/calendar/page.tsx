@@ -79,6 +79,28 @@ const DEFAULT_USER_COLOR = {
   badgeClass: "bg-slate-100 text-slate-600 ring-slate-200",
   dotClass: "bg-slate-300"
 };
+const csvEscapeValue = (value: string) => `"${value.replace(/"/g, '""')}"`;
+const toCsvContent = (headers: string[], rows: string[][]) => {
+  const headerRow = headers.map(csvEscapeValue).join(",");
+  const rowLines = rows.map((row) =>
+    row.map((item) => csvEscapeValue(item)).join(",")
+  );
+  return [headerRow, ...rowLines].join("\n");
+};
+const downloadCsvFile = (filename: string, headers: string[], rows: string[][]) => {
+  const csvContent = toCsvContent(headers, rows);
+  const csvBlob = new Blob([`\ufeff${csvContent}`], {
+    type: "text/csv;charset=utf-8;"
+  });
+  const url = URL.createObjectURL(csvBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -402,6 +424,9 @@ export default function CalendarPage() {
     });
   };
 
+  const getCategoryLabel = (category?: EventCategory) =>
+    category ? EVENT_CATEGORY_META[category]?.label ?? category : "Evento";
+
   const parseDateInput = (value: string) => {
     const [year, month, day] = value.split("-").map(Number);
     if (!year || !month || !day) return null;
@@ -418,6 +443,68 @@ export default function CalendarPage() {
       minute,
       0,
       0
+    );
+  };
+
+  const handleExportMyEvents = () => {
+    if (myEvents.length === 0) return;
+    const headers = [
+      "Fecha",
+      "Hora inicio",
+      "Evento",
+      "Tipo",
+      "Establecimiento",
+      "Notas",
+      "Asistentes"
+    ];
+    const rows = myEvents.map((group) => [
+      formatDisplayDate(group.event.fecha),
+      formatDisplayTime(group.event.horaInicio),
+      group.event.nombre?.trim() || "Evento",
+      getCategoryLabel(group.event.eventType),
+      group.event.establecimiento?.trim() || "Sin ubicación",
+      group.event.notas?.trim() || "Sin notas",
+      group.attendees.length > 0 ? group.attendees.join(", ") : "Sin asistentes"
+    ]);
+    downloadCsvFile(
+      `mis-eventos-${formatDateTime(new Date())}.csv`,
+      headers,
+      rows
+    );
+  };
+
+  const handleExportControlTable = () => {
+    if (allEvents.length === 0) return;
+    const headers = [
+      "Usuario",
+      "Fecha",
+      "Hora inicio",
+      "Evento",
+      "Tipo",
+      "Establecimiento",
+      "Notas"
+    ];
+    const rows = [...allEvents]
+      .sort((left, right) => {
+        const userCompare = (left.user ?? "").localeCompare(right.user ?? "");
+        if (userCompare !== 0) return userCompare;
+        const dateCompare = (left.fecha ?? "").localeCompare(right.fecha ?? "");
+        if (dateCompare !== 0) return dateCompare;
+        return (left.nombre ?? "").localeCompare(right.nombre ?? "");
+      })
+      .map((event) => [
+        event.user?.trim() || "Sin usuario",
+        formatDisplayDate(event.fecha),
+        formatDisplayTime(event.horaInicio),
+        event.nombre?.trim() || "Evento",
+        getCategoryLabel(event.eventType),
+        event.establecimiento?.trim() || "Sin ubicación",
+        event.notas?.trim() || "Sin notas"
+      ]);
+    downloadCsvFile(
+      `tabla-control-${formatDateTime(new Date())}.csv`,
+      headers,
+      rows
     );
   };
 
@@ -1079,13 +1166,27 @@ export default function CalendarPage() {
                   estás inscrito.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setMyEventsOnly(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
-              >
-                Volver al calendario
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportMyEvents}
+                  disabled={myEvents.length === 0}
+                  className={`rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
+                    myEvents.length === 0
+                      ? "cursor-not-allowed opacity-60"
+                      : "hover:border-emerald-200 hover:text-emerald-600"
+                  }`}
+                >
+                  Exportar Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMyEventsOnly(false)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                >
+                  Volver al calendario
+                </button>
+              </div>
             </div>
 
             {myEvents.length === 0 ? (
@@ -1239,13 +1340,27 @@ export default function CalendarPage() {
                   registrados.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setControlTableEnabled(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
-              >
-                Volver al calendario
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportControlTable}
+                  disabled={allEvents.length === 0}
+                  className={`rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
+                    allEvents.length === 0
+                      ? "cursor-not-allowed opacity-60"
+                      : "hover:border-emerald-200 hover:text-emerald-600"
+                  }`}
+                >
+                  Exportar Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setControlTableEnabled(false)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                >
+                  Volver al calendario
+                </button>
+              </div>
             </div>
 
             {allEventsError ? (
