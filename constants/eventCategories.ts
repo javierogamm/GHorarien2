@@ -7,7 +7,6 @@ type EventCategoryMeta = {
   dotClass: string;
   cardClass: string;
   startTime: string;
-  endTime: string;
 };
 
 export const EVENT_CATEGORY_META: Record<EventCategory, EventCategoryMeta> = {
@@ -15,28 +14,24 @@ export const EVENT_CATEGORY_META: Record<EventCategory, EventCategoryMeta> = {
     label: "Comida",
     dotClass: "bg-category-1",
     cardClass: "bg-category-1/15 text-category-1 border-category-1/30",
-    startTime: "13:00",
-    endTime: "14:30"
+    startTime: "13:00"
   },
   Cena: {
     label: "Cena",
     dotClass: "bg-category-2",
     cardClass: "bg-category-2/15 text-category-2 border-category-2/30",
-    startTime: "20:00",
-    endTime: "21:30"
+    startTime: "20:00"
   },
   Taller: {
     label: "Taller",
     dotClass: "bg-category-3",
     cardClass: "bg-category-3/15 text-category-3 border-category-3/30",
-    startTime: "16:00",
-    endTime: "18:00"
+    startTime: "16:00"
   },
   "Visita cultural": {
     label: "Visita cultural",
     dotClass: "bg-category-4",
     cardClass: "bg-category-4/15 text-category-4 border-category-4/30",
-    startTime: "10:00",
-    endTime: "12:00"
+    startTime: "10:00"
   }
 };

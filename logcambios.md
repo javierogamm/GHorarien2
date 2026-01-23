@@ -1,5 +1,12 @@
 # Log de cambios
 
+## v0.2.17
+- Eliminación de la hora fin en creación/edición/visualización, dejando solo hora de inicio.
+- Restricción de rol "User" para impedir creación de eventos y limitar la edición a asistentes.
+- Cambio de color de "Cena" a azul celeste.
+- Encabezado de sesión compactado y alineado a la derecha.
+- Botones toggle de vista (Mensual/Semanal) y toggles "Mis eventos" / "Tabla de control" con visibilidad restringida por rol.
+
 ## v0.2.16
 - Adaptación al nuevo campo `role` en la colección `users`, con persistencia del rol en sesión.
 - Selector visual de asistentes basado en la tabla de usuarios, usando botones + por usuario y chips de selección.

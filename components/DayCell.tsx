@@ -7,6 +7,7 @@ type DayCellProps = {
   isSelected: boolean;
   events: CalendarEventDisplay[];
   highlightCategory?: CalendarEventDisplay["eventType"] | null;
+  allowAddEvent?: boolean;
   onSelect: (date: Date, events: CalendarEventDisplay[]) => void;
   onAddEvent: (date: Date) => void;
   onEventSelect: (event: CalendarEventDisplay) => void;
@@ -18,6 +19,7 @@ export const DayCell = ({
   isSelected,
   events,
   highlightCategory = null,
+  allowAddEvent = true,
   onSelect,
   onAddEvent,
   onEventSelect
@@ -55,7 +57,7 @@ export const DayCell = ({
               Hoy
             </span>
           ) : null}
-          {date ? (
+          {date && allowAddEvent ? (
             <button
               type="button"
               aria-label="Crear evento"
