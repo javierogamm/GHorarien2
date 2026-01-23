@@ -58,7 +58,7 @@ export const EventItem = ({
       />
 
       <span className="truncate pl-2 text-left text-[11px] font-semibold text-slate-800">
-        {event.nombre ? event.nombre : "Evento"}
+        {event.nombre ? event.nombre : "Evento"} ({event.attendeeCount})
       </span>
     </button>
   );

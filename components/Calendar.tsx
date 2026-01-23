@@ -82,6 +82,15 @@ const buildEventGroupKey = (event: CalendarEvent) => {
   ].join("|");
 };
 
+const getMinutesFromTime = (time?: string | null) => {
+  if (!time) return Number.POSITIVE_INFINITY;
+  const [hours, minutes] = time.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return hours * 60 + minutes;
+};
+
 const getEventsForDay = (
   events: CalendarEvent[],
   date: Date | null
@@ -112,9 +121,12 @@ const getEventsForDay = (
     });
   });
 
-  return Array.from(grouped.values()).sort((a, b) =>
-    (a.nombre ?? "").localeCompare(b.nombre ?? "")
-  );
+  return Array.from(grouped.values()).sort((a, b) => {
+    const timeDiff =
+      getMinutesFromTime(a.horaInicio) - getMinutesFromTime(b.horaInicio);
+    if (timeDiff !== 0) return timeDiff;
+    return (a.nombre ?? "").localeCompare(b.nombre ?? "");
+  });
 };
 
 export const Calendar = ({

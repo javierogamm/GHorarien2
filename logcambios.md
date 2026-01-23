@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.14
+- Reincorporado el contador de asistentes en las tarjetas del calendario.
+- Ordenados los eventos diarios según la hora de inicio.
+
 ## v0.2.13
 - Modales de creación/edición con scroll interno para evitar desplazar la app al usar la rueda.
 - Selector de establecimiento convertido en buscador con modal, lupa de acceso y alta rápida con botón +.
