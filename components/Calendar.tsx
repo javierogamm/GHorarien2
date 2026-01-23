@@ -27,6 +27,14 @@ type CalendarProps = {
   events: CalendarEvent[];
   selectedDate: Date | null;
   activeCategory: CalendarEventDisplay["eventType"] | null;
+  viewMode: "monthly" | "weekly";
+  onViewModeChange: (view: "monthly" | "weekly") => void;
+  myEventsOnly: boolean;
+  onMyEventsToggle: () => void;
+  controlTableEnabled: boolean;
+  onControlTableToggle: () => void;
+  showControlTableToggle: boolean;
+  allowAddEvent: boolean;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onMonthChange: (month: number) => void;
@@ -78,8 +86,7 @@ const buildEventGroupKey = (event: CalendarEvent) => {
     dateKey,
     event.nombre ?? "",
     event.eventType ?? "",
-    event.horaInicio ?? "",
-    event.horaFin ?? ""
+    event.horaInicio ?? ""
   ].join("|");
 };
 
@@ -136,6 +143,14 @@ export const Calendar = ({
   events,
   selectedDate,
   activeCategory,
+  viewMode,
+  onViewModeChange,
+  myEventsOnly,
+  onMyEventsToggle,
+  controlTableEnabled,
+  onControlTableToggle,
+  showControlTableToggle,
+  allowAddEvent,
   onPrevMonth,
   onNextMonth,
   onMonthChange,
@@ -153,9 +168,37 @@ export const Calendar = ({
       <header className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">
-              Calendario mensual
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">
+                Calendario {viewMode === "weekly" ? "semanal" : "mensual"}
+              </p>
+              <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-1 py-1 text-xs font-semibold text-slate-500 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => onViewModeChange("monthly")}
+                  aria-pressed={viewMode === "monthly"}
+                  className={`rounded-full px-3 py-1 transition ${
+                    viewMode === "monthly"
+                      ? "bg-indigo-500 text-white shadow-sm"
+                      : "text-slate-500 hover:text-indigo-500"
+                  }`}
+                >
+                  Mensual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onViewModeChange("weekly")}
+                  aria-pressed={viewMode === "weekly"}
+                  className={`rounded-full px-3 py-1 transition ${
+                    viewMode === "weekly"
+                      ? "bg-indigo-500 text-white shadow-sm"
+                      : "text-slate-500 hover:text-indigo-500"
+                  }`}
+                >
+                  Semanal
+                </button>
+              </div>
+            </div>
             <h1 className="text-3xl font-semibold text-slate-900">
               {monthNames[currentMonth]} {currentYear}
             </h1>
@@ -210,6 +253,34 @@ export const Calendar = ({
               )
             )}
           </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onMyEventsToggle}
+              aria-pressed={myEventsOnly}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                myEventsOnly
+                  ? "border-indigo-200 bg-indigo-500 text-white"
+                  : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
+              }`}
+            >
+              Mis eventos
+            </button>
+            {showControlTableToggle ? (
+              <button
+                type="button"
+                onClick={onControlTableToggle}
+                aria-pressed={controlTableEnabled}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                  controlTableEnabled
+                    ? "border-indigo-200 bg-indigo-500 text-white"
+                    : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
+                }`}
+              >
+                Tabla de control
+              </button>
+            ) : null}
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             {EVENT_CATEGORIES.map((category) => (
               <button
@@ -268,6 +339,7 @@ export const Calendar = ({
                   isSelected={Boolean(isSelected)}
                   events={dayEvents}
                   highlightCategory={activeCategory}
+                  allowAddEvent={allowAddEvent}
                   onSelect={onDaySelect}
                   onAddEvent={onAddEvent}
                   onEventSelect={onEventSelect}

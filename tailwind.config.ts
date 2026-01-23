@@ -6,7 +6,7 @@ const config: Config = {
     extend: {
       colors: {
         "category-1": "#6FBF73",
-        "category-2": "#3F8F4A",
+        "category-2": "#7DD3FC",
         "category-3": "#F2A65A",
         "category-4": "#E46E64"
       },

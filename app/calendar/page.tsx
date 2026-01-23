@@ -81,9 +81,6 @@ export default function CalendarPage() {
   const [eventStartTime, setEventStartTime] = useState(
     EVENT_CATEGORY_META[EVENT_CATEGORIES[0]].startTime
   );
-  const [eventEndTime, setEventEndTime] = useState(
-    EVENT_CATEGORY_META[EVENT_CATEGORIES[0]].endTime
-  );
   const [eventNotes, setEventNotes] = useState("");
   const [eventEstablishment, setEventEstablishment] = useState("");
   const [attendees, setAttendees] = useState<string[]>([]);
@@ -101,6 +98,11 @@ export default function CalendarPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [calendarView, setCalendarView] = useState<"monthly" | "weekly">(
+    "monthly"
+  );
+  const [myEventsOnly, setMyEventsOnly] = useState(false);
+  const [controlTableEnabled, setControlTableEnabled] = useState(false);
   const [activeCategory, setActiveCategory] = useState<EventCategory | null>(null);
   const [establishmentSearch, setEstablishmentSearch] = useState("");
   const [newEstablishmentName, setNewEstablishmentName] = useState("");
@@ -118,7 +120,6 @@ export default function CalendarPage() {
     eventType: EventCategory;
     fecha: string;
     horaInicio: string;
-    horaFin: string;
     attendees: string[];
     notas: string;
     establecimiento: string;
@@ -129,7 +130,6 @@ export default function CalendarPage() {
     eventType: EVENT_CATEGORIES[0],
     fecha: "",
     horaInicio: "",
-    horaFin: "",
     attendees: [],
     notas: "",
     establecimiento: ""
@@ -226,7 +226,6 @@ export default function CalendarPage() {
   useEffect(() => {
     const meta = EVENT_CATEGORY_META[eventType];
     setEventStartTime(meta.startTime);
-    setEventEndTime(meta.endTime);
   }, [eventType]);
 
   useEffect(() => {
@@ -236,7 +235,6 @@ export default function CalendarPage() {
         eventType: EVENT_CATEGORIES[0],
         fecha: "",
         horaInicio: "",
-        horaFin: "",
         attendees: [],
         notas: "",
         establecimiento: ""
@@ -250,7 +248,6 @@ export default function CalendarPage() {
       eventType: selectedEvent.eventType,
       fecha: formatDateInput(selectedEvent.fecha),
       horaInicio: formatTimeInput(selectedEvent.horaInicio),
-      horaFin: formatTimeInput(selectedEvent.horaFin),
       attendees: selectedEvent.attendees,
       notas: selectedEvent.notas ?? "",
       establecimiento: selectedEvent.establecimiento ?? ""
@@ -367,6 +364,9 @@ export default function CalendarPage() {
     return map;
   }, [sortedUsers]);
   const getUserColor = (value: string) => userColorMap.get(value) ?? DEFAULT_USER_COLOR;
+  const canCreateEvents = userRole !== "User";
+  const canEditDetails = userRole !== "User";
+  const showControlTable = userRole !== "User";
 
   const handleAddAttendee = (value: string, target: "create" | "edit") => {
     if (!validUsernames.has(value)) return;
@@ -471,6 +471,14 @@ export default function CalendarPage() {
 
   const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (userRole === "User") {
+      setFormStatus({
+        loading: false,
+        error: "No tienes permisos para crear eventos.",
+        success: ""
+      });
+      return;
+    }
     const trimmedName = eventName.trim();
     const attendeeList = attendees;
 
@@ -537,15 +545,6 @@ export default function CalendarPage() {
       return;
     }
 
-    if (!eventEndTime) {
-      setFormStatus({
-        loading: false,
-        error: "Indica la hora de fin.",
-        success: ""
-      });
-      return;
-    }
-
     if (!eventEstablishment) {
       setFormStatus({
         loading: false,
@@ -558,11 +557,7 @@ export default function CalendarPage() {
     setFormStatus({ loading: true, error: "", success: "" });
     try {
       const startDate = buildEventDateTime(selectedDate, eventStartTime);
-      const endDate = buildEventDateTime(selectedDate, eventEndTime);
-      if (
-        Number.isNaN(startDate.getTime()) ||
-        Number.isNaN(endDate.getTime())
-      ) {
+      if (Number.isNaN(startDate.getTime())) {
         setFormStatus({
           loading: false,
           error: "Las horas indicadas no son válidas.",
@@ -570,18 +565,7 @@ export default function CalendarPage() {
         });
         return;
       }
-
-      if (endDate.getTime() <= startDate.getTime()) {
-        setFormStatus({
-          loading: false,
-          error: "La hora de fin debe ser posterior a la hora de inicio.",
-          success: ""
-        });
-        return;
-      }
-      const duration = Math.round(
-        (endDate.getTime() - startDate.getTime()) / 60000
-      );
+      const duration = 0;
 
       await createEventsForAttendees({
         nombre: trimmedName,
@@ -589,7 +573,7 @@ export default function CalendarPage() {
         attendees: attendeeList,
         fecha: formatDateTime(startDate),
         horaInicio: formatDateTime(startDate),
-        horaFin: formatDateTime(endDate),
+        horaFin: formatDateTime(startDate),
         duration,
         notas: eventNotes.trim(),
         establecimiento: eventEstablishment
@@ -621,11 +605,13 @@ export default function CalendarPage() {
   };
 
   const handleAddEvent = (date: Date) => {
+    if (userRole === "User") {
+      return;
+    }
     setSelectedDate(date);
     setFormStatus({ loading: false, error: "", success: "" });
     const meta = EVENT_CATEGORY_META[eventType];
     setEventStartTime(meta.startTime);
-    setEventEndTime(meta.endTime);
     setAttendees([]);
     setIsCreateModalOpen(true);
     setIsDayDetailModalOpen(false);
@@ -657,11 +643,20 @@ export default function CalendarPage() {
     event.preventDefault();
     if (!selectedEvent) return;
 
+    const canEditDetails = userRole !== "User";
     const trimmedName = editForm.nombre.trim();
     const attendeeList = editForm.attendees;
-    const selectedDateValue = parseDateInput(editForm.fecha);
+    const selectedDateValue = canEditDetails
+      ? parseDateInput(editForm.fecha)
+      : parseDateWithoutTime(selectedEvent.fecha);
+    const startTimeValue = canEditDetails
+      ? editForm.horaInicio
+      : formatTimeInput(selectedEvent.horaInicio);
+    const selectedEventName = selectedEvent.nombre ?? "";
+    const selectedEventNotes = selectedEvent.notas?.trim() ?? "";
+    const selectedEventEstablishment = selectedEvent.establecimiento ?? "";
 
-    if (!trimmedName) {
+    if (canEditDetails && !trimmedName) {
       setEditStatus({
         loading: false,
         error: "Indica el nombre del evento.",
@@ -679,7 +674,7 @@ export default function CalendarPage() {
       return;
     }
 
-    if (!editForm.horaInicio) {
+    if (!startTimeValue) {
       setEditStatus({
         loading: false,
         error: "Indica la hora de inicio.",
@@ -687,17 +682,10 @@ export default function CalendarPage() {
       });
       return;
     }
-
-    if (!editForm.horaFin) {
-      setEditStatus({
-        loading: false,
-        error: "Indica la hora de fin.",
-        success: ""
-      });
-      return;
-    }
-
-    if (!editForm.establecimiento) {
+    const establishmentValue = canEditDetails
+      ? editForm.establecimiento
+      : selectedEventEstablishment;
+    if (!establishmentValue) {
       setEditStatus({
         loading: false,
         error: "Selecciona un establecimiento.",
@@ -742,12 +730,8 @@ export default function CalendarPage() {
       return;
     }
 
-    const startDate = buildEventDateTime(selectedDateValue, editForm.horaInicio);
-    const endDate = buildEventDateTime(selectedDateValue, editForm.horaFin);
-    if (
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime())
-    ) {
+    const startDate = buildEventDateTime(selectedDateValue, startTimeValue);
+    if (Number.isNaN(startDate.getTime())) {
       setEditStatus({
         loading: false,
         error: "Las horas indicadas no son válidas.",
@@ -756,29 +740,17 @@ export default function CalendarPage() {
       return;
     }
 
-    if (endDate.getTime() <= startDate.getTime()) {
-      setEditStatus({
-        loading: false,
-        error: "La hora de fin debe ser posterior a la hora de inicio.",
-        success: ""
-      });
-      return;
-    }
-
     setEditStatus({ loading: true, error: "", success: "" });
     try {
-      const duration = Math.round(
-        (endDate.getTime() - startDate.getTime()) / 60000
-      );
       const payload = {
-        nombre: trimmedName,
-        eventType: editForm.eventType,
+        nombre: canEditDetails ? trimmedName : selectedEventName,
+        eventType: canEditDetails ? editForm.eventType : selectedEvent.eventType,
         fecha: formatDateTime(startDate),
         horaInicio: formatDateTime(startDate),
-        horaFin: formatDateTime(endDate),
-        duration,
-        notas: editForm.notas.trim(),
-        establecimiento: editForm.establecimiento
+        horaFin: formatDateTime(startDate),
+        duration: 0,
+        notas: canEditDetails ? editForm.notas.trim() : selectedEventNotes,
+        establecimiento: establishmentValue
       };
 
       const groupedEvents = allEvents.filter(
@@ -786,8 +758,7 @@ export default function CalendarPage() {
           eventItem.nombre === selectedEvent.nombre &&
           eventItem.eventType === selectedEvent.eventType &&
           eventItem.fecha === selectedEvent.fecha &&
-          eventItem.horaInicio === selectedEvent.horaInicio &&
-          eventItem.horaFin === selectedEvent.horaFin
+          eventItem.horaInicio === selectedEvent.horaInicio
       );
       const existingUsers = new Set(groupedEvents.map((item) => item.user));
       const desiredUsers = new Set(attendeeList);
@@ -847,29 +818,29 @@ export default function CalendarPage() {
   return (
     <main className="min-h-screen px-6 py-12">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-500">
-              Sesión activa
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-2xl font-semibold text-slate-900">
-                {username ? `Hola, ${username}` : "Cargando..."}
-              </h2>
-              {userRole ? (
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
-                  {userRole}
-                </span>
-              ) : null}
+        <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-3 rounded-2xl border border-white/70 bg-white/70 px-4 py-2 shadow-soft backdrop-blur">
+            <div className="text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                Sesión activa
+              </p>
+              <div className="flex items-center justify-end gap-2 text-sm font-semibold text-slate-800">
+                <span>{username ? `Hola, ${username}` : "Cargando..."}</span>
+                {userRole ? (
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                    {userRole}
+                  </span>
+                ) : null}
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-rose-200 hover:text-rose-500"
+            >
+              Cerrar sesión
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:border-rose-200 hover:text-rose-500"
-          >
-            Cerrar sesión
-          </button>
         </div>
 
         {allEventsError ? (
@@ -889,6 +860,16 @@ export default function CalendarPage() {
             events={calendarEvents}
             selectedDate={selectedDate}
             activeCategory={activeCategory}
+            viewMode={calendarView}
+            onViewModeChange={setCalendarView}
+            myEventsOnly={myEventsOnly}
+            onMyEventsToggle={() => setMyEventsOnly((prev) => !prev)}
+            controlTableEnabled={controlTableEnabled}
+            onControlTableToggle={() =>
+              setControlTableEnabled((prev) => !prev)
+            }
+            showControlTableToggle={showControlTable}
+            allowAddEvent={canCreateEvents}
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}
             onMonthChange={setCurrentMonth}
@@ -900,115 +881,113 @@ export default function CalendarPage() {
           />
         )}
 
-        <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900">
-                Tabla completa (Appwrite)
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Listado de todos los registros existentes en la colección
-                <span className="font-semibold text-slate-700"> tabla</span>.
+        {showControlTable ? (
+          <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Tabla de control
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Listado de todos los registros existentes en la colección
+                  <span className="font-semibold text-slate-700"> tabla</span>.
+                </p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                {allEvents.length} registros
+              </span>
+            </div>
+
+            {allEventsError ? (
+              <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+                {allEventsError}
               </p>
-            </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-              {allEvents.length} registros
-            </span>
-          </div>
+            ) : null}
 
-          {allEventsError ? (
-            <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
-              {allEventsError}
-            </p>
-          ) : null}
-
-          {allEventsLoading ? (
-            <div className="mt-6 flex items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-12 text-sm font-semibold text-slate-500">
-              Cargando tabla...
-            </div>
-          ) : (
-            <div className="mt-6 overflow-x-auto">
-              <table className="min-w-[900px] w-full text-left text-sm text-slate-600">
-                <thead className="text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3">Evento</th>
-                    <th className="px-4 py-3">Tipo</th>
-                    <th className="px-4 py-3">Usuario</th>
-                    <th className="px-4 py-3">Fecha</th>
-                    <th className="px-4 py-3">Inicio</th>
-                    <th className="px-4 py-3">Fin</th>
-                    <th className="px-4 py-3">Duración</th>
-                    <th className="px-4 py-3">Establecimiento</th>
-                    <th className="px-4 py-3">Notas</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {allEvents.length === 0 ? (
+            {allEventsLoading ? (
+              <div className="mt-6 flex items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-12 text-sm font-semibold text-slate-500">
+                Cargando tabla...
+              </div>
+            ) : (
+              <div className="mt-6 overflow-x-auto">
+                <table className="min-w-[900px] w-full text-left text-sm text-slate-600">
+                  <thead className="text-xs uppercase tracking-wide text-slate-500">
                     <tr>
-                      <td
-                        colSpan={9}
-                        className="px-4 py-6 text-center text-sm text-slate-400"
-                      >
-                        No hay registros en la tabla todavía.
-                      </td>
+                      <th className="px-4 py-3">Evento</th>
+                      <th className="px-4 py-3">Tipo</th>
+                      <th className="px-4 py-3">Usuario</th>
+                      <th className="px-4 py-3">Fecha</th>
+                      <th className="px-4 py-3">Inicio</th>
+                      <th className="px-4 py-3">Duración</th>
+                      <th className="px-4 py-3">Establecimiento</th>
+                      <th className="px-4 py-3">Notas</th>
                     </tr>
-                  ) : (
-                    allEvents.map((event) => (
-                      <tr key={event.$id} className="bg-white/40">
-                        <td className="px-4 py-3 font-medium text-slate-700">
-                          {event.nombre || "Sin nombre"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="flex items-center gap-2">
-                            <span
-                              className={`h-2 w-2 rounded-full ${
-                                EVENT_CATEGORY_META[event.eventType]?.dotClass ??
-                                "bg-slate-300"
-                              }`}
-                            />
-                            {EVENT_CATEGORY_META[event.eventType]?.label ??
-                              event.eventType}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="flex items-center gap-2">
-                            <span
-                              className={`h-2 w-2 rounded-full ${getUserColor(event.user).dotClass}`}
-                              aria-hidden="true"
-                            />
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${getUserColor(event.user).badgeClass}`}
-                            >
-                              {event.user}
-                            </span>
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDisplayDate(event.fecha)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDisplayDate(event.horaInicio)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {formatDisplayDate(event.horaFin)}
-                        </td>
-                        <td className="px-4 py-3">
-                          {event.duration ? `${event.duration} min` : "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          {event.establecimiento?.trim() || "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          {event.notas?.trim() || "—"}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {allEvents.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          className="px-4 py-6 text-center text-sm text-slate-400"
+                        >
+                          No hay registros en la tabla todavía.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                    ) : (
+                      allEvents.map((event) => (
+                        <tr key={event.$id} className="bg-white/40">
+                          <td className="px-4 py-3 font-medium text-slate-700">
+                            {event.nombre || "Sin nombre"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-2">
+                              <span
+                                className={`h-2 w-2 rounded-full ${
+                                  EVENT_CATEGORY_META[event.eventType]?.dotClass ??
+                                  "bg-slate-300"
+                                }`}
+                              />
+                              {EVENT_CATEGORY_META[event.eventType]?.label ??
+                                event.eventType}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="flex items-center gap-2">
+                              <span
+                                className={`h-2 w-2 rounded-full ${getUserColor(event.user).dotClass}`}
+                                aria-hidden="true"
+                              />
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${getUserColor(event.user).badgeClass}`}
+                              >
+                                {event.user}
+                              </span>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {formatDisplayDate(event.fecha)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {formatDisplayDate(event.horaInicio)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {event.duration ? `${event.duration} min` : "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            {event.establecimiento?.trim() || "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            {event.notas?.trim() || "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        ) : null}
       </div>
 
       <div
@@ -1115,7 +1094,6 @@ export default function CalendarPage() {
                         )}
                       </div>
                       <span>Inicio: {formatDisplayTime(event.horaInicio)}</span>
-                      <span>Fin: {formatDisplayTime(event.horaFin)}</span>
                     </div>
                   </button>
                 );
@@ -1196,26 +1174,15 @@ export default function CalendarPage() {
                 </select>
               </label>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Hora inicio
-                <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  type="time"
-                  value={eventStartTime}
-                  onChange={(event) => setEventStartTime(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Hora fin
-                <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  type="time"
-                  value={eventEndTime}
-                  onChange={(event) => setEventEndTime(event.target.value)}
-                />
-              </label>
-            </div>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Hora inicio
+              <input
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                type="time"
+                value={eventStartTime}
+                onChange={(event) => setEventStartTime(event.target.value)}
+              />
+            </label>
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
               Establecimiento
               <button
@@ -1429,19 +1396,20 @@ export default function CalendarPage() {
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                 Nombre
                 <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                   type="text"
                   value={editForm.nombre}
                   onChange={(event) =>
                     setEditForm((prev) => ({ ...prev, nombre: event.target.value }))
                   }
+                  disabled={!canEditDetails}
                 />
               </label>
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                   Tipo de evento
                   <select
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                     value={editForm.eventType}
                     onChange={(event) =>
                       setEditForm((prev) => ({
@@ -1449,6 +1417,7 @@ export default function CalendarPage() {
                         eventType: event.target.value as EventCategory
                       }))
                     }
+                    disabled={!canEditDetails}
                   >
                     {EVENT_CATEGORIES.map((category) => (
                       <option key={category} value={category}>
@@ -1460,48 +1429,38 @@ export default function CalendarPage() {
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                   Fecha
                   <input
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                     type="date"
                     value={editForm.fecha}
                     onChange={(event) =>
                       setEditForm((prev) => ({ ...prev, fecha: event.target.value }))
                     }
+                    disabled={!canEditDetails}
                   />
                 </label>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                  Hora inicio
-                  <input
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                    type="time"
-                    value={editForm.horaInicio}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        horaInicio: event.target.value
-                      }))
-                    }
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                  Hora fin
-                  <input
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                    type="time"
-                    value={editForm.horaFin}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({ ...prev, horaFin: event.target.value }))
-                    }
-                  />
-                </label>
-              </div>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Hora inicio
+                <input
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  type="time"
+                  value={editForm.horaInicio}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({
+                      ...prev,
+                      horaInicio: event.target.value
+                    }))
+                  }
+                  disabled={!canEditDetails}
+                />
+              </label>
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                 Establecimiento
                 <button
                   type="button"
                   onClick={() => openEstablishmentModal("edit")}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  disabled={!canEditDetails}
                 >
                   <span className="truncate">
                     {editForm.establecimiento || "Selecciona un establecimiento"}
@@ -1634,11 +1593,12 @@ export default function CalendarPage() {
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                 Notas
                 <textarea
-                  className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                  className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                   value={editForm.notas}
                   onChange={(event) =>
                     setEditForm((prev) => ({ ...prev, notas: event.target.value }))
                   }
+                  disabled={!canEditDetails}
                 />
               </label>
               {editStatus.error ? (
