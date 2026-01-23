@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { validateUserCredentials } from "../../services/usersService";
 
 const SESSION_KEY = "calendar_user";
+const ROLE_SESSION_KEY = "calendar_role";
 
 export default function LoginPage() {
   // Temporal: diagnóstico de variables de entorno en frontend.
@@ -71,6 +72,7 @@ export default function LoginPage() {
         return;
       }
       window.localStorage.setItem(SESSION_KEY, userRecord.user);
+      window.localStorage.setItem(ROLE_SESSION_KEY, userRecord.role);
       setConnectionLog((prev) => [
         ...prev,
         createLogEntry("Sesión iniciada y usuario autenticado.", "success")
