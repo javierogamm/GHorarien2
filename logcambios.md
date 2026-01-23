@@ -1,5 +1,8 @@
 # Log de cambios
 
+## v0.2.21
+- Tarjetas de eventos semanales compactadas con hora y asistentes en formato mínimo.
+
 ## v0.2.20
 - Corrección del acordeón "Mis eventos" para usar `open` y evitar errores de compilación.
 

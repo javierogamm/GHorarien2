@@ -484,7 +484,7 @@ export const Calendar = ({
                               eventClick.stopPropagation();
                               onEventSelect(event);
                             }}
-                            className={`relative flex w-full flex-col gap-2 rounded-2xl border px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
+                            className={`relative flex w-full flex-col gap-1.5 rounded-2xl border px-4 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
                               isFiltered && !isHighlighted ? "opacity-40" : ""
                             } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
                           >
@@ -504,24 +504,8 @@ export const Calendar = ({
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-3 pl-2 text-xs font-medium text-slate-600">
-                              <span>Inicio: {formatEventTime(event.horaInicio)}</span>
-                              <span>Asistentes: {event.attendeeCount}</span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 pl-2 text-[11px] font-semibold text-slate-600">
-                              {event.attendees.length > 0 ? (
-                                event.attendees.map((attendee) => (
-                                  <span
-                                    key={attendee}
-                                    className="rounded-full bg-slate-100 px-2 py-0.5"
-                                  >
-                                    {attendee}
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="text-slate-400">
-                                  Sin asistentes
-                                </span>
-                              )}
+                              <span>{formatEventTime(event.horaInicio)}</span>
+                              <span>({event.attendeeCount})</span>
                             </div>
                           </button>
                         );
