@@ -1,5 +1,17 @@
 # Log de cambios
 
+## v0.2.36
+- El modal de **Crear evento** y el de **Detalle/edición** se amplían al doble de ancho (`max-w-4xl`) manteniendo el scroll vertical.
+- Ambos modales se reorganizan en dos grandes apartados izquierda/derecha:
+  - Izquierda: Nombre, tipo, fecha, hora inicio, asistentes, certificación y promoción.
+  - Derecha: Establecimiento, menú y notas.
+- El campo **Menú** pasa a un flujo progresivo con botón **“Añadir plato”**:
+  - Permite hasta 8 platos.
+  - Cada clic añade una nueva caja de texto debajo de la anterior.
+- El menú se normaliza para guardarse en la columna `menu` separado por `;` (p.ej. `Gamba con foie;Escalopines;Dulce de leche`).
+- La creación masiva también normaliza el menú admitiendo `;` o saltos de línea y guardando siempre con `;`.
+- Se consolida la versión de la app en `0.2.36`.
+
 ## v0.2.35
 - Se añaden los nuevos campos `certificacion`, `promocion` y `menu` al tipado de eventos y a la creación/actualización en la colección `tabla`.
 - Se incorpora un selector de **Certificación** (CAAG, CAZ, GFD, OTROS) y los campos libres de **Promoción** y **Menú** en "Crear evento" y "Crear varios eventos".
