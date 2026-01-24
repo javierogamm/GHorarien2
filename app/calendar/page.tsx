@@ -1,8 +1,21 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  type FormEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
 import { Calendar } from "../../components/Calendar";
+import {
+  CalendarModuleIcon,
+  HourglassModuleIcon,
+  PersonModuleIcon,
+  TableModuleIcon
+} from "../../components/icons/ModuleIcons";
 import {
   type EventCategory,
   EVENT_CATEGORIES,
@@ -324,6 +337,7 @@ export default function CalendarPage() {
   const [myEventsOnly, setMyEventsOnly] = useState(false);
   const [controlTableEnabled, setControlTableEnabled] = useState(false);
   const [hoursCalculationEnabled, setHoursCalculationEnabled] = useState(false);
+  const [viewUserOverride, setViewUserOverride] = useState<string | null>(null);
   const [hoursRefreshToken, setHoursRefreshToken] = useState(0);
   const [hoursSummary, setHoursSummary] = useState({
     obtained: 0,
@@ -580,6 +594,7 @@ export default function CalendarPage() {
     setMyEventsOnly((prev) => {
       const next = !prev;
       if (next) {
+        setViewUserOverride(null);
         setControlTableEnabled(false);
         setHoursCalculationEnabled(false);
       }
@@ -591,6 +606,7 @@ export default function CalendarPage() {
     setControlTableEnabled((prev) => {
       const next = !prev;
       if (next) {
+        setViewUserOverride(null);
         setMyEventsOnly(false);
         setHoursCalculationEnabled(false);
       }
@@ -696,10 +712,18 @@ export default function CalendarPage() {
 
   const handleDeclareHoursSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!username) {
+    if (!targetUser) {
       setDeclareStatus({
         loading: false,
         error: "Necesitas iniciar sesión para declarar horas.",
+        success: ""
+      });
+      return;
+    }
+    if (!canManageTargetUser) {
+      setDeclareStatus({
+        loading: false,
+        error: "No tienes permisos para declarar horas de este usuario.",
         success: ""
       });
       return;
@@ -785,7 +809,7 @@ export default function CalendarPage() {
         await updateHorasDeclaradas(editingDeclaredRecord.$id, declarationPayload);
       } else {
         await createHorasDeclaradas({
-          user: username,
+          user: targetUser,
           ...declarationPayload
         });
       }
@@ -809,7 +833,7 @@ export default function CalendarPage() {
   };
 
   const handleDeclaredHoursDelete = async (record: HorasDeclaradasRecord) => {
-    if (!username) return;
+    if (!targetUser || !canManageTargetUser) return;
     const confirmDelete = window.confirm(
       "¿Seguro que quieres eliminar esta declaración de horas?"
     );
@@ -847,9 +871,15 @@ export default function CalendarPage() {
     setMyEventsOnly(true);
   };
 
+  const handleMyEventsBackToCalendar = () => {
+    setMyEventsOnly(false);
+    setViewUserOverride(null);
+  };
+
   const handleHoursCalculationBackToCalendar = () => {
     setHoursCalculationEnabled(false);
     setMyEventsOnly(false);
+    setViewUserOverride(null);
   };
 
   const handleLogout = () => {
@@ -1064,6 +1094,7 @@ export default function CalendarPage() {
 
   const handleExportMyEvents = () => {
     if (myEvents.length === 0) return;
+    const userSlug = (targetUser || "usuario").trim().toLowerCase().replace(/\s+/g, "-");
     const headers = [
       "Fecha",
       "Hora inicio",
@@ -1083,7 +1114,7 @@ export default function CalendarPage() {
       group.attendees.length > 0 ? group.attendees.join(", ") : "Sin asistentes"
     ]);
     downloadCsvFile(
-      `mis-eventos-${formatDateTime(new Date())}.csv`,
+      `mis-eventos-${userSlug}-${formatDateTime(new Date())}.csv`,
       headers,
       rows
     );
@@ -1162,6 +1193,50 @@ export default function CalendarPage() {
   const canCreateEvents = userRole !== "User";
   const canEditDetails = userRole !== "User";
   const showControlTable = userRole === "Admin" || userRole === "Boss";
+  const canManageUsers = showControlTable;
+  const targetUser = viewUserOverride ?? username ?? "";
+  const targetUserHasRecord = targetUser ? validUsernames.has(targetUser) : false;
+  const targetUserRecord = targetUserHasRecord ? userLookup.get(targetUser) ?? null : null;
+  const canManageTargetUser = Boolean(targetUser) && (targetUser === username || canManageUsers);
+  const isViewingAnotherUser = Boolean(targetUser) && Boolean(username) && targetUser !== username;
+  const targetUserLabel = targetUser || "Sin usuario";
+  const canAccessUserData = useCallback(
+    (user: string) => {
+      if (!user || !validUsernames.has(user)) return false;
+      if (user === username) return true;
+      return canManageUsers;
+    },
+    [canManageUsers, username, validUsernames]
+  );
+  const resolveViewOverride = useCallback(
+    (user: string) => (user === username ? null : user),
+    [username]
+  );
+  const handleControlTableUserMyEvents = useCallback(
+    (event: MouseEvent<HTMLButtonElement>, user: string) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!canAccessUserData(user)) return;
+      setViewUserOverride(resolveViewOverride(user));
+      setControlTableEnabled(false);
+      setHoursCalculationEnabled(false);
+      setMyEventsOnly(true);
+    },
+    [canAccessUserData, resolveViewOverride]
+  );
+  const handleControlTableUserHours = useCallback(
+    (event: MouseEvent<HTMLButtonElement>, user: string) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!canAccessUserData(user)) return;
+      setViewUserOverride(resolveViewOverride(user));
+      setControlTableEnabled(false);
+      setMyEventsOnly(false);
+      setHoursCalculationEnabled(true);
+      triggerHoursRecalculation();
+    },
+    [canAccessUserData, resolveViewOverride, triggerHoursRecalculation]
+  );
 
   const handleAddAttendee = (value: string, target: "create" | "edit" | "bulk") => {
     if (!validUsernames.has(value)) return;
@@ -1778,10 +1853,7 @@ export default function CalendarPage() {
     setActiveCategory((prev) => (prev === category ? null : category));
   };
 
-  const currentUserRecord = useMemo(
-    () => users.find((entry) => entry.user === username) ?? null,
-    [users, username]
-  );
+  const currentUserRecord = targetUserRecord;
 
   const calendarEvents = useMemo(
     () =>
@@ -1820,9 +1892,7 @@ export default function CalendarPage() {
     });
 
     return Array.from(grouped.values())
-      .filter((group) =>
-        Boolean(username) && group.attendees.includes(username ?? "")
-      )
+      .filter((group) => Boolean(targetUser) && group.attendees.includes(targetUser))
       .sort((a, b) => {
         const leftDate = new Date(
           a.event.horaInicio ?? a.event.fecha ?? ""
@@ -1833,7 +1903,7 @@ export default function CalendarPage() {
         if (leftDate !== rightDate) return leftDate - rightDate;
         return (a.event.nombre ?? "").localeCompare(b.event.nombre ?? "");
       });
-  }, [allEvents, username]);
+  }, [allEvents, targetUser]);
 
   const obtainedHours = useMemo(() => myEvents.length * HOURS_PER_EVENT, [myEvents]);
 
@@ -1870,7 +1940,7 @@ export default function CalendarPage() {
   }, [myEvents]);
 
   useEffect(() => {
-    if (!hoursCalculationEnabled || !username) return;
+    if (!hoursCalculationEnabled || !targetUser) return;
     if (usersLoading || allEventsLoading) return;
     if (!currentUserRecord) {
       setDeclaredHoursRecords([]);
@@ -1880,7 +1950,7 @@ export default function CalendarPage() {
       });
       setHoursStatus({
         loading: false,
-        error: "No se encontró tu usuario para calcular las horas.",
+        error: `No se encontró el usuario ${targetUserLabel} para calcular las horas.`,
         lastUpdated: ""
       });
       return;
@@ -1899,7 +1969,7 @@ export default function CalendarPage() {
         error: ""
       });
       try {
-        const declarations = await fetchHorasDeclaradasForUser(username);
+        const declarations = await fetchHorasDeclaradasForUser(targetUser);
         if (cancelled) return;
         const sortedDeclarations = [...declarations].sort((a, b) => {
           const updatedAtDiff =
@@ -1918,7 +1988,7 @@ export default function CalendarPage() {
 
         const storedObtainedHours = parseHorasObtenidas(currentUserRecord.horasObtenidas);
 
-        if (storedObtainedHours !== obtainedHours) {
+        if (canManageTargetUser && storedObtainedHours !== obtainedHours) {
           await updateUserHorasObtenidas(currentUserRecord.$id, obtainedHours);
           if (cancelled) return;
           setUsers((prev) =>
@@ -1966,12 +2036,14 @@ export default function CalendarPage() {
     };
   }, [
     allEventsLoading,
+    canManageTargetUser,
     currentUserRecord,
     getErrorMessage,
     hoursCalculationEnabled,
     hoursRefreshToken,
     obtainedHours,
-    username,
+    targetUser,
+    targetUserLabel,
     usersLoading
   ]);
 
@@ -2069,46 +2141,61 @@ export default function CalendarPage() {
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Cálculo de horas
+                <h2 className="flex items-center gap-3 text-2xl font-semibold text-slate-900">
+                  <HourglassModuleIcon title="" className="h-8 w-8" />
+                  <span>Cálculo de horas</span>
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Recuento automático: cada evento asistido suma {HOURS_PER_EVENT}{" "}
-                  horas y se guarda en tu perfil.
+                  horas y se guarda en el perfil del usuario seleccionado.
                 </p>
+                {targetUser ? (
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-500">
+                    Usuario: {targetUserLabel}
+                  </p>
+                ) : null}
+                {isViewingAnotherUser ? (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Estás consultando el detalle de otro usuario.
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={triggerHoursRecalculation}
                   disabled={hoursStatus.loading}
-                  className={`rounded-full border px-4 py-2 text-xs font-semibold text-white shadow-sm transition ${
+                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold text-white shadow-sm transition ${
                     hoursStatus.loading
                       ? "cursor-not-allowed border-slate-200 bg-slate-300"
                       : "border-amber-200 bg-amber-500 hover:-translate-y-0.5 hover:bg-amber-600"
                   }`}
                 >
+                  <HourglassModuleIcon title="" className="h-4 w-4" />
                   {hoursStatus.loading ? "Recalculando..." : "Recalcular"}
                 </button>
                 <button
                   type="button"
                   onClick={openDeclareHoursModal}
-                  className="rounded-full border border-indigo-200 bg-indigo-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600"
+                  className="flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600"
                 >
+                  <HourglassModuleIcon title="" className="h-4 w-4" />
                   Declarar horas
                 </button>
                 <button
                   type="button"
                   onClick={handleHoursCalculationBackToMyEvents}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
                 >
+                  <PersonModuleIcon title="" className="h-4 w-4" />
                   Volver a mis eventos
                 </button>
                 <button
                   type="button"
                   onClick={handleHoursCalculationBackToCalendar}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
                 >
+                  <CalendarModuleIcon title="" className="h-4 w-4" />
                   Volver al calendario
                 </button>
               </div>
@@ -2122,7 +2209,7 @@ export default function CalendarPage() {
 
             {hoursStatus.loading ? (
               <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-600">
-                Recalculando horas y actualizando tu usuario...
+                Recalculando horas y actualizando el usuario seleccionado...
               </div>
             ) : hoursStatus.lastUpdated ? (
               <p className="mt-4 text-xs text-slate-400">
@@ -2157,7 +2244,7 @@ export default function CalendarPage() {
                   {formatHoursValue(hoursSummary.declared)}
                 </p>
                 <p className="text-xs text-sky-600/80">
-                  Suma de tus registros en horasDeclaradas
+                  Suma de los registros en horasDeclaradas
                 </p>
               </article>
               <article className="flex flex-col gap-2 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-5">
@@ -2184,7 +2271,7 @@ export default function CalendarPage() {
                     Comparativa de horas
                   </h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    Visualiza tus horas obtenidas frente a las horas declaradas.
+                    Visualiza las horas obtenidas frente a las horas declaradas.
                   </p>
                 </div>
               </div>
@@ -2357,39 +2444,53 @@ export default function CalendarPage() {
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Mis eventos
+                <h2 className="flex items-center gap-3 text-2xl font-semibold text-slate-900">
+                  <PersonModuleIcon title="" className="h-8 w-8" />
+                  <span>Mis eventos</span>
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Resumen organizado por año y mes de los eventos en los que
-                  estás inscrito.
+                  está inscrito el usuario seleccionado.
                 </p>
+                {targetUser ? (
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-500">
+                    Usuario: {targetUserLabel}
+                  </p>
+                ) : null}
+                {isViewingAnotherUser ? (
+                  <p className="mt-1 text-xs text-slate-400">
+                    Estás consultando el detalle de otro usuario.
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={handleExportMyEvents}
                   disabled={myEvents.length === 0}
-                  className={`rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
+                  className={`flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
                     myEvents.length === 0
                       ? "cursor-not-allowed opacity-60"
                       : "hover:border-emerald-200 hover:text-emerald-600"
                   }`}
                 >
+                  <TableModuleIcon title="" className="h-4 w-4" />
                   Exportar Excel
                 </button>
                 <button
                   type="button"
                   onClick={handleHoursCalculationOpen}
-                  className="rounded-full border border-amber-200 bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600"
+                  className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600"
                 >
+                  <HourglassModuleIcon title="" className="h-4 w-4" />
                   Cálculo de horas
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMyEventsOnly(false)}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                  onClick={handleMyEventsBackToCalendar}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
                 >
+                  <CalendarModuleIcon title="" className="h-4 w-4" />
                   Volver al calendario
                 </button>
               </div>
@@ -2397,7 +2498,9 @@ export default function CalendarPage() {
 
             {myEvents.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
-                No tienes eventos asignados.
+                {targetUser
+                  ? `No hay eventos asignados para ${targetUserLabel}.`
+                  : "No tienes eventos asignados."}
               </div>
             ) : (
               <div className="mt-6 flex flex-col gap-4">
@@ -2538,8 +2641,9 @@ export default function CalendarPage() {
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Tabla de control
+                <h2 className="flex items-center gap-3 text-2xl font-semibold text-slate-900">
+                  <TableModuleIcon title="" className="h-8 w-8" />
+                  <span>Tabla de control</span>
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Resumen agrupado por usuario, año y mes de todos los eventos
@@ -2551,19 +2655,24 @@ export default function CalendarPage() {
                   type="button"
                   onClick={handleExportControlTable}
                   disabled={allEvents.length === 0}
-                  className={`rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
+                  className={`flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
                     allEvents.length === 0
                       ? "cursor-not-allowed opacity-60"
                       : "hover:border-emerald-200 hover:text-emerald-600"
                   }`}
                 >
+                  <TableModuleIcon title="" className="h-4 w-4" />
                   Exportar Excel
                 </button>
                 <button
                   type="button"
-                  onClick={() => setControlTableEnabled(false)}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                  onClick={() => {
+                    setControlTableEnabled(false);
+                    setViewUserOverride(null);
+                  }}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
                 >
+                  <CalendarModuleIcon title="" className="h-4 w-4" />
                   Volver al calendario
                 </button>
               </div>
@@ -2581,157 +2690,200 @@ export default function CalendarPage() {
               </div>
             ) : (
               <div className="mt-6 flex flex-col gap-4">
-                {controlTableByUser.map((userGroup) => (
-                  <details
-                    key={userGroup.user}
-                    className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm"
-                  >
-                    <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
-                      <span className="flex items-center justify-between">
-                        <span className="flex items-center gap-2">
-                          <span
-                            className={`h-2.5 w-2.5 rounded-full ${getUserColor(userGroup.user).dotClass}`}
-                            aria-hidden="true"
-                          />
-                          <span>{userGroup.user}</span>
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {userGroup.years.reduce(
-                            (total, yearGroup) =>
-                              total +
-                              yearGroup.months.reduce(
-                                (monthTotal, monthGroup) =>
-                                  monthTotal + monthGroup.events.length,
-                                0
-                              ),
-                            0
-                          )}{" "}
-                          eventos
-                        </span>
-                      </span>
-                    </summary>
-                    <div className="mt-4 flex flex-col gap-3">
-                      {userGroup.years.map((yearGroup) => (
-                        <details
-                          key={`${userGroup.user}-${yearGroup.year ?? "sin-anio"}`}
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
-                        >
-                          <summary className="cursor-pointer list-none text-sm font-semibold text-slate-600">
-                            <span className="flex items-center justify-between">
-                              <span>{yearGroup.year ?? "Sin año"}</span>
-                              <span className="text-xs text-slate-400">
-                                {yearGroup.months.reduce(
+                {controlTableByUser.map((userGroup) => {
+                  const userCanNavigate = canAccessUserData(userGroup.user);
+                  const actionButtonBaseClass =
+                    "flex h-9 w-9 items-center justify-center rounded-xl border shadow-sm transition";
+                  const actionButtonClass = userCanNavigate
+                    ? `${actionButtonBaseClass} border-white/60 bg-white/80 text-slate-600 hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600`
+                    : `${actionButtonBaseClass} cursor-not-allowed border-slate-200/80 bg-white/70 text-slate-300 opacity-70`;
+
+                  return (
+                    <details
+                      key={userGroup.user}
+                      className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm"
+                    >
+                      <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="flex items-center gap-3">
+                            <span className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(event) =>
+                                  handleControlTableUserMyEvents(event, userGroup.user)
+                                }
+                                className={actionButtonClass}
+                                disabled={!userCanNavigate}
+                                title={
+                                  userCanNavigate
+                                    ? "Abrir Mis eventos"
+                                    : "No disponible para este usuario"
+                                }
+                                aria-label="Abrir Mis eventos"
+                              >
+                                <PersonModuleIcon title="" className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) =>
+                                  handleControlTableUserHours(event, userGroup.user)
+                                }
+                                className={actionButtonClass}
+                                disabled={!userCanNavigate}
+                                title={
+                                  userCanNavigate
+                                    ? "Abrir Cálculo de horas"
+                                    : "No disponible para este usuario"
+                                }
+                                aria-label="Abrir Cálculo de horas"
+                              >
+                                <HourglassModuleIcon title="" className="h-4 w-4" />
+                              </button>
+                            </span>
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${getUserColor(userGroup.user).dotClass}`}
+                              aria-hidden="true"
+                            />
+                            <span>{userGroup.user}</span>
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {userGroup.years.reduce(
+                              (total, yearGroup) =>
+                                total +
+                                yearGroup.months.reduce(
                                   (monthTotal, monthGroup) =>
                                     monthTotal + monthGroup.events.length,
                                   0
-                                )}{" "}
-                                eventos
+                                ),
+                              0
+                            )}{" "}
+                            eventos
+                          </span>
+                        </span>
+                      </summary>
+                      <div className="mt-4 flex flex-col gap-3">
+                        {userGroup.years.map((yearGroup) => (
+                          <details
+                            key={`${userGroup.user}-${yearGroup.year ?? "sin-anio"}`}
+                            className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                          >
+                            <summary className="cursor-pointer list-none text-sm font-semibold text-slate-600">
+                              <span className="flex items-center justify-between">
+                                <span>{yearGroup.year ?? "Sin año"}</span>
+                                <span className="text-xs text-slate-400">
+                                  {yearGroup.months.reduce(
+                                    (monthTotal, monthGroup) =>
+                                      monthTotal + monthGroup.events.length,
+                                    0
+                                  )}{" "}
+                                  eventos
+                                </span>
                               </span>
-                            </span>
-                          </summary>
-                          <div className="mt-3 flex flex-col gap-3">
-                            {yearGroup.months.map((monthGroup) => (
-                              <details
-                                key={`${userGroup.user}-${yearGroup.year ?? "sin-anio"}-${
-                                  monthGroup.month ?? "sin-mes"
-                                }`}
-                                className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
-                              >
-                                <summary className="cursor-pointer list-none text-sm font-semibold text-slate-600">
-                                  <span className="flex items-center justify-between">
-                                    <span>
-                                      {monthGroup.month === null
-                                        ? "Sin mes"
-                                        : MONTH_NAMES[monthGroup.month]}
+                            </summary>
+                            <div className="mt-3 flex flex-col gap-3">
+                              {yearGroup.months.map((monthGroup) => (
+                                <details
+                                  key={`${userGroup.user}-${yearGroup.year ?? "sin-anio"}-${
+                                    monthGroup.month ?? "sin-mes"
+                                  }`}
+                                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                                >
+                                  <summary className="cursor-pointer list-none text-sm font-semibold text-slate-600">
+                                    <span className="flex items-center justify-between">
+                                      <span>
+                                        {monthGroup.month === null
+                                          ? "Sin mes"
+                                          : MONTH_NAMES[monthGroup.month]}
+                                      </span>
+                                      <span className="text-xs text-slate-400">
+                                        {monthGroup.events.length} eventos
+                                      </span>
                                     </span>
-                                    <span className="text-xs text-slate-400">
-                                      {monthGroup.events.length} eventos
-                                    </span>
-                                  </span>
-                                </summary>
-                                <div className="mt-3 flex flex-col gap-3">
-                                  {monthGroup.events.map((event) => {
-                                    const meta = EVENT_CATEGORY_META[
-                                      event.eventType
-                                    ] ?? {
-                                      label: "Evento",
-                                      dotClass: "bg-slate-300",
-                                      cardClass:
-                                        "bg-slate-100 text-slate-600 border-slate-200"
-                                    };
-                                    return (
-                                      <details
-                                        key={event.$id}
-                                        className={`rounded-2xl border px-4 py-3 ${meta.cardClass}`}
-                                      >
-                                        <summary className="cursor-pointer list-none text-sm font-semibold">
-                                          <div className="flex flex-wrap items-center gap-2">
-                                            <span
-                                              className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`}
-                                              aria-hidden="true"
-                                            />
-                                            <span className="text-slate-900">
-                                              {event.nombre || "Evento"}
-                                            </span>
-                                            <span className="text-slate-500">·</span>
-                                            <span className="text-slate-600">
-                                              {meta.label}
-                                            </span>
-                                            <span className="text-slate-500">·</span>
-                                            <span className="text-slate-600">
-                                              {formatShortDate(event.fecha)}
-                                            </span>
-                                            <span className="text-slate-500">·</span>
-                                            <span className="text-slate-600">
-                                              {formatDisplayTime(event.horaInicio)}
-                                            </span>
+                                  </summary>
+                                  <div className="mt-3 flex flex-col gap-3">
+                                    {monthGroup.events.map((event) => {
+                                      const meta = EVENT_CATEGORY_META[
+                                        event.eventType
+                                      ] ?? {
+                                        label: "Evento",
+                                        dotClass: "bg-slate-300",
+                                        cardClass:
+                                          "bg-slate-100 text-slate-600 border-slate-200"
+                                      };
+                                      return (
+                                        <details
+                                          key={event.$id}
+                                          className={`rounded-2xl border px-4 py-3 ${meta.cardClass}`}
+                                        >
+                                          <summary className="cursor-pointer list-none text-sm font-semibold">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                              <span
+                                                className={`h-2.5 w-2.5 rounded-full ${meta.dotClass}`}
+                                                aria-hidden="true"
+                                              />
+                                              <span className="text-slate-900">
+                                                {event.nombre || "Evento"}
+                                              </span>
+                                              <span className="text-slate-500">·</span>
+                                              <span className="text-slate-600">
+                                                {meta.label}
+                                              </span>
+                                              <span className="text-slate-500">·</span>
+                                              <span className="text-slate-600">
+                                                {formatShortDate(event.fecha)}
+                                              </span>
+                                              <span className="text-slate-500">·</span>
+                                              <span className="text-slate-600">
+                                                {formatDisplayTime(event.horaInicio)}
+                                              </span>
+                                            </div>
+                                          </summary>
+                                          <div className="mt-3 grid gap-2 text-xs text-slate-600">
+                                            <div className="flex flex-wrap gap-2">
+                                              <span className="font-semibold text-slate-500">
+                                                Fecha:
+                                              </span>
+                                              <span>{formatDisplayDate(event.fecha)}</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                              <span className="font-semibold text-slate-500">
+                                                Inicio:
+                                              </span>
+                                              <span>
+                                                {formatDisplayTime(event.horaInicio)}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                              <span className="font-semibold text-slate-500">
+                                                Establecimiento:
+                                              </span>
+                                              <span>
+                                                {event.establecimiento?.trim() ||
+                                                  "Sin ubicación"}
+                                              </span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                              <span className="font-semibold text-slate-500">
+                                                Notas:
+                                              </span>
+                                              <span>
+                                                {event.notas?.trim() || "Sin notas"}
+                                              </span>
+                                            </div>
                                           </div>
-                                        </summary>
-                                        <div className="mt-3 grid gap-2 text-xs text-slate-600">
-                                          <div className="flex flex-wrap gap-2">
-                                            <span className="font-semibold text-slate-500">
-                                              Fecha:
-                                            </span>
-                                            <span>{formatDisplayDate(event.fecha)}</span>
-                                          </div>
-                                          <div className="flex flex-wrap gap-2">
-                                            <span className="font-semibold text-slate-500">
-                                              Inicio:
-                                            </span>
-                                            <span>
-                                              {formatDisplayTime(event.horaInicio)}
-                                            </span>
-                                          </div>
-                                          <div className="flex flex-wrap gap-2">
-                                            <span className="font-semibold text-slate-500">
-                                              Establecimiento:
-                                            </span>
-                                            <span>
-                                              {event.establecimiento?.trim() ||
-                                                "Sin ubicación"}
-                                            </span>
-                                          </div>
-                                          <div className="flex flex-wrap gap-2">
-                                            <span className="font-semibold text-slate-500">
-                                              Notas:
-                                            </span>
-                                            <span>
-                                              {event.notas?.trim() || "Sin notas"}
-                                            </span>
-                                          </div>
-                                        </div>
-                                      </details>
-                                    );
-                                  })}
-                                </div>
-                              </details>
-                            ))}
-                          </div>
-                        </details>
-                      ))}
-                    </div>
-                  </details>
-                ))}
+                                        </details>
+                                      );
+                                    })}
+                                  </div>
+                                </details>
+                              ))}
+                            </div>
+                          </details>
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -2795,7 +2947,7 @@ export default function CalendarPage() {
               </h3>
               <p className="mt-1 text-sm text-slate-500">
                 {editingDeclaredRecord
-                  ? "Actualiza el rango horario y el motivo de tu declaración."
+                  ? "Actualiza el rango horario y el motivo de la declaración."
                   : `Selecciona inicio (cada 30 min) y fin en horas enteras desde el inicio dentro de la ventana diaria, con un máximo de ${MAX_DECLARABLE_HOURS} h.`}
               </p>
             </div>
@@ -3034,7 +3186,7 @@ export default function CalendarPage() {
                 <span className="font-semibold text-slate-500">
                   horasDeclaradas
                 </span>{" "}
-                con tu usuario.
+                con el usuario seleccionado ({targetUserLabel}).
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button

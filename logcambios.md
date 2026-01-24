@@ -1,5 +1,12 @@
 # Log de cambios
 
+## v0.2.34
+- Se añaden iconos SVG multicolor y modernos para Calendario, Mis eventos, Cálculo de horas y Tabla de control.
+- Los toggles principales y los botones de navegación ahora muestran el icono correspondiente alineado a la izquierda del texto.
+- Los encabezados de los módulos "Mis eventos", "Cálculo de horas" y "Tabla de control" incorporan sus iconos para reforzar la identificación visual.
+- En la vista "Tabla de control" se añaden dos acciones por usuario en el acordeón: acceso directo a "Mis eventos" y a "Cálculo de horas" con el contexto de ese usuario.
+- Se habilita un contexto de usuario objetivo para que "Mis eventos" y "Cálculo de horas" puedan abrirse para un usuario concreto desde la Tabla de control, mostrando claramente el usuario activo.
+
 ## v0.2.33
 - Eliminada la referencia visual a la "Escala máxima" en la cabecera del gráfico de barras de horas.
 - Al guardar en "Declarar horas" el modal ahora se cierra automáticamente, tanto en altas como en ediciones.

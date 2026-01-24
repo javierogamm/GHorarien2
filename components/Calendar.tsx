@@ -3,6 +3,11 @@ import type { CalendarEvent } from "../services/eventsService";
 import { parseDateWithoutTime } from "../utils/calendarDates";
 import { DayCell } from "./DayCell";
 import type { CalendarEventDisplay } from "./calendarTypes";
+import {
+  CalendarModuleIcon,
+  PersonModuleIcon,
+  TableModuleIcon
+} from "./icons/ModuleIcons";
 
 const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const weekDaysFull = [
@@ -253,7 +258,8 @@ export const Calendar = ({
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">
+              <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-indigo-500">
+                <CalendarModuleIcon title="" className="h-5 w-5" />
                 Calendario {viewMode === "weekly" ? "semanal" : "mensual"}
               </p>
               <div className="flex flex-wrap items-center gap-2">
@@ -376,12 +382,13 @@ export const Calendar = ({
               type="button"
               onClick={onMyEventsToggle}
               aria-pressed={myEventsOnly}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
                 myEventsOnly
                   ? "border-indigo-200 bg-indigo-500 text-white"
                   : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
               }`}
             >
+              <PersonModuleIcon title="" className="h-4 w-4" />
               Mis eventos
             </button>
             {showControlTableToggle ? (
@@ -389,12 +396,13 @@ export const Calendar = ({
                 type="button"
                 onClick={onControlTableToggle}
                 aria-pressed={controlTableEnabled}
-                className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
                   controlTableEnabled
                     ? "border-indigo-200 bg-indigo-500 text-white"
                     : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
                 }`}
               >
+                <TableModuleIcon title="" className="h-4 w-4" />
                 Tabla de control
               </button>
             ) : null}
