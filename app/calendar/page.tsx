@@ -82,15 +82,28 @@ const DECLARE_MAX_DURATION_MINUTES = MAX_DECLARABLE_HOURS * 60;
 const DECLARE_MIN_DURATION_HOURS = DECLARE_MIN_DURATION_MINUTES / 60;
 const DECLARE_START_MAX_MINUTES = DECLARE_RANGE_END_MINUTES - DECLARE_MIN_DURATION_MINUTES;
 const DEFAULT_CERTIFICATION: CertificationOption = "OTROS";
-const MENU_PLACEHOLDER = "- Entrante\n- Plato principal\n- Postre";
+const MENU_MAX_ITEMS = 8;
+const MENU_PLACEHOLDER = "Gamba con foie;Escalopines;Dulce de leche";
+const MENU_HELP_TEXT = "Añade hasta 8 platos. Se guardan separados por punto y coma (;).";
 
 const parseMenuItems = (menu?: string | null) =>
   (menu ?? "")
-    .split(/\r?\n/)
+    .split(/[;\r\n]+/)
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => line.replace(/^[-*•]\s*/, "").trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, MENU_MAX_ITEMS);
+
+const serializeMenuItems = (items: string[]) =>
+  items
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, MENU_MAX_ITEMS)
+    .join(";");
+
+const countMenuItems = (items: string[]) =>
+  items.map((item) => item.trim()).filter(Boolean).length;
 
 const minutesToTimeString = (totalMinutes: number) => {
   const hours = Math.floor(totalMinutes / 60);
@@ -318,7 +331,8 @@ export default function CalendarPage() {
     DEFAULT_CERTIFICATION
   );
   const [eventPromocion, setEventPromocion] = useState("");
-  const [eventMenu, setEventMenu] = useState("");
+  const [eventMenuItems, setEventMenuItems] = useState<string[]>([]);
+  const [eventMenuSlots, setEventMenuSlots] = useState(0);
   const [eventEstablishment, setEventEstablishment] = useState("");
   const [attendees, setAttendees] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -426,7 +440,6 @@ export default function CalendarPage() {
     establecimiento: string;
     certificacion: CertificationOption;
     promocion: string;
-    menu: string;
   };
   type MyEventGroup = {
     event: CalendarEvent;
@@ -442,9 +455,10 @@ export default function CalendarPage() {
     notas: "",
     establecimiento: "",
     certificacion: DEFAULT_CERTIFICATION,
-    promocion: "",
-    menu: ""
+    promocion: ""
   });
+  const [editMenuItems, setEditMenuItems] = useState<string[]>([]);
+  const [editMenuSlots, setEditMenuSlots] = useState(0);
   const [editStatus, setEditStatus] = useState({
     loading: false,
     error: "",
@@ -556,13 +570,15 @@ export default function CalendarPage() {
         notas: "",
         establecimiento: "",
         certificacion: DEFAULT_CERTIFICATION,
-        promocion: "",
-        menu: ""
+        promocion: ""
       });
+      setEditMenuItems([]);
+      setEditMenuSlots(0);
       setEditStatus({ loading: false, error: "", success: "" });
       return;
     }
 
+    const menuItems = parseMenuItems(selectedEvent.menu);
     setEditForm({
       nombre: selectedEvent.nombre ?? "",
       eventType: selectedEvent.eventType,
@@ -573,9 +589,10 @@ export default function CalendarPage() {
       establecimiento: selectedEvent.establecimiento ?? "",
       certificacion:
         normalizeCertification(selectedEvent.certificacion) || DEFAULT_CERTIFICATION,
-      promocion: selectedEvent.promocion ?? "",
-      menu: selectedEvent.menu ?? ""
+      promocion: selectedEvent.promocion ?? ""
     });
+    setEditMenuItems(menuItems);
+    setEditMenuSlots(menuItems.length);
     setEditStatus({ loading: false, error: "", success: "" });
   }, [selectedEvent]);
 
@@ -962,6 +979,12 @@ export default function CalendarPage() {
       maximumFractionDigits: 2
     });
 
+  const formatDateFromDate = (date?: Date | null) => {
+    if (!date) return "";
+    const pad = (item: number) => String(item).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
+
   const formatDateInput = (value?: string) => {
     if (!value) return "";
     const parsed = new Date(value);
@@ -1331,7 +1354,32 @@ export default function CalendarPage() {
     () => editForm.attendees.filter((attendee) => !validUsernames.has(attendee)),
     [editForm.attendees, validUsernames]
   );
-  const editMenuItems = useMemo(() => parseMenuItems(editForm.menu), [editForm.menu]);
+  const eventMenuCount = useMemo(() => countMenuItems(eventMenuItems), [eventMenuItems]);
+  const editMenuCount = useMemo(() => countMenuItems(editMenuItems), [editMenuItems]);
+
+  const handleAddEventMenuSlot = () => {
+    setEventMenuSlots((prev) => Math.min(MENU_MAX_ITEMS, prev + 1));
+  };
+
+  const handleAddEditMenuSlot = () => {
+    setEditMenuSlots((prev) => Math.min(MENU_MAX_ITEMS, prev + 1));
+  };
+
+  const handleEventMenuItemChange = (index: number, value: string) => {
+    setEventMenuItems((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next.slice(0, MENU_MAX_ITEMS);
+    });
+  };
+
+  const handleEditMenuItemChange = (index: number, value: string) => {
+    setEditMenuItems((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next.slice(0, MENU_MAX_ITEMS);
+    });
+  };
 
   const openEstablishmentModal = (target: "create" | "edit" | "bulk") => {
     setEstablishmentTarget(target);
@@ -1504,7 +1552,7 @@ export default function CalendarPage() {
         establecimiento: eventEstablishment,
         certificacion: normalizeCertification(eventCertificacion) || DEFAULT_CERTIFICATION,
         promocion: eventPromocion.trim(),
-        menu: eventMenu.trim()
+        menu: serializeMenuItems(eventMenuItems)
       });
 
       setEventName("");
@@ -1512,7 +1560,8 @@ export default function CalendarPage() {
       setEventNotes("");
       setEventCertificacion(DEFAULT_CERTIFICATION);
       setEventPromocion("");
-      setEventMenu("");
+      setEventMenuItems([]);
+      setEventMenuSlots(0);
       setFormStatus({
         loading: false,
         error: "",
@@ -1630,6 +1679,7 @@ export default function CalendarPage() {
     setBulkFormStatus({ loading: true, error: "", success: "" });
     try {
       const duration = 0;
+      const normalizedBulkMenu = serializeMenuItems(parseMenuItems(bulkEventMenu));
       await Promise.all(
         dateList.map((date) => {
           const startDate = buildEventDateTime(date, bulkEventStartTime);
@@ -1647,7 +1697,7 @@ export default function CalendarPage() {
             certificacion:
               normalizeCertification(bulkEventCertificacion) || DEFAULT_CERTIFICATION,
             promocion: bulkEventPromocion.trim(),
-            menu: bulkEventMenu.trim()
+            menu: normalizedBulkMenu
           });
         })
       );
@@ -1866,7 +1916,7 @@ export default function CalendarPage() {
             DEFAULT_CERTIFICATION
           : selectedEventCertification,
         promocion: canEditDetails ? editForm.promocion.trim() : selectedEventPromotion,
-        menu: canEditDetails ? editForm.menu.trim() : selectedEventMenu
+        menu: canEditDetails ? serializeMenuItems(editMenuItems) : selectedEventMenu
       };
 
       const groupedEvents = allEvents.filter(
@@ -3392,7 +3442,7 @@ export default function CalendarPage() {
         onClick={closeCreateModal}
       >
         <div
-          className={`max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/70 bg-white/90 p-6 shadow-soft transition ${
+          className={`max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white/70 bg-white/90 p-6 shadow-soft transition ${
             isCreateModalOpen ? "translate-y-0 scale-100" : "translate-y-4 scale-95"
           }`}
           onClick={(event) => event.stopPropagation()}
@@ -3428,244 +3478,269 @@ export default function CalendarPage() {
               </span>
             )}
           </div>
-          <form className="mt-6 flex flex-col gap-4" onSubmit={handleCreateEvent}>
-            <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Nombre
-                <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  type="text"
-                  value={eventName}
-                  onChange={(event) => setEventName(event.target.value)}
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Tipo de evento
-                <select
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                  value={eventType}
-                  onChange={(event) =>
-                    setEventType(event.target.value as EventCategory)
-                  }
-                >
-                  {EVENT_CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {EVENT_CATEGORY_META[category].label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Hora inicio
-              <input
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                type="time"
-                value={eventStartTime}
-                onChange={(event) => setEventStartTime(event.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Establecimiento
-              <button
-                type="button"
-                onClick={() => openEstablishmentModal("create")}
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300"
-              >
-                <span className="truncate">
-                  {eventEstablishment || "Selecciona un establecimiento"}
-                </span>
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500">
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+          <form className="mt-6 flex flex-col gap-6" onSubmit={handleCreateEvent}>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div className="flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Nombre
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    type="text"
+                    value={eventName}
+                    onChange={(event) => setEventName(event.target.value)}
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Tipo de evento
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={eventType}
+                    onChange={(event) => setEventType(event.target.value as EventCategory)}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="m21 21-4.35-4.35m1.1-4.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
-                    />
-                  </svg>
-                </span>
-              </button>
-              {establishmentsError ? (
-                <span className="text-xs text-rose-500">{establishmentsError}</span>
-              ) : null}
-            </label>
-            <div className="flex flex-col gap-3 text-sm font-medium text-slate-600">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span>Asistentes</span>
-                <span className="text-xs font-semibold text-slate-400">
-                  {attendees.length} seleccionados
-                </span>
-              </div>
-              {usersError ? (
-                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
-                  {usersError}
-                </p>
-              ) : null}
-              <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Usuarios disponibles
-                  </span>
-                  <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
-                    {usersLoading ? (
-                      <p className="text-xs text-slate-400">Cargando usuarios...</p>
-                    ) : sortedUsers.length === 0 ? (
-                      <p className="text-xs text-slate-400">
-                        No hay usuarios registrados.
-                      </p>
-                    ) : availableCreateUsers.length === 0 ? (
-                      <p className="text-xs text-slate-400">
-                        No hay usuarios disponibles.
-                      </p>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        {availableCreateUsers.map((user) => {
-                          const color = getUserColor(user.user);
-                          return (
-                            <button
-                              key={user.$id}
-                              type="button"
-                              onClick={() => handleAddAttendee(user.user, "create")}
-                              className="flex items-center justify-between gap-3"
-                              aria-label={`Añadir ${user.user}`}
-                            >
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span
-                                  className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                  aria-hidden="true"
-                                />
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
-                                >
-                                  {user.user}
-                                </span>
-                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                                  {user.role}
-                                </span>
-                              </div>
-                              <span className="text-xs text-slate-400">
-                                Clic para añadir
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {EVENT_CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {EVENT_CATEGORY_META[category].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Fecha
+                  <input
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-600 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    type="date"
+                    value={formatDateFromDate(selectedDate)}
+                    disabled
+                  />
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Hora inicio
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    type="time"
+                    value={eventStartTime}
+                    onChange={(event) => setEventStartTime(event.target.value)}
+                  />
+                </label>
+                <div className="flex flex-col gap-3 text-sm font-medium text-slate-600">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>Asistentes</span>
+                    <span className="text-xs font-semibold text-slate-400">
+                      {attendees.length} seleccionados
+                    </span>
                   </div>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Seleccionados
-                  </span>
-                  <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
-                    {attendees.length === 0 ? (
-                      <p className="text-xs text-slate-400">
-                        Haz clic en un usuario para añadirlo.
-                      </p>
-                    ) : (
+                  {usersError ? (
+                    <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                      {usersError}
+                    </p>
+                  ) : usersLoading ? (
+                    <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                      Cargando usuarios...
+                    </p>
+                  ) : (
+                    <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
                       <div className="flex flex-col gap-2">
-                        {attendees.map((attendee) => {
-                          const color = getUserColor(attendee);
-                          const role = userLookup.get(attendee)?.role;
-                          return (
-                            <button
-                              key={attendee}
-                              type="button"
-                              onClick={() =>
-                                handleRemoveAttendee(attendee, "create")
-                              }
-                              className="flex items-center justify-between gap-3"
-                              aria-label={`Quitar ${attendee}`}
-                            >
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span
-                                  className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                  aria-hidden="true"
-                                />
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
-                                >
-                                  {attendee}
-                                </span>
-                                {role ? (
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                                    {role}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <span className="text-xs text-rose-500">
-                                Clic para quitar
-                              </span>
-                            </button>
-                          );
-                        })}
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Disponibles
+                        </span>
+                        <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                          {availableCreateUsers.length === 0 ? (
+                            <p className="text-xs text-slate-400">No hay más usuarios.</p>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              {availableCreateUsers.map((user) => {
+                                const color = getUserColor(user.user);
+                                return (
+                                  <button
+                                    key={user.$id}
+                                    type="button"
+                                    onClick={() => handleAddAttendee(user.user, "create")}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-indigo-300"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span
+                                        className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                        aria-hidden="true"
+                                      />
+                                      <span
+                                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                      >
+                                        {user.user}
+                                      </span>
+                                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                        {user.role}
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-slate-400">Clic para añadir</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+                      <div className="flex flex-col gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Seleccionados
+                        </span>
+                        <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                          {attendees.length === 0 ? (
+                            <p className="text-xs text-slate-400">Haz clic en un usuario para añadirlo.</p>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              {attendees.map((attendee) => {
+                                const color = getUserColor(attendee);
+                                const role = userLookup.get(attendee)?.role;
+                                return (
+                                  <button
+                                    key={attendee}
+                                    type="button"
+                                    onClick={() => handleRemoveAttendee(attendee, "create")}
+                                    className="flex items-center justify-between gap-3"
+                                    aria-label={`Quitar ${attendee}`}
+                                  >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span
+                                        className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                        aria-hidden="true"
+                                      />
+                                      <span
+                                        className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                      >
+                                        {attendee}
+                                      </span>
+                                      {role ? (
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                          {role}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <span className="text-xs text-rose-500">Clic para quitar</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {invalidCreateAttendees.length > 0 ? (
+                    <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                      Hay asistentes que no existen en la tabla de usuarios.
+                    </p>
+                  ) : null}
                 </div>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Certificación
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={eventCertificacion}
+                    onChange={(event) =>
+                      setEventCertificacion(
+                        normalizeCertification(event.target.value) || DEFAULT_CERTIFICATION
+                      )
+                    }
+                  >
+                    {CERTIFICATION_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {CERTIFICATION_LABELS[option]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Promoción
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    type="text"
+                    value={eventPromocion}
+                    onChange={(event) => setEventPromocion(event.target.value)}
+                  />
+                </label>
               </div>
-            {invalidCreateAttendees.length > 0 ? (
-              <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
-                Hay asistentes que no existen en la tabla de usuarios.
-              </p>
-            ) : null}
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Certificación
-              <select
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                value={eventCertificacion}
-                onChange={(event) =>
-                  setEventCertificacion(
-                    normalizeCertification(event.target.value) || DEFAULT_CERTIFICATION
-                  )
-                }
-              >
-                {CERTIFICATION_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {CERTIFICATION_LABELS[option]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Promoción
-              <input
-                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                type="text"
-                value={eventPromocion}
-                onChange={(event) => setEventPromocion(event.target.value)}
-              />
-            </label>
-          </div>
-          <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-            Menú
-            <textarea
-              className="min-h-[110px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-              value={eventMenu}
-              onChange={(event) => setEventMenu(event.target.value)}
-              placeholder={MENU_PLACEHOLDER}
-            />
-            <span className="text-xs text-slate-400">
-              Escribe un elemento por línea para maquetar el menú con puntos.
-            </span>
-          </label>
-          <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-            Notas
-            <textarea
-              className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-              value={eventNotes}
-                onChange={(event) => setEventNotes(event.target.value)}
-              />
-            </label>
+              <div className="flex flex-col gap-4">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Establecimiento
+                  <button
+                    type="button"
+                    onClick={() => openEstablishmentModal("create")}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300"
+                  >
+                    <span className="truncate">
+                      {eventEstablishment || "Selecciona un establecimiento"}
+                    </span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500">
+                      <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="m21 21-4.35-4.35m1.1-4.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                        />
+                      </svg>
+                    </span>
+                  </button>
+                  {establishmentsError ? (
+                    <span className="text-xs text-rose-500">{establishmentsError}</span>
+                  ) : null}
+                </label>
+                <div className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span>Menú</span>
+                    <span className="text-xs font-semibold text-slate-400">
+                      {eventMenuCount}/{MENU_MAX_ITEMS}
+                    </span>
+                  </div>
+                  {eventMenuSlots === 0 ? (
+                    <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-500">
+                      Pulsa en “Añadir plato” para empezar a construir el menú.
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {Array.from({ length: eventMenuSlots }, (_, index) => (
+                        <input
+                          key={`create-menu-${index}`}
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                          type="text"
+                          value={eventMenuItems[index] ?? ""}
+                          onChange={(event) => handleEventMenuItemChange(index, event.target.value)}
+                          placeholder={`Plato ${index + 1}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {eventMenuSlots < MENU_MAX_ITEMS ? (
+                    <button
+                      type="button"
+                      onClick={handleAddEventMenuSlot}
+                      className="inline-flex items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-100"
+                    >
+                      Añadir plato
+                    </button>
+                  ) : (
+                    <p className="text-xs font-semibold text-slate-400">
+                      Límite de {MENU_MAX_ITEMS} platos alcanzado.
+                    </p>
+                  )}
+                  <span className="text-xs text-slate-400">{MENU_HELP_TEXT}</span>
+                </div>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Notas
+                  <textarea
+                    className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={eventNotes}
+                    onChange={(event) => setEventNotes(event.target.value)}
+                  />
+                </label>
+              </div>
+            </div>
             {formStatus.error ? (
               <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
                 {formStatus.error}
@@ -3836,7 +3911,7 @@ export default function CalendarPage() {
                     placeholder={MENU_PLACEHOLDER}
                   />
                   <span className="text-xs text-slate-400">
-                    Escribe un elemento por línea para maquetar el menú con puntos.
+                    Puedes separarlos con “;” o en líneas distintas (máximo 8 platos).
                   </span>
                 </label>
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
@@ -4120,7 +4195,7 @@ export default function CalendarPage() {
         onClick={closeEventModal}
       >
         <div
-          className={`max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/70 bg-white/90 p-6 shadow-soft transition ${
+          className={`max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white/70 bg-white/90 p-6 shadow-soft transition ${
             selectedEvent ? "translate-y-0 scale-100" : "translate-y-4 scale-95"
           }`}
           onClick={(event) => event.stopPropagation()}
@@ -4146,293 +4221,299 @@ export default function CalendarPage() {
             </button>
           </div>
           {selectedEvent ? (
-            <form className="mt-4 flex flex-col gap-4" onSubmit={handleUpdateEvent}>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Nombre
-                <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                  type="text"
-                  value={editForm.nombre}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({ ...prev, nombre: event.target.value }))
-                  }
-                  disabled={!canEditDetails}
-                />
-              </label>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                  Tipo de evento
-                  <select
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                    value={editForm.eventType}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        eventType: event.target.value as EventCategory
-                      }))
-                    }
-                    disabled={!canEditDetails}
-                  >
-                    {EVENT_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {EVENT_CATEGORY_META[category].label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                  Fecha
-                  <input
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                    type="date"
-                    value={editForm.fecha}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({ ...prev, fecha: event.target.value }))
-                    }
-                    disabled={!canEditDetails}
-                  />
-                </label>
-              </div>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Hora inicio
-                <input
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                  type="time"
-                  value={editForm.horaInicio}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      horaInicio: event.target.value
-                    }))
-                  }
-                  disabled={!canEditDetails}
-                />
-              </label>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Establecimiento
-                <button
-                  type="button"
-                  onClick={() => openEstablishmentModal("edit")}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                  disabled={!canEditDetails}
-                >
-                  <span className="truncate">
-                    {editForm.establecimiento || "Selecciona un establecimiento"}
-                  </span>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500">
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
+            <form className="mt-4 flex flex-col gap-6" onSubmit={handleUpdateEvent}>
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="flex flex-col gap-4">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Nombre
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      type="text"
+                      value={editForm.nombre}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, nombre: event.target.value }))
+                      }
+                      disabled={!canEditDetails}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Tipo de evento
+                    <select
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      value={editForm.eventType}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          eventType: event.target.value as EventCategory
+                        }))
+                      }
+                      disabled={!canEditDetails}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m21 21-4.35-4.35m1.1-4.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
-                      />
-                    </svg>
-                  </span>
-                </button>
-              </label>
-              <div className="flex flex-col gap-3 text-sm font-medium text-slate-600">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>Asistentes</span>
-                  <span className="text-xs font-semibold text-slate-400">
-                    {editForm.attendees.length} seleccionados
-                  </span>
-                </div>
-                {usersError ? (
-                  <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
-                    {usersError}
-                  </p>
-                ) : null}
-                <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Usuarios disponibles
-                    </span>
-                    <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
-                      {usersLoading ? (
-                        <p className="text-xs text-slate-400">Cargando usuarios...</p>
-                      ) : sortedUsers.length === 0 ? (
-                        <p className="text-xs text-slate-400">
-                          No hay usuarios registrados.
-                        </p>
-                      ) : availableEditUsers.length === 0 ? (
-                        <p className="text-xs text-slate-400">
-                          No hay usuarios disponibles.
-                        </p>
-                      ) : (
-                        <div className="flex flex-col gap-2">
-                          {availableEditUsers.map((user) => {
-                            const color = getUserColor(user.user);
-                            return (
-                              <button
-                                key={user.$id}
-                                type="button"
-                                onClick={() => handleAddAttendee(user.user, "edit")}
-                                className="flex items-center justify-between gap-3"
-                                aria-label={`Añadir ${user.user}`}
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span
-                                    className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                    aria-hidden="true"
-                                  />
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
-                                  >
-                                    {user.user}
-                                  </span>
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                                    {user.role}
-                                  </span>
-                                </div>
-                                <span className="text-xs text-slate-400">
-                                  Clic para añadir
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
+                      {EVENT_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {EVENT_CATEGORY_META[category].label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Fecha
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      type="date"
+                      value={editForm.fecha}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, fecha: event.target.value }))
+                      }
+                      disabled={!canEditDetails}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Hora inicio
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      type="time"
+                      value={editForm.horaInicio}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          horaInicio: event.target.value
+                        }))
+                      }
+                      disabled={!canEditDetails}
+                    />
+                  </label>
+                  <div className="flex flex-col gap-3 text-sm font-medium text-slate-600">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>Asistentes</span>
+                      <span className="text-xs font-semibold text-slate-400">
+                        {editForm.attendees.length} seleccionados
+                      </span>
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                      Seleccionados
-                    </span>
-                    <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
-                      {editForm.attendees.length === 0 ? (
-                        <p className="text-xs text-slate-400">
-                          Haz clic en un usuario para añadirlo.
-                        </p>
-                      ) : (
+                    {usersError ? (
+                      <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                        {usersError}
+                      </p>
+                    ) : usersLoading ? (
+                      <p className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-500">
+                        Cargando usuarios...
+                      </p>
+                    ) : (
+                      <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
                         <div className="flex flex-col gap-2">
-                          {editForm.attendees.map((attendee) => {
-                            const color = getUserColor(attendee);
-                            const role = userLookup.get(attendee)?.role;
-                            return (
-                              <button
-                                key={attendee}
-                                type="button"
-                                onClick={() =>
-                                  handleRemoveAttendee(attendee, "edit")
-                                }
-                                className="flex items-center justify-between gap-3"
-                                aria-label={`Quitar ${attendee}`}
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span
-                                    className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                    aria-hidden="true"
-                                  />
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
-                                  >
-                                    {attendee}
-                                  </span>
-                                  {role ? (
-                                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                                      {role}
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <span className="text-xs text-rose-500">
-                                  Clic para quitar
-                                </span>
-                              </button>
-                            );
-                          })}
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Disponibles
+                          </span>
+                          <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+                            {availableEditUsers.length === 0 ? (
+                              <p className="text-xs text-slate-400">No hay más usuarios.</p>
+                            ) : (
+                              <div className="flex flex-col gap-2">
+                                {availableEditUsers.map((user) => {
+                                  const color = getUserColor(user.user);
+                                  return (
+                                    <button
+                                      key={user.$id}
+                                      type="button"
+                                      onClick={() => handleAddAttendee(user.user, "edit")}
+                                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-indigo-300 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                                      disabled={!canEditDetails}
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span
+                                          className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                          aria-hidden="true"
+                                        />
+                                        <span
+                                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                        >
+                                          {user.user}
+                                        </span>
+                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                          {user.role}
+                                        </span>
+                                      </div>
+                                      <span className="text-xs text-slate-400">Clic para añadir</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
+                        <div className="flex flex-col gap-2">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Seleccionados
+                          </span>
+                          <div className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                            {editForm.attendees.length === 0 ? (
+                              <p className="text-xs text-slate-400">Haz clic en un usuario para añadirlo.</p>
+                            ) : (
+                              <div className="flex flex-col gap-2">
+                                {editForm.attendees.map((attendee) => {
+                                  const color = getUserColor(attendee);
+                                  const role = userLookup.get(attendee)?.role;
+                                  return (
+                                    <button
+                                      key={attendee}
+                                      type="button"
+                                      onClick={() => handleRemoveAttendee(attendee, "edit")}
+                                      className="flex items-center justify-between gap-3 disabled:cursor-not-allowed"
+                                      aria-label={`Quitar ${attendee}`}
+                                      disabled={!canEditDetails}
+                                    >
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span
+                                          className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                          aria-hidden="true"
+                                        />
+                                        <span
+                                          className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                        >
+                                          {attendee}
+                                        </span>
+                                        {role ? (
+                                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                            {role}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <span className="text-xs text-rose-500">Clic para quitar</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {invalidEditAttendees.length > 0 ? (
+                      <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                        Hay asistentes que no existen en la tabla de usuarios.
+                      </p>
+                    ) : null}
                   </div>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Certificación
+                    <select
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      value={editForm.certificacion}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({
+                          ...prev,
+                          certificacion:
+                            normalizeCertification(event.target.value) || DEFAULT_CERTIFICATION
+                        }))
+                      }
+                      disabled={!canEditDetails}
+                    >
+                      {CERTIFICATION_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {CERTIFICATION_LABELS[option]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Promoción
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      type="text"
+                      value={editForm.promocion}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, promocion: event.target.value }))
+                      }
+                      disabled={!canEditDetails}
+                    />
+                  </label>
                 </div>
-                {invalidEditAttendees.length > 0 ? (
-                  <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
-                    Hay asistentes que no existen en la tabla de usuarios.
-                  </p>
-                ) : null}
+                <div className="flex flex-col gap-4">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Establecimiento
+                    <button
+                      type="button"
+                      onClick={() => openEstablishmentModal("edit")}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      disabled={!canEditDetails}
+                    >
+                      <span className="truncate">
+                        {editForm.establecimiento || "Selecciona un establecimiento"}
+                      </span>
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500">
+                        <svg
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m21 21-4.35-4.35m1.1-4.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                  </label>
+                  <div className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>Menú</span>
+                      <span className="text-xs font-semibold text-slate-400">
+                        {editMenuCount}/{MENU_MAX_ITEMS}
+                      </span>
+                    </div>
+                    {editMenuSlots === 0 ? (
+                      <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-500">
+                        Pulsa en “Añadir plato” para empezar a construir el menú.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {Array.from({ length: editMenuSlots }, (_, index) => (
+                          <input
+                            key={`edit-menu-${index}`}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                            type="text"
+                            value={editMenuItems[index] ?? ""}
+                            onChange={(event) => handleEditMenuItemChange(index, event.target.value)}
+                            placeholder={`Plato ${index + 1}`}
+                            disabled={!canEditDetails}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {canEditDetails ? (
+                      editMenuSlots < MENU_MAX_ITEMS ? (
+                        <button
+                          type="button"
+                          onClick={handleAddEditMenuSlot}
+                          className="inline-flex items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-100"
+                        >
+                          Añadir plato
+                        </button>
+                      ) : (
+                        <p className="text-xs font-semibold text-slate-400">
+                          Límite de {MENU_MAX_ITEMS} platos alcanzado.
+                        </p>
+                      )
+                    ) : null}
+                    <span className="text-xs text-slate-400">{MENU_HELP_TEXT}</span>
+                  </div>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Notas
+                    <textarea
+                      className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      value={editForm.notas}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, notas: event.target.value }))
+                      }
+                      disabled={!canEditDetails}
+                    />
+                  </label>
+                </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                  Certificación
-                  <select
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                    value={editForm.certificacion}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        certificacion:
-                          normalizeCertification(event.target.value) || DEFAULT_CERTIFICATION
-                      }))
-                    }
-                    disabled={!canEditDetails}
-                  >
-                    {CERTIFICATION_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {CERTIFICATION_LABELS[option]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                  Promoción
-                  <input
-                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                    type="text"
-                    value={editForm.promocion}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({ ...prev, promocion: event.target.value }))
-                    }
-                    disabled={!canEditDetails}
-                  />
-                </label>
-              </div>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Menú
-                <textarea
-                  className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                  value={editForm.menu}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({ ...prev, menu: event.target.value }))
-                  }
-                  placeholder={MENU_PLACEHOLDER}
-                  disabled={!canEditDetails}
-                />
-                <span className="text-xs text-slate-400">
-                  Escribe un elemento por línea para maquetar el menú con puntos.
-                </span>
-              </label>
-              <div className="flex flex-col gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 text-sm text-slate-700">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Vista previa del menú
-                </span>
-                {editMenuItems.length > 0 ? (
-                  <ul className="list-disc space-y-1 pl-5 marker:text-indigo-500">
-                    {editMenuItems.map((item, index) => (
-                      <li key={`${item}-${index}`}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-slate-500">Sin menú definido.</p>
-                )}
-              </div>
-              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                Notas
-                <textarea
-                  className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                  value={editForm.notas}
-                  onChange={(event) =>
-                    setEditForm((prev) => ({ ...prev, notas: event.target.value }))
-                  }
-                  disabled={!canEditDetails}
-                />
-              </label>
               {editStatus.error ? (
                 <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
                   {editStatus.error}
