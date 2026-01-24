@@ -3,6 +3,7 @@ import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClien
 
 export type HorasDeclaradasRecord = Models.Document & {
   horasDeclaradas?: number | string | null;
+  horasDeclaradasRango?: string;
   user: string;
   motivo?: string;
   fechaHorasDeclaradas?: string;
@@ -11,6 +12,7 @@ export type HorasDeclaradasRecord = Models.Document & {
 type CreateHorasDeclaradasInput = {
   user: string;
   horasDeclaradas: number;
+  horasDeclaradasRango: string;
   motivo: string;
   fechaHorasDeclaradas: string;
 };
@@ -69,6 +71,7 @@ export const sumHorasDeclaradasForUser = async (username: string): Promise<numbe
 export const createHorasDeclaradas = async ({
   user,
   horasDeclaradas,
+  horasDeclaradasRango,
   motivo,
   fechaHorasDeclaradas
 }: CreateHorasDeclaradasInput): Promise<HorasDeclaradasRecord> => {
@@ -80,6 +83,7 @@ export const createHorasDeclaradas = async ({
     {
       user,
       horasDeclaradas,
+      horasDeclaradasRango,
       motivo,
       fechaHorasDeclaradas
     }

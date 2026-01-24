@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.30
+- El slider de "Declarar horas" ahora selecciona la hora de inicio dentro de la ventana 07:30-16:30, manteniendo una duración fija de 7 horas enteras.
+- Se muestra el rango calculado (inicio-fin) y la ventana diaria permitida directamente en el modal para mayor claridad.
+- Se guarda el nuevo campo `horasDeclaradasRango` en la colección `horasDeclaradas` con el formato `HH:MM-HH:MM` derivado del slider.
+
 ## v0.2.29
 - Restricción del slider "Declarar horas" para permitir solo horas enteras (mínimo 1 hora, paso 1).
 - Validación adicional en el envío para rechazar valores no enteros y mostrar un mensaje claro al usuario.

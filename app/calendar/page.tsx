@@ -49,6 +49,33 @@ const MONTH_NAMES = [
 const HOURS_PER_EVENT = 3;
 const MAX_DECLARABLE_HOURS = 7;
 const MAX_REASON_LENGTH = 200;
+const DECLARE_RANGE_START_MINUTES = 7 * 60 + 30;
+const DECLARE_RANGE_END_MINUTES = 16 * 60 + 30;
+const DECLARE_START_STEP_MINUTES = 60;
+const DECLARE_DURATION_MINUTES = MAX_DECLARABLE_HOURS * 60;
+const DECLARE_START_MAX_MINUTES = DECLARE_RANGE_END_MINUTES - DECLARE_DURATION_MINUTES;
+
+const minutesToTimeString = (totalMinutes: number) => {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}`;
+};
+
+const roundToDeclareStep = (minutes: number) => {
+  const stepsFromStart = Math.round(
+    (minutes - DECLARE_RANGE_START_MINUTES) / DECLARE_START_STEP_MINUTES
+  );
+  return DECLARE_RANGE_START_MINUTES + stepsFromStart * DECLARE_START_STEP_MINUTES;
+};
+
+const clampDeclareStartMinutes = (minutes: number) =>
+  Math.min(DECLARE_START_MAX_MINUTES, Math.max(DECLARE_RANGE_START_MINUTES, minutes));
+
+const formatDeclareRange = (startMinutes: number) =>
+  `${minutesToTimeString(startMinutes)}-${minutesToTimeString(
+    startMinutes + DECLARE_DURATION_MINUTES
+  )}`;
 
 const formatDateTime = (date: Date) => {
   const pad = (value: number, length = 2) => String(value).padStart(length, "0");
@@ -205,7 +232,10 @@ export default function CalendarPage() {
     lastUpdated: ""
   });
   const [isDeclareHoursModalOpen, setIsDeclareHoursModalOpen] = useState(false);
-  const [declareHoursValue, setDeclareHoursValue] = useState(1);
+  const [declareHoursValue, setDeclareHoursValue] = useState(MAX_DECLARABLE_HOURS);
+  const [declareStartMinutes, setDeclareStartMinutes] = useState(
+    DECLARE_RANGE_START_MINUTES
+  );
   const [declareHoursReason, setDeclareHoursReason] = useState("");
   const [declareMonth, setDeclareMonth] = useState(today.getMonth());
   const [declareYear, setDeclareYear] = useState(today.getFullYear());
@@ -470,7 +500,8 @@ export default function CalendarPage() {
 
   const openDeclareHoursModal = () => {
     const baseDate = new Date(today);
-    setDeclareHoursValue(1);
+    setDeclareHoursValue(MAX_DECLARABLE_HOURS);
+    setDeclareStartMinutes(DECLARE_RANGE_START_MINUTES);
     setDeclareHoursReason("");
     setDeclareMonth(baseDate.getMonth());
     setDeclareYear(baseDate.getFullYear());
@@ -536,7 +567,33 @@ export default function CalendarPage() {
       return;
     }
 
-    const sanitizedDeclareHoursValue = Math.round(declareHoursValue);
+    const sanitizedDeclareHoursValue = MAX_DECLARABLE_HOURS;
+    if (!Number.isFinite(declareStartMinutes)) {
+      setDeclareStatus({
+        loading: false,
+        error: "Selecciona una hora de inicio válida.",
+        success: ""
+      });
+      return;
+    }
+
+    const sanitizedDeclareStartMinutes = clampDeclareStartMinutes(
+      roundToDeclareStep(declareStartMinutes)
+    );
+    const declareEndMinutes = sanitizedDeclareStartMinutes + DECLARE_DURATION_MINUTES;
+
+    if (declareEndMinutes > DECLARE_RANGE_END_MINUTES) {
+      setDeclareStatus({
+        loading: false,
+        error: "La jornada debe finalizar como máximo a las 16:30.",
+        success: ""
+      });
+      return;
+    }
+
+    setDeclareStartMinutes(sanitizedDeclareStartMinutes);
+    setDeclareHoursValue(MAX_DECLARABLE_HOURS);
+    const horasDeclaradasRango = formatDeclareRange(sanitizedDeclareStartMinutes);
 
     setDeclareStatus({
       loading: true,
@@ -557,6 +614,7 @@ export default function CalendarPage() {
       await createHorasDeclaradas({
         user: username,
         horasDeclaradas: sanitizedDeclareHoursValue,
+        horasDeclaradasRango,
         motivo: declareHoursReason.trim(),
         fechaHorasDeclaradas: formatDateTime(declarationDate)
       });
@@ -715,13 +773,26 @@ export default function CalendarPage() {
     () => parseDateInput(declareSelectedDateKey),
     [declareSelectedDateKey]
   );
-  const declareSliderPercent = Math.min(
-    100,
-    (declareHoursValue / MAX_DECLARABLE_HOURS) * 100
-  );
+  const declareStartRange = DECLARE_START_MAX_MINUTES - DECLARE_RANGE_START_MINUTES;
+  const declareSliderPercent =
+    declareStartRange > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((declareStartMinutes - DECLARE_RANGE_START_MINUTES) / declareStartRange) * 100
+          )
+        )
+      : 100;
   const declareSliderStyle = {
     background: `linear-gradient(90deg, rgb(99 102 241) 0%, rgb(99 102 241) ${declareSliderPercent}%, rgb(226 232 240) ${declareSliderPercent}%, rgb(226 232 240) 100%)`
   };
+  const declareEndMinutes = declareStartMinutes + DECLARE_DURATION_MINUTES;
+  const declareRangeLabel = formatDeclareRange(declareStartMinutes);
+  const declareWindowLabel = `${minutesToTimeString(DECLARE_RANGE_START_MINUTES)}-${minutesToTimeString(
+    DECLARE_RANGE_END_MINUTES
+  )}`;
+  const declareLatestStartLabel = minutesToTimeString(DECLARE_START_MAX_MINUTES);
 
   const hoursChartMax = Math.max(hoursSummary.obtained + 10, 10);
   const hoursChartBars = [
@@ -2361,8 +2432,8 @@ export default function CalendarPage() {
                 Declarar horas
               </h3>
               <p className="mt-1 text-sm text-slate-500">
-                Registra horas enteras con un máximo de {MAX_DECLARABLE_HOURS} h
-                por día.
+                Registra una jornada fija de {MAX_DECLARABLE_HOURS} h enteras y
+                elige la hora de inicio.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -2395,33 +2466,45 @@ export default function CalendarPage() {
                   <p className="mt-1 text-3xl font-semibold text-indigo-700">
                     {formatHoursValue(declareHoursValue)} h
                   </p>
+                  <p className="mt-1 text-xs font-semibold text-indigo-500">
+                    Rango: {declareRangeLabel}
+                  </p>
                 </div>
                 <div className="rounded-2xl border border-indigo-100 bg-white/80 px-4 py-2 text-right">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Máximo diario
+                    Ventana diaria
                   </p>
                   <p className="text-lg font-semibold text-slate-700">
-                    {MAX_DECLARABLE_HOURS} h
+                    {declareWindowLabel}
                   </p>
                 </div>
               </div>
               <div className="mt-5 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                  <span>Inicio {minutesToTimeString(declareStartMinutes)}</span>
+                  <span>Fin {minutesToTimeString(declareEndMinutes)}</span>
+                </div>
                 <input
                   type="range"
-                  min={1}
-                  max={MAX_DECLARABLE_HOURS}
-                  step={1}
-                  value={declareHoursValue}
+                  min={DECLARE_RANGE_START_MINUTES}
+                  max={DECLARE_START_MAX_MINUTES}
+                  step={DECLARE_START_STEP_MINUTES}
+                  value={declareStartMinutes}
                   onChange={(event) => {
-                    setDeclareHoursValue(Number(event.target.value));
+                    setDeclareStartMinutes(Number(event.target.value));
+                    setDeclareHoursValue(MAX_DECLARABLE_HOURS);
                     clearDeclareMessages();
                   }}
                   style={declareSliderStyle}
                   className="h-3 w-full cursor-pointer appearance-none rounded-full border border-indigo-100 bg-slate-200/80 accent-indigo-500 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white/80 [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition hover:[&::-webkit-slider-thumb]:scale-105"
                 />
                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  <span>1 h</span>
-                  <span>{MAX_DECLARABLE_HOURS} h</span>
+                  <span>{minutesToTimeString(DECLARE_RANGE_START_MINUTES)}</span>
+                  <span>Último inicio {declareLatestStartLabel}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <span>Ventana {declareWindowLabel}</span>
+                  <span>Duración fija {MAX_DECLARABLE_HOURS} h</span>
                 </div>
               </div>
             </section>
