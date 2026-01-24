@@ -148,3 +148,41 @@ export const TableModuleIcon = ({ title = "Tabla de control", ...props }: IconPr
     </svg>
   );
 };
+
+export const RestaurantModuleIcon = ({
+  title = "Restaurantes",
+  ...props
+}: IconProps) => {
+  const gradientId = useId().replace(/:/g, "");
+  const accentId = useId().replace(/:/g, "");
+  return (
+    <svg aria-hidden={title ? undefined : true} role="img" {...baseProps} {...props}>
+      {title ? <title>{title}</title> : null}
+      <defs>
+        <linearGradient id={gradientId} x1="5" y1="4" x2="19" y2="20">
+          <stop offset="0%" stopColor="#F97316" />
+          <stop offset="55%" stopColor="#FB7185" />
+          <stop offset="100%" stopColor="#EC4899" />
+        </linearGradient>
+        <linearGradient id={accentId} x1="7" y1="8" x2="17" y2="16">
+          <stop offset="0%" stopColor="#38BDF8" />
+          <stop offset="100%" stopColor="#22D3EE" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 3.8c-3.1 0-5.6 2.4-5.6 5.4 0 3.9 4.2 8.5 5.1 9.4.3.3.7.3 1 0 .9-.9 5.1-5.5 5.1-9.4 0-3-2.5-5.4-5.6-5.4Z"
+        fill={`url(#${gradientId})`}
+        opacity="0.18"
+        stroke={`url(#${gradientId})`}
+        strokeWidth="1.6"
+      />
+      <circle cx="12" cy="9.2" r="2.4" fill={`url(#${accentId})`} />
+      <path
+        d="M8.2 19.6h7.6"
+        stroke={`url(#${gradientId})`}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+};

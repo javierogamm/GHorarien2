@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.42
+- Se añade el módulo completo de **Restaurantes** con acceso desde el panel superior, "Mis eventos" y "Tabla de control".
+- La gestión de restaurantes incorpora estado **sugerido/aceptado**, listado en acordeón y detalle con dirección, teléfono y enlace a Maps con icono.
+- Se habilitan acciones de sugerir, crear (con ID correlativo `establecimientoId`), editar y eliminar; además, los roles Admin/Boss/Eventmaster pueden aceptar sugerencias.
+- Se consolida la versión de la app en `0.2.42`.
+
 ## v0.2.41
 - En la vista mensual, se reserva más espacio para el contador de asistentes y se trunca el nombre justo antes del número.
 - En la vista semanal, el nombre y el establecimiento se separan en dos líneas sin el separador "•".

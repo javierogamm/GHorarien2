@@ -14,6 +14,7 @@ import {
   CalendarModuleIcon,
   HourglassModuleIcon,
   PersonModuleIcon,
+  RestaurantModuleIcon,
   TableModuleIcon
 } from "../../components/icons/ModuleIcons";
 import {
@@ -31,9 +32,13 @@ import {
   type CalendarEvent,
   createEstablishment,
   createEventsForAttendees,
+  deleteEstablishment,
   deleteEvent,
+  type EstablishmentRecord,
+  type EstablishmentStatus,
   fetchAllEvents,
   fetchEstablishments,
+  updateEstablishment,
   updateEvent
 } from "../../services/eventsService";
 import {
@@ -86,6 +91,11 @@ const DEFAULT_ESTABLISHMENT = "Rte. Goya (Hotel Diagonal Plaza)";
 const MENU_MAX_ITEMS = 8;
 const MENU_PLACEHOLDER = "Gamba con foie;Escalopines;Dulce de leche";
 const MENU_HELP_TEXT = "Añade hasta 8 platos. Se guardan separados por punto y coma (;).";
+const ESTABLISHMENT_STATUSES: EstablishmentStatus[] = ["sugerido", "aceptado"];
+const ESTABLISHMENT_STATUS_LABELS: Record<EstablishmentStatus, string> = {
+  sugerido: "Sugerido",
+  aceptado: "Aceptado"
+};
 const EVENT_NAME_DATE_FORMATTER = new Intl.DateTimeFormat("es-ES", {
   day: "2-digit",
   month: "2-digit",
@@ -165,6 +175,33 @@ const serializeMenuItems = (items: string[]) =>
 
 const countMenuItems = (items: string[]) =>
   items.map((item) => item.trim()).filter(Boolean).length;
+
+const normalizeEstablishmentRecord = (
+  record: EstablishmentRecord
+): EstablishmentRecord => ({
+  ...record,
+  nombre: record.nombre?.trim() ?? "",
+  direccion: record.direccion ?? "",
+  telefono: record.telefono ?? "",
+  urlMaps: record.urlMaps ?? "",
+  estado: record.estado ?? "aceptado"
+});
+
+const sortEstablishments = (items: EstablishmentRecord[]) =>
+  [...items].sort((a, b) => {
+    const leftId = a.establecimientoId ?? Number.POSITIVE_INFINITY;
+    const rightId = b.establecimientoId ?? Number.POSITIVE_INFINITY;
+    if (leftId !== rightId) return leftId - rightId;
+    return a.nombre.localeCompare(b.nombre);
+  });
+
+const getNextEstablishmentIdValue = (items: EstablishmentRecord[]) => {
+  const ids = items
+    .map((item) => item.establecimientoId)
+    .filter((value): value is number => typeof value === "number");
+  const max = ids.length > 0 ? Math.max(...ids) : 0;
+  return max + 1;
+};
 
 const minutesToTimeString = (totalMinutes: number) => {
   const hours = Math.floor(totalMinutes / 60);
@@ -430,7 +467,7 @@ export default function CalendarPage() {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEventDisplay | null>(
     null
   );
-  const [establishments, setEstablishments] = useState<string[]>([]);
+  const [establishments, setEstablishments] = useState<EstablishmentRecord[]>([]);
   const [establishmentsError, setEstablishmentsError] = useState("");
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -443,6 +480,7 @@ export default function CalendarPage() {
   const [myEventsOnly, setMyEventsOnly] = useState(false);
   const [controlTableEnabled, setControlTableEnabled] = useState(false);
   const [hoursCalculationEnabled, setHoursCalculationEnabled] = useState(false);
+  const [restaurantsViewEnabled, setRestaurantsViewEnabled] = useState(false);
   const [viewUserOverride, setViewUserOverride] = useState<string | null>(null);
   const [hoursRefreshToken, setHoursRefreshToken] = useState(0);
   const [hoursSummary, setHoursSummary] = useState({
@@ -494,6 +532,28 @@ export default function CalendarPage() {
   const [establishmentStatus, setEstablishmentStatus] = useState({
     loading: false,
     error: ""
+  });
+  const [restaurantFormMode, setRestaurantFormMode] = useState<
+    "create" | "suggest" | null
+  >(null);
+  const [restaurantForm, setRestaurantForm] = useState({
+    nombre: "",
+    direccion: "",
+    telefono: "",
+    urlMaps: ""
+  });
+  const [restaurantActionStatus, setRestaurantActionStatus] = useState({
+    loading: false,
+    error: "",
+    success: ""
+  });
+  const [restaurantEditId, setRestaurantEditId] = useState<string | null>(null);
+  const [restaurantEditForm, setRestaurantEditForm] = useState({
+    nombre: "",
+    direccion: "",
+    telefono: "",
+    urlMaps: "",
+    estado: "aceptado" as EstablishmentStatus
   });
   type EditFormState = {
     nombre: string;
@@ -575,12 +635,15 @@ export default function CalendarPage() {
       setEstablishmentsError("");
       try {
         const data = await fetchEstablishments();
-        const names = data
-          .map((item) => item.nombre?.trim())
-          .filter((name): name is string => Boolean(name));
-        names.sort((a, b) => a.localeCompare(b));
+        const cleaned = data
+          .map((item) => normalizeEstablishmentRecord(item))
+          .filter((item) => Boolean(item.nombre));
+        const sorted = sortEstablishments(cleaned);
+        const accepted = sorted.filter((item) => item.estado !== "sugerido");
+        const selectionSource = accepted.length > 0 ? accepted : sorted;
+        const names = selectionSource.map((item) => item.nombre);
         const defaultEstablishment = resolveDefaultEstablishment(names);
-        setEstablishments(names);
+        setEstablishments(sorted);
         setEventEstablishment((prev) => {
           const trimmedPrev = prev.trim();
           if (trimmedPrev && names.includes(trimmedPrev)) return trimmedPrev;
@@ -744,6 +807,7 @@ export default function CalendarPage() {
         setViewUserOverride(null);
         setControlTableEnabled(false);
         setHoursCalculationEnabled(false);
+        setRestaurantsViewEnabled(false);
       }
       return next;
     });
@@ -755,6 +819,20 @@ export default function CalendarPage() {
       if (next) {
         setViewUserOverride(null);
         setMyEventsOnly(false);
+        setHoursCalculationEnabled(false);
+        setRestaurantsViewEnabled(false);
+      }
+      return next;
+    });
+  };
+
+  const handleRestaurantsToggle = () => {
+    setRestaurantsViewEnabled((prev) => {
+      const next = !prev;
+      if (next) {
+        setViewUserOverride(null);
+        setMyEventsOnly(false);
+        setControlTableEnabled(false);
         setHoursCalculationEnabled(false);
       }
       return next;
@@ -1010,23 +1088,27 @@ export default function CalendarPage() {
     setMyEventsOnly(false);
     setControlTableEnabled(false);
     setHoursCalculationEnabled(true);
+    setRestaurantsViewEnabled(false);
     triggerHoursRecalculation();
   };
 
   const handleHoursCalculationBackToMyEvents = () => {
     setHoursCalculationEnabled(false);
     setMyEventsOnly(true);
+    setRestaurantsViewEnabled(false);
   };
 
   const handleMyEventsBackToCalendar = () => {
     setMyEventsOnly(false);
     setViewUserOverride(null);
+    setRestaurantsViewEnabled(false);
   };
 
   const handleHoursCalculationBackToCalendar = () => {
     setHoursCalculationEnabled(false);
     setMyEventsOnly(false);
     setViewUserOverride(null);
+    setRestaurantsViewEnabled(false);
   };
 
   const handleLogout = () => {
@@ -1459,6 +1541,7 @@ export default function CalendarPage() {
       setViewUserOverride(resolveViewOverride(user));
       setControlTableEnabled(false);
       setHoursCalculationEnabled(false);
+      setRestaurantsViewEnabled(false);
       setMyEventsOnly(true);
     },
     [canAccessUserData, resolveViewOverride]
@@ -1471,6 +1554,7 @@ export default function CalendarPage() {
       setViewUserOverride(resolveViewOverride(user));
       setControlTableEnabled(false);
       setMyEventsOnly(false);
+      setRestaurantsViewEnabled(false);
       setHoursCalculationEnabled(true);
       triggerHoursRecalculation();
     },
@@ -1510,16 +1594,35 @@ export default function CalendarPage() {
     }));
   };
 
+  const canManageRestaurants = userRole !== "User";
+  const canAcceptSuggested =
+    userRole === "Admin" || userRole === "Boss" || userRole === "Eventmaster";
+  const acceptedEstablishments = useMemo(
+    () => establishments.filter((item) => item.estado !== "sugerido"),
+    [establishments]
+  );
+  const selectableEstablishments = useMemo(() => {
+    if (acceptedEstablishments.length > 0) return acceptedEstablishments;
+    return establishments;
+  }, [acceptedEstablishments, establishments]);
+  const establishmentNames = useMemo(
+    () => selectableEstablishments.map((item) => item.nombre),
+    [selectableEstablishments]
+  );
+  const restaurantsList = useMemo(
+    () => sortEstablishments(establishments),
+    [establishments]
+  );
   const filteredEstablishments = useMemo(() => {
     const term = establishmentSearch.trim().toLowerCase();
-    if (!term) return establishments;
-    return establishments.filter((name) =>
-      name.toLowerCase().includes(term)
+    if (!term) return selectableEstablishments;
+    return selectableEstablishments.filter((item) =>
+      item.nombre.toLowerCase().includes(term)
     );
-  }, [establishmentSearch, establishments]);
+  }, [establishmentSearch, selectableEstablishments]);
   const defaultEstablishment = useMemo(
-    () => resolveDefaultEstablishment(establishments),
-    [establishments]
+    () => resolveDefaultEstablishment(establishmentNames),
+    [establishmentNames]
   );
   const createLocationUrl = useMemo(
     () => buildEstablishmentLocationUrl(eventEstablishment),
@@ -1544,6 +1647,10 @@ export default function CalendarPage() {
   );
   const eventMenuCount = useMemo(() => countMenuItems(eventMenuItems), [eventMenuItems]);
   const editMenuCount = useMemo(() => countMenuItems(editMenuItems), [editMenuItems]);
+  const getNextEstablishmentId = useCallback(
+    () => getNextEstablishmentIdValue(establishments),
+    [establishments]
+  );
 
   const handleAddEventMenuSlot = () => {
     setEventMenuSlots((prev) => Math.min(MENU_MAX_ITEMS, prev + 1));
@@ -1614,18 +1721,224 @@ export default function CalendarPage() {
 
     setEstablishmentStatus({ loading: true, error: "" });
     try {
-      await createEstablishment(trimmedName);
-      setEstablishments((prev) => {
-        const next = Array.from(new Set([...prev, trimmedName]));
-        next.sort((a, b) => a.localeCompare(b));
-        return next;
+      const nextId = getNextEstablishmentId();
+      const created = await createEstablishment({
+        establecimientoId: nextId,
+        nombre: trimmedName,
+        estado: "aceptado"
       });
+      setEstablishments((prev) =>
+        sortEstablishments([...prev, normalizeEstablishmentRecord(created)])
+      );
       setEstablishmentStatus({ loading: false, error: "" });
       handleSelectEstablishment(trimmedName);
     } catch (error) {
       setEstablishmentStatus({
         loading: false,
         error: "No se pudo añadir el establecimiento."
+      });
+    }
+  };
+
+  const openRestaurantForm = (mode: "create" | "suggest") => {
+    setRestaurantFormMode(mode);
+    setRestaurantForm({
+      nombre: "",
+      direccion: "",
+      telefono: "",
+      urlMaps: ""
+    });
+    setRestaurantActionStatus({ loading: false, error: "", success: "" });
+  };
+
+  const closeRestaurantForm = () => {
+    setRestaurantFormMode(null);
+    setRestaurantForm({
+      nombre: "",
+      direccion: "",
+      telefono: "",
+      urlMaps: ""
+    });
+  };
+
+  const handleRestaurantFormChange = (
+    field: "nombre" | "direccion" | "telefono" | "urlMaps",
+    value: string
+  ) => {
+    setRestaurantForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleRestaurantCreate = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+    if (!restaurantFormMode) return;
+    const trimmedName = restaurantForm.nombre.trim();
+    if (!trimmedName) {
+      setRestaurantActionStatus({
+        loading: false,
+        error: "Indica el nombre del restaurante.",
+        success: ""
+      });
+      return;
+    }
+    setRestaurantActionStatus({ loading: true, error: "", success: "" });
+    try {
+      const nextId = getNextEstablishmentId();
+      const payload = {
+        establecimientoId: nextId,
+        nombre: trimmedName,
+        direccion: restaurantForm.direccion.trim(),
+        telefono: restaurantForm.telefono.trim(),
+        urlMaps: restaurantForm.urlMaps.trim(),
+        estado: restaurantFormMode === "suggest" ? "sugerido" : "aceptado"
+      } satisfies Parameters<typeof createEstablishment>[0];
+      const created = await createEstablishment(payload);
+      setEstablishments((prev) =>
+        sortEstablishments([...prev, normalizeEstablishmentRecord(created)])
+      );
+      setRestaurantActionStatus({
+        loading: false,
+        error: "",
+        success:
+          restaurantFormMode === "suggest"
+            ? "Restaurante sugerido correctamente."
+            : "Restaurante creado correctamente."
+      });
+      closeRestaurantForm();
+    } catch (error) {
+      setRestaurantActionStatus({
+        loading: false,
+        error: "No se pudo guardar el restaurante.",
+        success: ""
+      });
+    }
+  };
+
+  const startRestaurantEdit = (restaurant: EstablishmentRecord) => {
+    setRestaurantEditId(restaurant.$id);
+    setRestaurantEditForm({
+      nombre: restaurant.nombre ?? "",
+      direccion: restaurant.direccion ?? "",
+      telefono: restaurant.telefono ?? "",
+      urlMaps: restaurant.urlMaps ?? "",
+      estado: restaurant.estado ?? "aceptado"
+    });
+    setRestaurantActionStatus({ loading: false, error: "", success: "" });
+  };
+
+  const cancelRestaurantEdit = () => {
+    setRestaurantEditId(null);
+    setRestaurantActionStatus({ loading: false, error: "", success: "" });
+  };
+
+  const handleRestaurantEditChange = (
+    field: "nombre" | "direccion" | "telefono" | "urlMaps" | "estado",
+    value: string
+  ) => {
+    setRestaurantEditForm((prev) => ({
+      ...prev,
+      [field]: field === "estado" ? (value as EstablishmentStatus) : value
+    }));
+  };
+
+  const handleRestaurantEditSave = async (restaurant: EstablishmentRecord) => {
+    const trimmedName = restaurantEditForm.nombre.trim();
+    if (!trimmedName) {
+      setRestaurantActionStatus({
+        loading: false,
+        error: "El nombre del restaurante es obligatorio.",
+        success: ""
+      });
+      return;
+    }
+    setRestaurantActionStatus({ loading: true, error: "", success: "" });
+    try {
+      const updated = await updateEstablishment(restaurant.$id, {
+        nombre: trimmedName,
+        direccion: restaurantEditForm.direccion.trim(),
+        telefono: restaurantEditForm.telefono.trim(),
+        urlMaps: restaurantEditForm.urlMaps.trim(),
+        estado: restaurantEditForm.estado
+      });
+      setEstablishments((prev) =>
+        sortEstablishments(
+          prev.map((item) =>
+            item.$id === restaurant.$id
+              ? normalizeEstablishmentRecord(updated)
+              : item
+          )
+        )
+      );
+      setRestaurantActionStatus({
+        loading: false,
+        error: "",
+        success: "Restaurante actualizado."
+      });
+      setRestaurantEditId(null);
+    } catch (error) {
+      setRestaurantActionStatus({
+        loading: false,
+        error: "No se pudo actualizar el restaurante.",
+        success: ""
+      });
+    }
+  };
+
+  const handleRestaurantDelete = async (restaurant: EstablishmentRecord) => {
+    const confirmDelete = window.confirm(
+      `¿Quieres eliminar el restaurante "${restaurant.nombre}"?`
+    );
+    if (!confirmDelete) return;
+    setRestaurantActionStatus({ loading: true, error: "", success: "" });
+    try {
+      await deleteEstablishment(restaurant.$id);
+      setEstablishments((prev) =>
+        sortEstablishments(prev.filter((item) => item.$id !== restaurant.$id))
+      );
+      setRestaurantActionStatus({
+        loading: false,
+        error: "",
+        success: "Restaurante eliminado."
+      });
+      if (restaurantEditId === restaurant.$id) {
+        setRestaurantEditId(null);
+      }
+    } catch (error) {
+      setRestaurantActionStatus({
+        loading: false,
+        error: "No se pudo eliminar el restaurante.",
+        success: ""
+      });
+    }
+  };
+
+  const handleRestaurantAccept = async (restaurant: EstablishmentRecord) => {
+    if (!canAcceptSuggested) return;
+    setRestaurantActionStatus({ loading: true, error: "", success: "" });
+    try {
+      const updated = await updateEstablishment(restaurant.$id, {
+        estado: "aceptado"
+      });
+      setEstablishments((prev) =>
+        sortEstablishments(
+          prev.map((item) =>
+            item.$id === restaurant.$id
+              ? normalizeEstablishmentRecord(updated)
+              : item
+          )
+        )
+      );
+      setRestaurantActionStatus({
+        loading: false,
+        error: "",
+        success: "Restaurante aceptado."
+      });
+    } catch (error) {
+      setRestaurantActionStatus({
+        loading: false,
+        error: "No se pudo aceptar el restaurante.",
+        success: ""
       });
     }
   };
@@ -2792,6 +3105,367 @@ export default function CalendarPage() {
               </div>
             </div>
           </section>
+        ) : restaurantsViewEnabled ? (
+          <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="flex items-center gap-3 text-2xl font-semibold text-slate-900">
+                  <RestaurantModuleIcon title="" className="h-8 w-8" />
+                  <span>Restaurantes</span>
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Gestión de establecimientos con estado sugerido o aceptado.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {canManageRestaurants ? (
+                  <button
+                    type="button"
+                    onClick={() => openRestaurantForm("create")}
+                    className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600"
+                  >
+                    Nuevo restaurante
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => openRestaurantForm("suggest")}
+                  className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600"
+                >
+                  Sugerir restaurante
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRestaurantsViewEnabled(false)}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                >
+                  <CalendarModuleIcon title="" className="h-4 w-4" />
+                  Volver al calendario
+                </button>
+              </div>
+            </div>
+
+            {restaurantActionStatus.error ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {restaurantActionStatus.error}
+              </div>
+            ) : null}
+            {restaurantActionStatus.success ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-600">
+                {restaurantActionStatus.success}
+              </div>
+            ) : null}
+            {establishmentsError ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {establishmentsError}
+              </div>
+            ) : null}
+
+            {restaurantFormMode ? (
+              <form
+                className="mt-6 flex flex-col gap-4 rounded-3xl border border-indigo-100 bg-indigo-50/60 p-5"
+                onSubmit={handleRestaurantCreate}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
+                      {restaurantFormMode === "suggest"
+                        ? "Sugerir restaurante"
+                        : "Nuevo restaurante"}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Completa los datos para registrar el restaurante.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeRestaurantForm}
+                    className="rounded-full border border-indigo-100 bg-white px-3 py-1 text-xs font-semibold text-indigo-600 transition hover:border-indigo-200"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Nombre
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="text"
+                      value={restaurantForm.nombre}
+                      onChange={(event) =>
+                        handleRestaurantFormChange("nombre", event.target.value)
+                      }
+                      required
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Teléfono
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="text"
+                      value={restaurantForm.telefono}
+                      onChange={(event) =>
+                        handleRestaurantFormChange("telefono", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 md:col-span-2">
+                    Dirección
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="text"
+                      value={restaurantForm.direccion}
+                      onChange={(event) =>
+                        handleRestaurantFormChange("direccion", event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600 md:col-span-2">
+                    URL Maps
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="url"
+                      value={restaurantForm.urlMaps}
+                      onChange={(event) =>
+                        handleRestaurantFormChange("urlMaps", event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={restaurantActionStatus.loading}
+                    className="rounded-full border border-indigo-200 bg-indigo-500 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
+                  >
+                    {restaurantActionStatus.loading ? "Guardando..." : "Guardar"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {restaurantsList.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
+                No hay restaurantes registrados.
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-3">
+                {restaurantsList.map((restaurant) => {
+                  const isEditing = restaurantEditId === restaurant.$id;
+                  const statusValue = restaurant.estado ?? "aceptado";
+                  return (
+                    <details
+                      key={restaurant.$id}
+                      className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm"
+                    >
+                      <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                        <span className="flex flex-wrap items-center justify-between gap-3">
+                          <span className="flex items-center gap-2">
+                            <span className="text-base font-semibold text-slate-800">
+                              {restaurant.nombre}
+                            </span>
+                            {restaurant.establecimientoId ? (
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                #{restaurant.establecimientoId}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                            {ESTABLISHMENT_STATUS_LABELS[statusValue]}
+                          </span>
+                        </span>
+                      </summary>
+                      <div className="mt-4 grid gap-3 text-sm text-slate-600">
+                        {isEditing ? (
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Nombre
+                              <input
+                                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                                type="text"
+                                value={restaurantEditForm.nombre}
+                                onChange={(event) =>
+                                  handleRestaurantEditChange(
+                                    "nombre",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Teléfono
+                              <input
+                                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                                type="text"
+                                value={restaurantEditForm.telefono}
+                                onChange={(event) =>
+                                  handleRestaurantEditChange(
+                                    "telefono",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 md:col-span-2">
+                              Dirección
+                              <input
+                                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                                type="text"
+                                value={restaurantEditForm.direccion}
+                                onChange={(event) =>
+                                  handleRestaurantEditChange(
+                                    "direccion",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 md:col-span-2">
+                              URL Maps
+                              <input
+                                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                                type="url"
+                                value={restaurantEditForm.urlMaps}
+                                onChange={(event) =>
+                                  handleRestaurantEditChange(
+                                    "urlMaps",
+                                    event.target.value
+                                  )
+                                }
+                              />
+                            </label>
+                            <label className="flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              Estado
+                              <select
+                                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                                value={restaurantEditForm.estado}
+                                onChange={(event) =>
+                                  handleRestaurantEditChange(
+                                    "estado",
+                                    event.target.value
+                                  )
+                                }
+                              >
+                                {ESTABLISHMENT_STATUSES.map((status) => (
+                                  <option key={status} value={status}>
+                                    {ESTABLISHMENT_STATUS_LABELS[status]}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="grid gap-2 text-sm text-slate-600">
+                            <div className="flex flex-wrap gap-2">
+                              <span className="font-semibold text-slate-500">
+                                Dirección:
+                              </span>
+                              <span>{restaurant.direccion?.trim() || "—"}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <span className="font-semibold text-slate-500">
+                                Teléfono:
+                              </span>
+                              <span>{restaurant.telefono?.trim() || "—"}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-semibold text-slate-500">Maps:</span>
+                              {restaurant.urlMaps?.trim() ? (
+                                <a
+                                  href={restaurant.urlMaps}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-2 text-indigo-600 underline-offset-2 transition hover:text-indigo-700 hover:underline"
+                                >
+                                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600">
+                                    <svg
+                                      aria-hidden="true"
+                                      className="h-3 w-3"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                      strokeWidth={2}
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        d="M12 21s6-5.1 6-10a6 6 0 1 0-12 0c0 4.9 6 10 6 10Z"
+                                      />
+                                      <circle cx="12" cy="11" r="2.5" />
+                                    </svg>
+                                  </span>
+                                  Abrir en Maps
+                                </a>
+                              ) : (
+                                <span>—</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          {canManageRestaurants ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRestaurantEditSave(restaurant)}
+                                    disabled={restaurantActionStatus.loading}
+                                    className="rounded-full border border-indigo-200 bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
+                                  >
+                                    Guardar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelRestaurantEdit}
+                                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startRestaurantEdit(restaurant)}
+                                    className="rounded-full border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRestaurantDelete(restaurant)}
+                                    className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">
+                              Solo lectura
+                            </span>
+                          )}
+
+                          {statusValue === "sugerido" && canAcceptSuggested ? (
+                            <button
+                              type="button"
+                              onClick={() => handleRestaurantAccept(restaurant)}
+                              className="rounded-full border border-emerald-200 bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600"
+                            >
+                              Aceptar sugerencia
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         ) : myEventsOnly ? (
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -2836,6 +3510,14 @@ export default function CalendarPage() {
                 >
                   <HourglassModuleIcon title="" className="h-4 w-4" />
                   Cálculo de horas
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestaurantsToggle}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                >
+                  <RestaurantModuleIcon title="" className="h-4 w-4" />
+                  Restaurantes
                 </button>
                 <button
                   type="button"
@@ -3015,6 +3697,14 @@ export default function CalendarPage() {
                 >
                   <TableModuleIcon title="" className="h-4 w-4" />
                   Exportar Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRestaurantsToggle}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                >
+                  <RestaurantModuleIcon title="" className="h-4 w-4" />
+                  Restaurantes
                 </button>
                 <button
                   type="button"
@@ -3256,6 +3946,8 @@ export default function CalendarPage() {
             controlTableEnabled={controlTableEnabled}
             onControlTableToggle={handleControlTableToggle}
             showControlTableToggle={showControlTable}
+            restaurantsViewEnabled={restaurantsViewEnabled}
+            onRestaurantsToggle={handleRestaurantsToggle}
             allowAddEvent={canCreateEvents}
             onPrevMonth={handlePrevMonth}
             onNextMonth={handleNextMonth}
@@ -3270,10 +3962,11 @@ export default function CalendarPage() {
           />
         )}
 
-        {showControlTable &&
+      {showControlTable &&
         !myEventsOnly &&
         !controlTableEnabled &&
-        !hoursCalculationEnabled ? (
+        !hoursCalculationEnabled &&
+        !restaurantsViewEnabled ? (
           <div className="flex items-center justify-end text-xs text-slate-400">
             Usa el botón &quot;Tabla de control&quot; para ver el resumen agrupado.
           </div>
@@ -4862,14 +5555,19 @@ export default function CalendarPage() {
                 No se encontraron establecimientos.
               </div>
             ) : (
-              filteredEstablishments.map((name) => (
+              filteredEstablishments.map((item) => (
                 <button
-                  key={name}
+                  key={item.$id || item.nombre}
                   type="button"
-                  onClick={() => handleSelectEstablishment(name)}
+                  onClick={() => handleSelectEstablishment(item.nombre)}
                   className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600"
                 >
-                  <span className="truncate">{name}</span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="truncate">{item.nombre}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                      {ESTABLISHMENT_STATUS_LABELS[item.estado ?? "aceptado"]}
+                    </span>
+                  </div>
                   <span className="text-xs text-slate-400">Seleccionar</span>
                 </button>
               ))

@@ -128,8 +128,15 @@ export const deleteEvent = async (documentId: string): Promise<void> => {
   );
 };
 
+export type EstablishmentStatus = "sugerido" | "aceptado";
+
 export type EstablishmentRecord = Models.Document & {
+  establecimientoId?: number;
   nombre: string;
+  direccion?: string;
+  telefono?: string;
+  urlMaps?: string;
+  estado?: EstablishmentStatus;
 };
 
 export const fetchEstablishments = async (): Promise<EstablishmentRecord[]> => {
@@ -142,16 +149,45 @@ export const fetchEstablishments = async (): Promise<EstablishmentRecord[]> => {
   return response.documents;
 };
 
+type CreateEstablishmentInput = {
+  establecimientoId: number;
+  nombre: string;
+  direccion?: string;
+  telefono?: string;
+  urlMaps?: string;
+  estado?: EstablishmentStatus;
+};
+
 export const createEstablishment = async (
-  nombre: string
+  payload: CreateEstablishmentInput
 ): Promise<EstablishmentRecord> => {
   ensureAppwriteConfig();
   return databases.createDocument<EstablishmentRecord>(
     appwriteConfig.databaseId,
     appwriteConfig.establishmentCollectionId,
     ID.unique(),
-    {
-      nombre
-    }
+    payload
+  );
+};
+
+export const updateEstablishment = async (
+  documentId: string,
+  data: Partial<EstablishmentRecord>
+): Promise<EstablishmentRecord> => {
+  ensureAppwriteConfig();
+  return databases.updateDocument<EstablishmentRecord>(
+    appwriteConfig.databaseId,
+    appwriteConfig.establishmentCollectionId,
+    documentId,
+    data
+  );
+};
+
+export const deleteEstablishment = async (documentId: string): Promise<void> => {
+  ensureAppwriteConfig();
+  await databases.deleteDocument(
+    appwriteConfig.databaseId,
+    appwriteConfig.establishmentCollectionId,
+    documentId
   );
 };

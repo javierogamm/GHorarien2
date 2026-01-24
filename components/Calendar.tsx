@@ -7,6 +7,7 @@ import type { CalendarEventDisplay } from "./calendarTypes";
 import {
   CalendarModuleIcon,
   PersonModuleIcon,
+  RestaurantModuleIcon,
   TableModuleIcon
 } from "./icons/ModuleIcons";
 
@@ -52,6 +53,8 @@ type CalendarProps = {
   controlTableEnabled: boolean;
   onControlTableToggle: () => void;
   showControlTableToggle: boolean;
+  restaurantsViewEnabled: boolean;
+  onRestaurantsToggle: () => void;
   allowAddEvent: boolean;
   onPrevMonth: () => void;
   onNextMonth: () => void;
@@ -211,6 +214,8 @@ export const Calendar = ({
   controlTableEnabled,
   onControlTableToggle,
   showControlTableToggle,
+  restaurantsViewEnabled,
+  onRestaurantsToggle,
   allowAddEvent,
   onPrevMonth,
   onNextMonth,
@@ -272,6 +277,19 @@ export const Calendar = ({
               Tabla de control
             </button>
           ) : null}
+          <button
+            type="button"
+            onClick={onRestaurantsToggle}
+            aria-pressed={restaurantsViewEnabled}
+            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              restaurantsViewEnabled
+                ? "border-indigo-200 bg-indigo-500 text-white"
+                : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
+            }`}
+          >
+            <RestaurantModuleIcon title="" className="h-4 w-4" />
+            Restaurantes
+          </button>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
