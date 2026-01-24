@@ -82,6 +82,7 @@ const DECLARE_MAX_DURATION_MINUTES = MAX_DECLARABLE_HOURS * 60;
 const DECLARE_MIN_DURATION_HOURS = DECLARE_MIN_DURATION_MINUTES / 60;
 const DECLARE_START_MAX_MINUTES = DECLARE_RANGE_END_MINUTES - DECLARE_MIN_DURATION_MINUTES;
 const DEFAULT_CERTIFICATION: CertificationOption = "OTROS";
+const DEFAULT_ESTABLISHMENT = "Rte. Goya (Hotel Diagonal Plaza)";
 const MENU_MAX_ITEMS = 8;
 const MENU_PLACEHOLDER = "Gamba con foie;Escalopines;Dulce de leche";
 const MENU_HELP_TEXT = "Añade hasta 8 platos. Se guardan separados por punto y coma (;).";
@@ -101,6 +102,11 @@ type AutoEventNameParams = {
 
 const formatEventNameDate = (date?: Date | null) =>
   date ? EVENT_NAME_DATE_FORMATTER.format(date) : "";
+
+const resolveDefaultEstablishment = (names: string[]) => {
+  if (names.includes(DEFAULT_ESTABLISHMENT)) return DEFAULT_ESTABLISHMENT;
+  return names[0] ?? DEFAULT_ESTABLISHMENT;
+};
 
 const buildAutoEventName = ({
   eventType,
@@ -131,6 +137,14 @@ const buildAutoEventName = ({
         : [categoryLabel, trimmedEstablishment, formattedDate];
 
   return parts.map((part) => part.trim()).filter(Boolean).join(" - ");
+};
+
+const buildEstablishmentLocationUrl = (establishment?: string | null) => {
+  const trimmedEstablishment = establishment?.trim();
+  if (!trimmedEstablishment) return "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    trimmedEstablishment
+  )}`;
 };
 
 const parseMenuItems = (menu?: string | null) =>
@@ -382,7 +396,7 @@ export default function CalendarPage() {
   const [eventPromocion, setEventPromocion] = useState("");
   const [eventMenuItems, setEventMenuItems] = useState<string[]>([]);
   const [eventMenuSlots, setEventMenuSlots] = useState(0);
-  const [eventEstablishment, setEventEstablishment] = useState("");
+  const [eventEstablishment, setEventEstablishment] = useState(DEFAULT_ESTABLISHMENT);
   const [attendees, setAttendees] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [bulkEventName, setBulkEventName] = useState("");
@@ -398,7 +412,7 @@ export default function CalendarPage() {
   );
   const [bulkEventPromocion, setBulkEventPromocion] = useState("");
   const [bulkEventMenu, setBulkEventMenu] = useState("");
-  const [bulkEventEstablishment, setBulkEventEstablishment] = useState("");
+  const [bulkEventEstablishment, setBulkEventEstablishment] = useState(DEFAULT_ESTABLISHMENT);
   const [bulkAttendees, setBulkAttendees] = useState<string[]>([]);
   const [isBulkCreateModalOpen, setIsBulkCreateModalOpen] = useState(false);
   const [bulkMonth, setBulkMonth] = useState(today.getMonth());
@@ -504,7 +518,7 @@ export default function CalendarPage() {
     horaInicio: "",
     attendees: [],
     notas: "",
-    establecimiento: "",
+    establecimiento: DEFAULT_ESTABLISHMENT,
     certificacion: DEFAULT_CERTIFICATION,
     promocion: ""
   });
@@ -565,9 +579,18 @@ export default function CalendarPage() {
           .map((item) => item.nombre?.trim())
           .filter((name): name is string => Boolean(name));
         names.sort((a, b) => a.localeCompare(b));
+        const defaultEstablishment = resolveDefaultEstablishment(names);
         setEstablishments(names);
-        setEventEstablishment((prev) => (prev ? prev : names[0] ?? ""));
-        setBulkEventEstablishment((prev) => (prev ? prev : names[0] ?? ""));
+        setEventEstablishment((prev) => {
+          const trimmedPrev = prev.trim();
+          if (trimmedPrev && names.includes(trimmedPrev)) return trimmedPrev;
+          return defaultEstablishment;
+        });
+        setBulkEventEstablishment((prev) => {
+          const trimmedPrev = prev.trim();
+          if (trimmedPrev && names.includes(trimmedPrev)) return trimmedPrev;
+          return defaultEstablishment;
+        });
       } catch (err) {
         setEstablishmentsError(
           "No se pudo cargar la lista de establecimientos."
@@ -621,7 +644,7 @@ export default function CalendarPage() {
         horaInicio: "",
         attendees: [],
         notas: "",
-        establecimiento: "",
+        establecimiento: DEFAULT_ESTABLISHMENT,
         certificacion: DEFAULT_CERTIFICATION,
         promocion: ""
       });
@@ -1494,6 +1517,18 @@ export default function CalendarPage() {
       name.toLowerCase().includes(term)
     );
   }, [establishmentSearch, establishments]);
+  const defaultEstablishment = useMemo(
+    () => resolveDefaultEstablishment(establishments),
+    [establishments]
+  );
+  const createLocationUrl = useMemo(
+    () => buildEstablishmentLocationUrl(eventEstablishment),
+    [eventEstablishment]
+  );
+  const editLocationUrl = useMemo(
+    () => buildEstablishmentLocationUrl(editForm.establecimiento),
+    [editForm.establecimiento]
+  );
 
   const invalidCreateAttendees = useMemo(
     () => attendees.filter((attendee) => !validUsernames.has(attendee)),
@@ -1931,6 +1966,7 @@ export default function CalendarPage() {
     setEventNameAuto("");
     setEventNameDirty(false);
     setAttendees([]);
+    setEventEstablishment(defaultEstablishment);
     setIsCreateModalOpen(true);
     setIsDayDetailModalOpen(false);
   };
@@ -1953,6 +1989,7 @@ export default function CalendarPage() {
     setBulkEventName("");
     setBulkEventNameAuto("");
     setBulkEventNameDirty(false);
+    setBulkEventEstablishment(defaultEstablishment);
     setIsBulkCreateModalOpen(true);
     setIsDayDetailModalOpen(false);
   };
@@ -3930,6 +3967,16 @@ export default function CalendarPage() {
                     onChange={(event) => setEventNotes(event.target.value)}
                   />
                 </label>
+                {createLocationUrl ? (
+                  <a
+                    href={createLocationUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-semibold text-indigo-600 underline-offset-2 transition hover:text-indigo-700 hover:underline"
+                  >
+                    LINK a UBICACIÓN DEL RESTAURANTE
+                  </a>
+                ) : null}
               </div>
             </div>
             {formStatus.error ? (
@@ -4671,6 +4718,16 @@ export default function CalendarPage() {
                       disabled={!canEditDetails}
                     />
                   </label>
+                  {editLocationUrl ? (
+                    <a
+                      href={editLocationUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-semibold text-indigo-600 underline-offset-2 transition hover:text-indigo-700 hover:underline"
+                    >
+                      LINK a UBICACIÓN DEL RESTAURANTE
+                    </a>
+                  ) : null}
                 </div>
               </div>
               {editStatus.error ? (

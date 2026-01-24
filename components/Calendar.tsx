@@ -507,7 +507,7 @@ export const Calendar = ({
                               eventClick.stopPropagation();
                               onEventSelect(event);
                             }}
-                            className={`relative flex w-full flex-col gap-1.5 rounded-2xl border px-4 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
+                            className={`relative flex w-full flex-col gap-1.5 rounded-2xl border px-4 py-2.5 pb-8 pr-14 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
                               isFiltered && !isHighlighted ? "opacity-40" : ""
                             } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
                           >
@@ -516,20 +516,18 @@ export const Calendar = ({
                               aria-hidden="true"
                             />
                             <div className="flex flex-wrap items-center gap-2 pl-2 text-sm font-semibold text-slate-800">
-                              <span className="truncate">
-                                {event.nombre || "Evento"}
-                              </span>
-                              <span className="text-slate-500">-</span>
-                              <span className="text-slate-600">{meta.label}</span>
-                              <span className="text-slate-500">-</span>
+                              <span className="truncate">{event.nombre || "Evento"}</span>
+                              <span className="text-slate-400">•</span>
                               <span className="text-slate-600">
                                 {event.establecimiento?.trim() || "Sin ubicación"}
                               </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-3 pl-2 text-xs font-medium text-slate-600">
                               <span>{formatEventTime(event.horaInicio)}</span>
-                              <span>({event.attendeeCount})</span>
                             </div>
+                            <span className="pointer-events-none absolute bottom-2 right-3 text-2xl font-bold leading-none text-slate-800">
+                              {event.attendeeCount}
+                            </span>
                           </button>
                         );
                       })

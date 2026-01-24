@@ -1,5 +1,14 @@
 # Log de cambios
 
+## v0.2.40
+- El establecimiento predeterminado al crear eventos pasa a ser **“Rte. Goya (Hotel Diagonal Plaza)”**, con fallback al primer establecimiento disponible si fuera necesario.
+- Se añade un enlace **“LINK a UBICACIÓN DEL RESTAURANTE”** justo debajo del campo de notas en los modales de crear y editar, abriendo Google Maps con el establecimiento seleccionado.
+- En las vistas de calendario **semanal y mensual** se elimina la visualización explícita del **tipo de evento** en las tarjetas.
+- El número de asistentes se refuerza visualmente en las tarjetas del calendario:
+  - Se muestra en la esquina inferior derecha.
+  - Se presenta con un tamaño más grande para mejorar la legibilidad.
+- Se consolida la versión de la app en `0.2.40`.
+
 ## v0.2.39
 - Se eliminan los textos de ayuda “Clic para añadir” y “Clic para quitar” en el editor de eventos (crear, editar y creación masiva), dejando la interacción más limpia.
 - Se consolida la versión de la app en `0.2.39`.
