@@ -47,7 +47,7 @@ export const EventItem = ({
         eventClick.stopPropagation();
         onSelect(event);
       }}
-      className={`relative flex w-full items-center gap-2 rounded-xl border px-3 py-1.5 pl-5 text-[11px] font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
+      className={`relative flex w-full flex-col items-start gap-1.5 rounded-xl border px-3 py-2 pl-5 pr-10 text-left text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
         isDimmed ? "opacity-35" : ""
       } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
     >
@@ -57,11 +57,11 @@ export const EventItem = ({
         aria-hidden="true"
       />
 
-      <span className="flex min-w-0 flex-1 items-center gap-1 pl-2 text-left text-[11px] font-semibold text-slate-800">
-        <span className="truncate">
-          {event.nombre ? event.nombre : "Evento"}
-        </span>
-        <span className="shrink-0 text-slate-700">({event.attendeeCount})</span>
+      <span className="min-w-0 pl-2 text-slate-800">
+        <span className="truncate">{event.nombre ? event.nombre : "Evento"}</span>
+      </span>
+      <span className="pointer-events-none absolute bottom-1.5 right-2 text-lg font-bold leading-none text-slate-800">
+        {event.attendeeCount}
       </span>
     </button>
   );
