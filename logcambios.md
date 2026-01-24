@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.43
+- La URL de ubicación del establecimiento ahora se construye desde la columna de ubicación/dirección registrada, priorizando la URL Maps si existe.
+- Se consolida la versión de la app en `0.2.43`.
+
 ## v0.2.42
 - Se añade el módulo completo de **Restaurantes** con acceso desde el panel superior, "Mis eventos" y "Tabla de control".
 - La gestión de restaurantes incorpora estado **sugerido/aceptado**, listado en acordeón y detalle con dirección, teléfono y enlace a Maps con icono.

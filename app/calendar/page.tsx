@@ -149,11 +149,11 @@ const buildAutoEventName = ({
   return parts.map((part) => part.trim()).filter(Boolean).join(" - ");
 };
 
-const buildEstablishmentLocationUrl = (establishment?: string | null) => {
-  const trimmedEstablishment = establishment?.trim();
-  if (!trimmedEstablishment) return "";
+const buildEstablishmentLocationUrl = (location?: string | null) => {
+  const trimmedLocation = location?.trim();
+  if (!trimmedLocation) return "";
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    trimmedEstablishment
+    trimmedLocation
   )}`;
 };
 
@@ -1624,13 +1624,32 @@ export default function CalendarPage() {
     () => resolveDefaultEstablishment(establishmentNames),
     [establishmentNames]
   );
+  const establishmentLookup = useMemo(() => {
+    const map = new Map<string, EstablishmentRecord>();
+    establishments.forEach((item) => {
+      map.set(item.nombre, item);
+    });
+    return map;
+  }, [establishments]);
+  const getEstablishmentLocationUrl = useCallback(
+    (name?: string | null) => {
+      const trimmedName = name?.trim();
+      if (!trimmedName) return "";
+      const record = establishmentLookup.get(trimmedName);
+      const urlValue = record?.urlMaps?.trim();
+      if (urlValue) return urlValue;
+      const locationValue = record?.direccion?.trim() || trimmedName;
+      return buildEstablishmentLocationUrl(locationValue);
+    },
+    [establishmentLookup]
+  );
   const createLocationUrl = useMemo(
-    () => buildEstablishmentLocationUrl(eventEstablishment),
-    [eventEstablishment]
+    () => getEstablishmentLocationUrl(eventEstablishment),
+    [eventEstablishment, getEstablishmentLocationUrl]
   );
   const editLocationUrl = useMemo(
-    () => buildEstablishmentLocationUrl(editForm.establecimiento),
-    [editForm.establecimiento]
+    () => getEstablishmentLocationUrl(editForm.establecimiento),
+    [editForm.establecimiento, getEstablishmentLocationUrl]
   );
 
   const invalidCreateAttendees = useMemo(
