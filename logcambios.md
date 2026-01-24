@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.41
+- En la vista mensual, se reserva más espacio para el contador de asistentes y se trunca el nombre justo antes del número.
+- En la vista semanal, el nombre y el establecimiento se separan en dos líneas sin el separador "•".
+- El establecimiento se muestra en una única línea con truncado para ocupar el máximo ancho disponible.
+- Se consolida la versión de la app en `0.2.41`.
+
 ## v0.2.40
 - El establecimiento predeterminado al crear eventos pasa a ser **“Rte. Goya (Hotel Diagonal Plaza)”**, con fallback al primer establecimiento disponible si fuera necesario.
 - Se añade un enlace **“LINK a UBICACIÓN DEL RESTAURANTE”** justo debajo del campo de notas en los modales de crear y editar, abriendo Google Maps con el establecimiento seleccionado.
