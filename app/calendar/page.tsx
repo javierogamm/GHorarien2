@@ -20,6 +20,7 @@ import {
 import { sumHorasDeclaradasForUser } from "../../services/horasDeclaradasService";
 import {
   fetchUsers,
+  parseHorasObtenidas,
   type UserRecord,
   updateUserHorasObtenidas
 } from "../../services/usersService";
@@ -1415,7 +1416,9 @@ export default function CalendarPage() {
         if (cancelled) return;
         const remainingHours = obtainedHours - declaredHours;
 
-        if (currentUserRecord.horasObtenidas !== obtainedHours) {
+        const storedObtainedHours = parseHorasObtenidas(currentUserRecord.horasObtenidas);
+
+        if (storedObtainedHours !== obtainedHours) {
           await updateUserHorasObtenidas(currentUserRecord.$id, obtainedHours);
           if (cancelled) return;
           setUsers((prev) =>

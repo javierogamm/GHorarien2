@@ -7,7 +7,16 @@ export type UserRecord = Models.Document & {
   user: string;
   pass: string;
   role: UserRole;
-  horasObtenidas?: number;
+  horasObtenidas?: number | string;
+};
+
+export const parseHorasObtenidas = (value: number | string | undefined): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
 };
 
 export const validateUserCredentials = async (
@@ -54,6 +63,6 @@ export const updateUserHorasObtenidas = async (
     appwriteConfig.databaseId,
     appwriteConfig.usersCollectionId,
     documentId,
-    { horasObtenidas }
+    { horasObtenidas: String(horasObtenidas) }
   );
 };

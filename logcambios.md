@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.27
+- Corrección del guardado de `horasObtenidas` en Appwrite enviando el valor como string para cumplir el esquema actual de la colección.
+- Normalización de `horasObtenidas` a número en cliente para comparar correctamente antes de actualizar.
+
 ## v0.2.26
 - Compatibilidad añadida con la colección `horasDeclaradas` mediante la variable `NEXT_PUBLIC_APPWRITE_HORASDECLARADAS_COLLECTION_ID`.
 - Nuevo servicio para sumar las horas declaradas por usuario y actualización del tipado de `users` con `horasObtenidas`.
