@@ -3769,10 +3769,6 @@ export default function CalendarPage() {
                                   >
                                     <div className="flex flex-wrap items-center gap-2">
                                       <span
-                                        className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                        aria-hidden="true"
-                                      />
-                                      <span
                                         className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
                                       >
                                         {user.user}
@@ -3806,10 +3802,6 @@ export default function CalendarPage() {
                                     aria-label={`Quitar ${attendee}`}
                                   >
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span
-                                        className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                        aria-hidden="true"
-                                      />
                                       <span
                                         className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
                                       >
@@ -4288,10 +4280,6 @@ export default function CalendarPage() {
                             >
                               <div className="flex flex-wrap items-center gap-2">
                                 <span
-                                  className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                  aria-hidden="true"
-                                />
-                                <span
                                   className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
                                 >
                                   {user.user}
@@ -4329,10 +4317,6 @@ export default function CalendarPage() {
                               aria-label={`Quitar ${attendee}`}
                             >
                               <div className="flex flex-wrap items-center gap-2">
-                                <span
-                                  className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                  aria-hidden="true"
-                                />
                                 <span
                                   className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
                                 >
@@ -4521,10 +4505,6 @@ export default function CalendarPage() {
                                     >
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span
-                                          className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                          aria-hidden="true"
-                                        />
-                                        <span
                                           className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
                                         >
                                           {user.user}
@@ -4559,10 +4539,6 @@ export default function CalendarPage() {
                                       disabled={!canEditDetails}
                                     >
                                       <div className="flex flex-wrap items-center gap-2">
-                                        <span
-                                          className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
-                                          aria-hidden="true"
-                                        />
                                         <span
                                           className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
                                         >

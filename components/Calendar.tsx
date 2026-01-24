@@ -243,6 +243,36 @@ export const Calendar = ({
   return (
     <section className="flex flex-col gap-6">
       <header className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onMyEventsToggle}
+            aria-pressed={myEventsOnly}
+            className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              myEventsOnly
+                ? "border-indigo-200 bg-indigo-500 text-white"
+                : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
+            }`}
+          >
+            <PersonModuleIcon title="" className="h-4 w-4" />
+            Mis eventos
+          </button>
+          {showControlTableToggle ? (
+            <button
+              type="button"
+              onClick={onControlTableToggle}
+              aria-pressed={controlTableEnabled}
+              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                controlTableEnabled
+                  ? "border-indigo-200 bg-indigo-500 text-white"
+                  : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
+              }`}
+            >
+              <TableModuleIcon title="" className="h-4 w-4" />
+              Tabla de control
+            </button>
+          ) : null}
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-3">
@@ -313,22 +343,6 @@ export const Calendar = ({
               {monthLabel} {yearLabel}
             </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onPrevMonth}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
-              type="button"
-            >
-              {viewMode === "weekly" ? "Semana anterior" : "Mes anterior"}
-            </button>
-            <button
-              onClick={onNextMonth}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
-              type="button"
-            >
-              {viewMode === "weekly" ? "Semana siguiente" : "Mes siguiente"}
-            </button>
-          </div>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <label className="text-sm font-medium text-slate-500" htmlFor="month-select">
@@ -365,36 +379,6 @@ export const Calendar = ({
               )
             )}
           </select>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={onMyEventsToggle}
-              aria-pressed={myEventsOnly}
-              className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                myEventsOnly
-                  ? "border-indigo-200 bg-indigo-500 text-white"
-                  : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
-              }`}
-            >
-              <PersonModuleIcon title="" className="h-4 w-4" />
-              Mis eventos
-            </button>
-            {showControlTableToggle ? (
-              <button
-                type="button"
-                onClick={onControlTableToggle}
-                aria-pressed={controlTableEnabled}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                  controlTableEnabled
-                    ? "border-indigo-200 bg-indigo-500 text-white"
-                    : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
-                }`}
-              >
-                <TableModuleIcon title="" className="h-4 w-4" />
-                Tabla de control
-              </button>
-            ) : null}
-          </div>
           <div className="flex flex-wrap items-center gap-3">
             {EVENT_CATEGORIES.map((category) => (
               <button
@@ -417,6 +401,22 @@ export const Calendar = ({
               </button>
             ))}
           </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+          <button
+            onClick={onPrevMonth}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
+            type="button"
+          >
+            {viewMode === "weekly" ? "Semana anterior" : "Mes anterior"}
+          </button>
+          <button
+            onClick={onNextMonth}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300"
+            type="button"
+          >
+            {viewMode === "weekly" ? "Semana siguiente" : "Mes siguiente"}
+          </button>
         </div>
       </header>
 

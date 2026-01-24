@@ -1,5 +1,12 @@
 # Log de cambios
 
+## v0.2.38
+- Se elimina el puntito de color junto al nombre en las listas de usuarios al añadir/quitar asistentes (crear, editar y creación masiva), dejando solo la pastilla con el nombre.
+- La cabecera del calendario se reorganiza:
+  - "Mis eventos" y "Tabla de control" se mueven a una nueva fila superior.
+  - Los botones de navegación (semana/mes anterior y siguiente) bajan a una fila inferior y se muestran más pequeños.
+- Se consolida la versión de la app en `0.2.38`.
+
 ## v0.2.37
 - El nombre del evento ahora se genera automáticamente al crear y editar, concatenando según el tipo:
   - Comida y cena: `Tipo - Establecimiento - fecha`.
