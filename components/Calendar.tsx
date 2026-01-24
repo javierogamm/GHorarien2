@@ -515,10 +515,11 @@ export const Calendar = ({
                               className={`absolute inset-y-0 left-0 w-1.5 rounded-l-2xl ${meta.dotClass}`}
                               aria-hidden="true"
                             />
-                            <div className="flex flex-wrap items-center gap-2 pl-2 text-sm font-semibold text-slate-800">
-                              <span className="truncate">{event.nombre || "Evento"}</span>
-                              <span className="text-slate-400">•</span>
-                              <span className="text-slate-600">
+                            <div className="flex min-w-0 flex-col gap-0.5 pl-2">
+                              <span className="truncate text-sm font-semibold text-slate-800">
+                                {event.nombre || "Evento"}
+                              </span>
+                              <span className="truncate text-sm font-medium text-slate-600">
                                 {event.establecimiento?.trim() || "Sin ubicación"}
                               </span>
                             </div>
