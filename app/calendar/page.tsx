@@ -22,6 +22,12 @@ import {
   EVENT_CATEGORY_META
 } from "../../constants/eventCategories";
 import {
+  CERTIFICATION_LABELS,
+  CERTIFICATION_OPTIONS,
+  normalizeCertification,
+  type CertificationOption
+} from "../../constants/certifications";
+import {
   type CalendarEvent,
   createEstablishment,
   createEventsForAttendees,
@@ -45,6 +51,7 @@ import {
   updateUserHorasObtenidas
 } from "../../services/usersService";
 import { parseDateWithoutTime } from "../../utils/calendarDates";
+import { buildEventGroupKey } from "../../utils/eventGrouping";
 import type { CalendarEventDisplay } from "../../components/calendarTypes";
 
 const SESSION_KEY = "calendar_user";
@@ -74,6 +81,16 @@ const DECLARE_MIN_DURATION_MINUTES = 60;
 const DECLARE_MAX_DURATION_MINUTES = MAX_DECLARABLE_HOURS * 60;
 const DECLARE_MIN_DURATION_HOURS = DECLARE_MIN_DURATION_MINUTES / 60;
 const DECLARE_START_MAX_MINUTES = DECLARE_RANGE_END_MINUTES - DECLARE_MIN_DURATION_MINUTES;
+const DEFAULT_CERTIFICATION: CertificationOption = "OTROS";
+const MENU_PLACEHOLDER = "- Entrante\n- Plato principal\n- Postre";
+
+const parseMenuItems = (menu?: string | null) =>
+  (menu ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^[-*•]\s*/, "").trim())
+    .filter(Boolean);
 
 const minutesToTimeString = (totalMinutes: number) => {
   const hours = Math.floor(totalMinutes / 60);
@@ -297,6 +314,11 @@ export default function CalendarPage() {
     EVENT_CATEGORY_META[EVENT_CATEGORIES[0]].startTime
   );
   const [eventNotes, setEventNotes] = useState("");
+  const [eventCertificacion, setEventCertificacion] = useState<CertificationOption>(
+    DEFAULT_CERTIFICATION
+  );
+  const [eventPromocion, setEventPromocion] = useState("");
+  const [eventMenu, setEventMenu] = useState("");
   const [eventEstablishment, setEventEstablishment] = useState("");
   const [attendees, setAttendees] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -306,6 +328,11 @@ export default function CalendarPage() {
     EVENT_CATEGORY_META[EVENT_CATEGORIES[0]].startTime
   );
   const [bulkEventNotes, setBulkEventNotes] = useState("");
+  const [bulkEventCertificacion, setBulkEventCertificacion] = useState<CertificationOption>(
+    DEFAULT_CERTIFICATION
+  );
+  const [bulkEventPromocion, setBulkEventPromocion] = useState("");
+  const [bulkEventMenu, setBulkEventMenu] = useState("");
   const [bulkEventEstablishment, setBulkEventEstablishment] = useState("");
   const [bulkAttendees, setBulkAttendees] = useState<string[]>([]);
   const [isBulkCreateModalOpen, setIsBulkCreateModalOpen] = useState(false);
@@ -397,6 +424,9 @@ export default function CalendarPage() {
     attendees: string[];
     notas: string;
     establecimiento: string;
+    certificacion: CertificationOption;
+    promocion: string;
+    menu: string;
   };
   type MyEventGroup = {
     event: CalendarEvent;
@@ -410,7 +440,10 @@ export default function CalendarPage() {
     horaInicio: "",
     attendees: [],
     notas: "",
-    establecimiento: ""
+    establecimiento: "",
+    certificacion: DEFAULT_CERTIFICATION,
+    promocion: "",
+    menu: ""
   });
   const [editStatus, setEditStatus] = useState({
     loading: false,
@@ -521,7 +554,10 @@ export default function CalendarPage() {
         horaInicio: "",
         attendees: [],
         notas: "",
-        establecimiento: ""
+        establecimiento: "",
+        certificacion: DEFAULT_CERTIFICATION,
+        promocion: "",
+        menu: ""
       });
       setEditStatus({ loading: false, error: "", success: "" });
       return;
@@ -534,7 +570,11 @@ export default function CalendarPage() {
       horaInicio: formatTimeInput(selectedEvent.horaInicio),
       attendees: selectedEvent.attendees,
       notas: selectedEvent.notas ?? "",
-      establecimiento: selectedEvent.establecimiento ?? ""
+      establecimiento: selectedEvent.establecimiento ?? "",
+      certificacion:
+        normalizeCertification(selectedEvent.certificacion) || DEFAULT_CERTIFICATION,
+      promocion: selectedEvent.promocion ?? "",
+      menu: selectedEvent.menu ?? ""
     });
     setEditStatus({ loading: false, error: "", success: "" });
   }, [selectedEvent]);
@@ -1291,6 +1331,7 @@ export default function CalendarPage() {
     () => editForm.attendees.filter((attendee) => !validUsernames.has(attendee)),
     [editForm.attendees, validUsernames]
   );
+  const editMenuItems = useMemo(() => parseMenuItems(editForm.menu), [editForm.menu]);
 
   const openEstablishmentModal = (target: "create" | "edit" | "bulk") => {
     setEstablishmentTarget(target);
@@ -1460,12 +1501,18 @@ export default function CalendarPage() {
         horaFin: formatDateTime(startDate),
         duration,
         notas: eventNotes.trim(),
-        establecimiento: eventEstablishment
+        establecimiento: eventEstablishment,
+        certificacion: normalizeCertification(eventCertificacion) || DEFAULT_CERTIFICATION,
+        promocion: eventPromocion.trim(),
+        menu: eventMenu.trim()
       });
 
       setEventName("");
       setAttendees([]);
       setEventNotes("");
+      setEventCertificacion(DEFAULT_CERTIFICATION);
+      setEventPromocion("");
+      setEventMenu("");
       setFormStatus({
         loading: false,
         error: "",
@@ -1596,7 +1643,11 @@ export default function CalendarPage() {
             horaFin: isoDate,
             duration,
             notas: bulkEventNotes.trim(),
-            establecimiento: bulkEventEstablishment
+            establecimiento: bulkEventEstablishment,
+            certificacion:
+              normalizeCertification(bulkEventCertificacion) || DEFAULT_CERTIFICATION,
+            promocion: bulkEventPromocion.trim(),
+            menu: bulkEventMenu.trim()
           });
         })
       );
@@ -1605,6 +1656,9 @@ export default function CalendarPage() {
       setBulkEventName("");
       setBulkAttendees([]);
       setBulkEventNotes("");
+      setBulkEventCertificacion(DEFAULT_CERTIFICATION);
+      setBulkEventPromocion("");
+      setBulkEventMenu("");
       setBulkSelectedDateKeys([]);
       setBulkFormStatus({
         loading: false,
@@ -1703,6 +1757,12 @@ export default function CalendarPage() {
     const selectedEventName = selectedEvent.nombre ?? "";
     const selectedEventNotes = selectedEvent.notas?.trim() ?? "";
     const selectedEventEstablishment = selectedEvent.establecimiento ?? "";
+    const selectedEventCertification = selectedEvent.certificacion ?? "";
+    const selectedEventCertificationNormalized = normalizeCertification(
+      selectedEventCertification
+    );
+    const selectedEventPromotion = selectedEvent.promocion?.trim() ?? "";
+    const selectedEventMenu = selectedEvent.menu?.trim() ?? "";
 
     if (canEditDetails && !trimmedName) {
       setEditStatus({
@@ -1790,6 +1850,7 @@ export default function CalendarPage() {
 
     setEditStatus({ loading: true, error: "", success: "" });
     try {
+      const selectedGroupKey = buildEventGroupKey(selectedEvent);
       const payload = {
         nombre: canEditDetails ? trimmedName : selectedEventName,
         eventType: canEditDetails ? editForm.eventType : selectedEvent.eventType,
@@ -1798,15 +1859,18 @@ export default function CalendarPage() {
         horaFin: formatDateTime(startDate),
         duration: 0,
         notas: canEditDetails ? editForm.notas.trim() : selectedEventNotes,
-        establecimiento: establishmentValue
+        establecimiento: establishmentValue,
+        certificacion: canEditDetails
+          ? normalizeCertification(editForm.certificacion) ||
+            selectedEventCertificationNormalized ||
+            DEFAULT_CERTIFICATION
+          : selectedEventCertification,
+        promocion: canEditDetails ? editForm.promocion.trim() : selectedEventPromotion,
+        menu: canEditDetails ? editForm.menu.trim() : selectedEventMenu
       };
 
       const groupedEvents = allEvents.filter(
-        (eventItem) =>
-          eventItem.nombre === selectedEvent.nombre &&
-          eventItem.eventType === selectedEvent.eventType &&
-          eventItem.fecha === selectedEvent.fecha &&
-          eventItem.horaInicio === selectedEvent.horaInicio
+        (eventItem) => buildEventGroupKey(eventItem) === selectedGroupKey
       );
       const existingUsers = new Set(groupedEvents.map((item) => item.user));
       const desiredUsers = new Set(attendeeList);
@@ -1872,12 +1936,7 @@ export default function CalendarPage() {
       if (!eventItem.fecha) return;
       const eventDate = parseDateWithoutTime(eventItem.fecha);
       if (!eventDate) return;
-      const key = [
-        `${eventDate.getFullYear()}-${eventDate.getMonth()}-${eventDate.getDate()}`,
-        eventItem.nombre ?? "",
-        eventItem.eventType ?? "",
-        eventItem.horaInicio ?? ""
-      ].join("|");
+      const key = buildEventGroupKey(eventItem);
       const existing = grouped.get(key);
       if (existing) {
         if (eventItem.user && !existing.attendees.includes(eventItem.user)) {
@@ -3552,17 +3611,58 @@ export default function CalendarPage() {
                   </div>
                 </div>
               </div>
-              {invalidCreateAttendees.length > 0 ? (
-                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
-                  Hay asistentes que no existen en la tabla de usuarios.
-                </p>
-              ) : null}
-            </div>
+            {invalidCreateAttendees.length > 0 ? (
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                Hay asistentes que no existen en la tabla de usuarios.
+              </p>
+            ) : null}
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-              Notas
-              <textarea
-                className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
-                value={eventNotes}
+              Certificación
+              <select
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                value={eventCertificacion}
+                onChange={(event) =>
+                  setEventCertificacion(
+                    normalizeCertification(event.target.value) || DEFAULT_CERTIFICATION
+                  )
+                }
+              >
+                {CERTIFICATION_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {CERTIFICATION_LABELS[option]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+              Promoción
+              <input
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                type="text"
+                value={eventPromocion}
+                onChange={(event) => setEventPromocion(event.target.value)}
+              />
+            </label>
+          </div>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+            Menú
+            <textarea
+              className="min-h-[110px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+              value={eventMenu}
+              onChange={(event) => setEventMenu(event.target.value)}
+              placeholder={MENU_PLACEHOLDER}
+            />
+            <span className="text-xs text-slate-400">
+              Escribe un elemento por línea para maquetar el menú con puntos.
+            </span>
+          </label>
+          <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+            Notas
+            <textarea
+              className="min-h-[100px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+              value={eventNotes}
                 onChange={(event) => setEventNotes(event.target.value)}
               />
             </label>
@@ -3698,6 +3798,47 @@ export default function CalendarPage() {
                     ) : null}
                   </label>
                 </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Certificación
+                    <select
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      value={bulkEventCertificacion}
+                      onChange={(event) =>
+                        setBulkEventCertificacion(
+                          normalizeCertification(event.target.value) || DEFAULT_CERTIFICATION
+                        )
+                      }
+                    >
+                      {CERTIFICATION_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {CERTIFICATION_LABELS[option]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Promoción
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="text"
+                      value={bulkEventPromocion}
+                      onChange={(event) => setBulkEventPromocion(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Menú
+                  <textarea
+                    className="min-h-[110px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={bulkEventMenu}
+                    onChange={(event) => setBulkEventMenu(event.target.value)}
+                    placeholder={MENU_PLACEHOLDER}
+                  />
+                  <span className="text-xs text-slate-400">
+                    Escribe un elemento por línea para maquetar el menú con puntos.
+                  </span>
+                </label>
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                   Notas
                   <textarea
@@ -4216,6 +4357,70 @@ export default function CalendarPage() {
                     Hay asistentes que no existen en la tabla de usuarios.
                   </p>
                 ) : null}
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Certificación
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                    value={editForm.certificacion}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        certificacion:
+                          normalizeCertification(event.target.value) || DEFAULT_CERTIFICATION
+                      }))
+                    }
+                    disabled={!canEditDetails}
+                  >
+                    {CERTIFICATION_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {CERTIFICATION_LABELS[option]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Promoción
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                    type="text"
+                    value={editForm.promocion}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, promocion: event.target.value }))
+                    }
+                    disabled={!canEditDetails}
+                  />
+                </label>
+              </div>
+              <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                Menú
+                <textarea
+                  className="min-h-[120px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  value={editForm.menu}
+                  onChange={(event) =>
+                    setEditForm((prev) => ({ ...prev, menu: event.target.value }))
+                  }
+                  placeholder={MENU_PLACEHOLDER}
+                  disabled={!canEditDetails}
+                />
+                <span className="text-xs text-slate-400">
+                  Escribe un elemento por línea para maquetar el menú con puntos.
+                </span>
+              </label>
+              <div className="flex flex-col gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 text-sm text-slate-700">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Vista previa del menú
+                </span>
+                {editMenuItems.length > 0 ? (
+                  <ul className="list-disc space-y-1 pl-5 marker:text-indigo-500">
+                    {editMenuItems.map((item, index) => (
+                      <li key={`${item}-${index}`}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-slate-500">Sin menú definido.</p>
+                )}
               </div>
               <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
                 Notas

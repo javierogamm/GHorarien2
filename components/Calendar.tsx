@@ -1,6 +1,7 @@
 import { EVENT_CATEGORIES, EVENT_CATEGORY_META } from "../constants/eventCategories";
 import type { CalendarEvent } from "../services/eventsService";
 import { parseDateWithoutTime } from "../utils/calendarDates";
+import { buildEventGroupKey } from "../utils/eventGrouping";
 import { DayCell } from "./DayCell";
 import type { CalendarEventDisplay } from "./calendarTypes";
 import {
@@ -119,19 +120,6 @@ const isSameDay = (left: Date, right: Date) => {
     leftParts.month === rightParts.month &&
     leftParts.day === rightParts.day
   );
-};
-
-const buildEventGroupKey = (event: CalendarEvent) => {
-  const eventDate = parseDateWithoutTime(event.fecha);
-  const dateKey = !eventDate
-    ? ""
-    : `${eventDate.getFullYear()}-${eventDate.getMonth() + 1}-${eventDate.getDate()}`;
-  return [
-    dateKey,
-    event.nombre ?? "",
-    event.eventType ?? "",
-    event.horaInicio ?? ""
-  ].join("|");
 };
 
 const getMinutesFromTime = (time?: string | null) => {

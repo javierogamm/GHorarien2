@@ -1,5 +1,13 @@
 # Log de cambios
 
+## v0.2.35
+- Se añaden los nuevos campos `certificacion`, `promocion` y `menu` al tipado de eventos y a la creación/actualización en la colección `tabla`.
+- Se incorpora un selector de **Certificación** (CAAG, CAZ, GFD, OTROS) y los campos libres de **Promoción** y **Menú** en "Crear evento" y "Crear varios eventos".
+- En la edición/detalle del evento se añaden los mismos campos y el **Menú** se sitúa justo encima de "Notas".
+- El campo **Menú** permite maquetar contenido como lista con puntos mediante una vista previa que interpreta cada línea como un elemento.
+- La agrupación de eventos ahora considera `certificacion`, `promocion` y `menu` para evitar mezclar eventos con distinto detalle.
+- Se consolida la versión de la app en `0.2.35`.
+
 ## v0.2.34
 - Se añaden iconos SVG multicolor y modernos para Calendario, Mis eventos, Cálculo de horas y Tabla de control.
 - Los toggles principales y los botones de navegación ahora muestran el icono correspondiente alineado a la izquierda del texto.
