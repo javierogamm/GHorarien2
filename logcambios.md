@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.29
+- Restricción del slider "Declarar horas" para permitir solo horas enteras (mínimo 1 hora, paso 1).
+- Validación adicional en el envío para rechazar valores no enteros y mostrar un mensaje claro al usuario.
+- Ajuste del texto descriptivo del modal para indicar explícitamente que solo se admiten horas enteras.
+
 ## v0.2.28
 - Nuevo modal "Declarar horas" dentro de "Cálculo de horas" con slider moderno y dinámico (máximo 7 horas, paso de 0,5).
 - Campo "Motivo" con entrada textual limitada a 200 caracteres y contador visible.

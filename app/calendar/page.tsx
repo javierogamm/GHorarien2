@@ -518,14 +518,25 @@ export default function CalendarPage() {
       });
       return;
     }
-    if (declareHoursValue <= 0) {
+    if (!Number.isInteger(declareHoursValue)) {
       setDeclareStatus({
         loading: false,
-        error: "Indica al menos media hora declarada.",
+        error: "Solo se permiten horas enteras.",
         success: ""
       });
       return;
     }
+
+    if (declareHoursValue < 1) {
+      setDeclareStatus({
+        loading: false,
+        error: "Indica al menos 1 hora declarada.",
+        success: ""
+      });
+      return;
+    }
+
+    const sanitizedDeclareHoursValue = Math.round(declareHoursValue);
 
     setDeclareStatus({
       loading: true,
@@ -545,7 +556,7 @@ export default function CalendarPage() {
       );
       await createHorasDeclaradas({
         user: username,
-        horasDeclaradas: declareHoursValue,
+        horasDeclaradas: sanitizedDeclareHoursValue,
         motivo: declareHoursReason.trim(),
         fechaHorasDeclaradas: formatDateTime(declarationDate)
       });
@@ -2350,7 +2361,7 @@ export default function CalendarPage() {
                 Declarar horas
               </h3>
               <p className="mt-1 text-sm text-slate-500">
-                Registra tus horas declaradas con un máximo de {MAX_DECLARABLE_HOURS} h
+                Registra horas enteras con un máximo de {MAX_DECLARABLE_HOURS} h
                 por día.
               </p>
             </div>
@@ -2397,9 +2408,9 @@ export default function CalendarPage() {
               <div className="mt-5 flex flex-col gap-2">
                 <input
                   type="range"
-                  min={0.5}
+                  min={1}
                   max={MAX_DECLARABLE_HOURS}
-                  step={0.5}
+                  step={1}
                   value={declareHoursValue}
                   onChange={(event) => {
                     setDeclareHoursValue(Number(event.target.value));
@@ -2409,7 +2420,7 @@ export default function CalendarPage() {
                   className="h-3 w-full cursor-pointer appearance-none rounded-full border border-indigo-100 bg-slate-200/80 accent-indigo-500 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white/80 [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition hover:[&::-webkit-slider-thumb]:scale-105"
                 />
                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  <span>0.5 h</span>
+                  <span>1 h</span>
                   <span>{MAX_DECLARABLE_HOURS} h</span>
                 </div>
               </div>
