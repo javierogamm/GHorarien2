@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Calendar } from "../../components/Calendar";
 import {
   type EventCategory,
@@ -17,7 +17,10 @@ import {
   fetchEstablishments,
   updateEvent
 } from "../../services/eventsService";
-import { sumHorasDeclaradasForUser } from "../../services/horasDeclaradasService";
+import {
+  createHorasDeclaradas,
+  sumHorasDeclaradasForUser
+} from "../../services/horasDeclaradasService";
 import {
   fetchUsers,
   parseHorasObtenidas,
@@ -44,6 +47,8 @@ const MONTH_NAMES = [
   "Diciembre"
 ];
 const HOURS_PER_EVENT = 3;
+const MAX_DECLARABLE_HOURS = 7;
+const MAX_REASON_LENGTH = 200;
 
 const formatDateTime = (date: Date) => {
   const pad = (value: number, length = 2) => String(value).padStart(length, "0");
@@ -198,6 +203,19 @@ export default function CalendarPage() {
     loading: false,
     error: "",
     lastUpdated: ""
+  });
+  const [isDeclareHoursModalOpen, setIsDeclareHoursModalOpen] = useState(false);
+  const [declareHoursValue, setDeclareHoursValue] = useState(1);
+  const [declareHoursReason, setDeclareHoursReason] = useState("");
+  const [declareMonth, setDeclareMonth] = useState(today.getMonth());
+  const [declareYear, setDeclareYear] = useState(today.getFullYear());
+  const [declareSelectedDateKey, setDeclareSelectedDateKey] = useState(
+    formatDateKey(today)
+  );
+  const [declareStatus, setDeclareStatus] = useState({
+    loading: false,
+    error: "",
+    success: ""
   });
   const [weekAnchorDate, setWeekAnchorDate] = useState(today);
   const [activeCategory, setActiveCategory] = useState<EventCategory | null>(null);
@@ -444,6 +462,109 @@ export default function CalendarPage() {
     setHoursRefreshToken((prev) => prev + 1);
   }, []);
 
+  const clearDeclareMessages = useCallback(() => {
+    setDeclareStatus((prev) =>
+      prev.error || prev.success ? { ...prev, error: "", success: "" } : prev
+    );
+  }, []);
+
+  const openDeclareHoursModal = () => {
+    const baseDate = new Date(today);
+    setDeclareHoursValue(1);
+    setDeclareHoursReason("");
+    setDeclareMonth(baseDate.getMonth());
+    setDeclareYear(baseDate.getFullYear());
+    setDeclareSelectedDateKey(formatDateKey(baseDate));
+    setDeclareStatus({
+      loading: false,
+      error: "",
+      success: ""
+    });
+    setIsDeclareHoursModalOpen(true);
+  };
+
+  const closeDeclareHoursModal = () => {
+    setIsDeclareHoursModalOpen(false);
+    setDeclareStatus((prev) =>
+      prev.loading ? { ...prev, loading: false } : prev
+    );
+  };
+
+  const handleDeclareReasonChange = (value: string) => {
+    setDeclareHoursReason(value.slice(0, MAX_REASON_LENGTH));
+    clearDeclareMessages();
+  };
+
+  const handleDeclareDateSelect = (date: Date) => {
+    setDeclareSelectedDateKey(formatDateKey(date));
+    clearDeclareMessages();
+  };
+
+  const handleDeclareHoursSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!username) {
+      setDeclareStatus({
+        loading: false,
+        error: "Necesitas iniciar sesión para declarar horas.",
+        success: ""
+      });
+      return;
+    }
+    if (!declareSelectedDate) {
+      setDeclareStatus({
+        loading: false,
+        error: "Selecciona un día en el calendario.",
+        success: ""
+      });
+      return;
+    }
+    if (declareHoursValue <= 0) {
+      setDeclareStatus({
+        loading: false,
+        error: "Indica al menos media hora declarada.",
+        success: ""
+      });
+      return;
+    }
+
+    setDeclareStatus({
+      loading: true,
+      error: "",
+      success: ""
+    });
+
+    try {
+      const declarationDate = new Date(
+        declareSelectedDate.getFullYear(),
+        declareSelectedDate.getMonth(),
+        declareSelectedDate.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+      await createHorasDeclaradas({
+        user: username,
+        horasDeclaradas: declareHoursValue,
+        motivo: declareHoursReason.trim(),
+        fechaHorasDeclaradas: formatDateTime(declarationDate)
+      });
+
+      setDeclareStatus({
+        loading: false,
+        error: "",
+        success: "Horas declaradas correctamente."
+      });
+      triggerHoursRecalculation();
+    } catch (error) {
+      setDeclareStatus({
+        loading: false,
+        error: getErrorMessage(error, "No se pudieron declarar las horas."),
+        success: ""
+      });
+    }
+  };
+
   const handleHoursCalculationOpen = () => {
     setMyEventsOnly(false);
     setControlTableEnabled(false);
@@ -570,6 +691,45 @@ export default function CalendarPage() {
     parsedDates.sort((left, right) => left.getTime() - right.getTime());
     return parsedDates;
   }, [bulkSelectedDateKeys]);
+
+  const declareCalendarDays = useMemo(
+    () => buildMiniCalendarDays(declareYear, declareMonth),
+    [declareMonth, declareYear]
+  );
+  const declareYearOptions = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => declareYear - 3 + index),
+    [declareYear]
+  );
+  const declareSelectedDate = useMemo(
+    () => parseDateInput(declareSelectedDateKey),
+    [declareSelectedDateKey]
+  );
+  const declareSliderPercent = Math.min(
+    100,
+    (declareHoursValue / MAX_DECLARABLE_HOURS) * 100
+  );
+  const declareSliderStyle = {
+    background: `linear-gradient(90deg, rgb(99 102 241) 0%, rgb(99 102 241) ${declareSliderPercent}%, rgb(226 232 240) ${declareSliderPercent}%, rgb(226 232 240) 100%)`
+  };
+
+  const hoursChartMax = Math.max(hoursSummary.obtained + 10, 10);
+  const hoursChartBars = [
+    {
+      key: "obtained",
+      label: "Horas obtenidas",
+      value: hoursSummary.obtained,
+      tone: "bg-emerald-500",
+      surface: "bg-emerald-50 text-emerald-700"
+    },
+    {
+      key: "declared",
+      label: "Horas declaradas",
+      value: hoursSummary.declared,
+      tone: "bg-sky-500",
+      surface: "bg-sky-50 text-sky-700"
+    }
+  ] as const;
+  const hoursChartScaleSteps = [0, 0.25, 0.5, 0.75, 1] as const;
 
   const handleBulkDateToggle = (date: Date) => {
     const key = formatDateKey(date);
@@ -1583,6 +1743,13 @@ export default function CalendarPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={openDeclareHoursModal}
+                  className="rounded-full border border-indigo-200 bg-indigo-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600"
+                >
+                  Declarar horas
+                </button>
+                <button
+                  type="button"
                   onClick={handleHoursCalculationBackToMyEvents}
                   className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
                 >
@@ -1659,6 +1826,87 @@ export default function CalendarPage() {
                   Horas obtenidas − horas declaradas
                 </p>
               </article>
+            </div>
+
+            <div className="mt-8 rounded-[32px] border border-slate-200/80 bg-white/80 p-6 shadow-inner">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    Comparativa de horas
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Las columnas usan un máximo de horas obtenidas + 10 para que
+                    el avance se vea claro.
+                  </p>
+                </div>
+                <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Escala máxima: {formatHoursValue(hoursChartMax)} h
+                </div>
+              </div>
+
+              <div className="mt-8">
+                <div className="relative h-[360px] rounded-[28px] border border-slate-100 bg-gradient-to-b from-white via-white to-slate-50/80 px-6 pb-8 pt-6">
+                  <div className="pointer-events-none absolute inset-0 flex flex-col justify-between px-6 pb-8 pt-6">
+                    {hoursChartScaleSteps.map((step) => {
+                      const scaleValue = hoursChartMax * step;
+                      return (
+                        <div
+                          key={`hours-scale-${step}`}
+                          className="flex items-center gap-3"
+                        >
+                          <div className="h-px flex-1 border-t border-dashed border-slate-200/80" />
+                          <span className="w-16 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                            {formatHoursValue(scaleValue)}h
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="relative flex h-full items-end justify-center gap-12 pb-2">
+                    {hoursChartBars.map((bar) => {
+                      const ratio =
+                        hoursChartMax === 0 ? 0 : Math.min(1, bar.value / hoursChartMax);
+                      const barHeight = bar.value <= 0 ? 0 : Math.max(12, ratio * 100);
+
+                      return (
+                        <div key={bar.key} className="flex w-40 flex-col items-center gap-4">
+                          <div className="relative flex h-[260px] w-28 items-end">
+                            <div className="absolute inset-0 rounded-[32px] border border-slate-200/80 bg-slate-100/80 shadow-inner" />
+                            {bar.value > 0 ? (
+                              <div
+                                className={`relative w-full rounded-[28px] ${bar.tone} shadow-[0_22px_35px_-22px_rgba(15,23,42,0.65)] transition-all duration-500`}
+                                style={{ height: `${barHeight}%` }}
+                              >
+                                <div
+                                  className="absolute left-1/2 -translate-x-1/2"
+                                  style={{ bottom: "calc(100% + 0.75rem)" }}
+                                >
+                                  <span
+                                    className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${bar.surface}`}
+                                  >
+                                    {formatHoursValue(bar.value)} h
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="relative h-3 w-full rounded-full bg-slate-300/80" />
+                            )}
+                          </div>
+                          <div className="flex flex-col items-center gap-1 text-center">
+                            <p className="text-sm font-semibold text-slate-700">
+                              {bar.label}
+                            </p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                              {formatHoursValue(bar.value)} h
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         ) : myEventsOnly ? (
@@ -2082,6 +2330,254 @@ export default function CalendarPage() {
             Usa el botón &quot;Tabla de control&quot; para ver el resumen agrupado.
           </div>
         ) : null}
+      </div>
+
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-10 backdrop-blur-sm transition ${
+          isDeclareHoursModalOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={closeDeclareHoursModal}
+      >
+        <div
+          className={`max-h-[88vh] w-full max-w-3xl overflow-y-auto rounded-[32px] border border-white/70 bg-white/95 p-6 shadow-soft transition ${
+            isDeclareHoursModalOpen ? "translate-y-0 scale-100" : "translate-y-4 scale-95"
+          }`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold text-slate-900">
+                Declarar horas
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Registra tus horas declaradas con un máximo de {MAX_DECLARABLE_HOURS} h
+                por día.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {declareSelectedDate ? (
+                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                  {declareSelectedDate.toLocaleDateString("es-ES", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric"
+                  })}
+                </span>
+              ) : null}
+              <button
+                type="button"
+                onClick={closeDeclareHoursModal}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+
+          <form className="mt-6 flex flex-col gap-6" onSubmit={handleDeclareHoursSubmit}>
+            <section className="rounded-3xl border border-indigo-100 bg-indigo-50/60 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
+                    Horas declaradas
+                  </p>
+                  <p className="mt-1 text-3xl font-semibold text-indigo-700">
+                    {formatHoursValue(declareHoursValue)} h
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-indigo-100 bg-white/80 px-4 py-2 text-right">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    Máximo diario
+                  </p>
+                  <p className="text-lg font-semibold text-slate-700">
+                    {MAX_DECLARABLE_HOURS} h
+                  </p>
+                </div>
+              </div>
+              <div className="mt-5 flex flex-col gap-2">
+                <input
+                  type="range"
+                  min={0.5}
+                  max={MAX_DECLARABLE_HOURS}
+                  step={0.5}
+                  value={declareHoursValue}
+                  onChange={(event) => {
+                    setDeclareHoursValue(Number(event.target.value));
+                    clearDeclareMessages();
+                  }}
+                  style={declareSliderStyle}
+                  className="h-3 w-full cursor-pointer appearance-none rounded-full border border-indigo-100 bg-slate-200/80 accent-indigo-500 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white/80 [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:transition hover:[&::-webkit-slider-thumb]:scale-105"
+                />
+                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  <span>0.5 h</span>
+                  <span>{MAX_DECLARABLE_HOURS} h</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white/80 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Motivo
+                </p>
+                <span
+                  className={`text-xs font-semibold ${
+                    declareHoursReason.length >= MAX_REASON_LENGTH
+                      ? "text-rose-500"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {declareHoursReason.length}/{MAX_REASON_LENGTH}
+                </span>
+              </div>
+              <textarea
+                value={declareHoursReason}
+                onChange={(event) => handleDeclareReasonChange(event.target.value)}
+                maxLength={MAX_REASON_LENGTH}
+                rows={4}
+                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-200"
+                placeholder="Describe brevemente el motivo de la declaración."
+              />
+            </section>
+
+            <section className="rounded-3xl border border-slate-200 bg-white/80 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Fecha de la declaración
+                  </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Selecciona un único día para guardar `fechaHorasDeclaradas`.
+                  </p>
+                </div>
+                {declareSelectedDate ? (
+                  <span className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-fuchsia-600">
+                    {declareSelectedDate.toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric"
+                    })}
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Mes
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={declareMonth}
+                    onChange={(event) => {
+                      setDeclareMonth(Number(event.target.value));
+                      clearDeclareMessages();
+                    }}
+                  >
+                    {MONTH_NAMES.map((name, index) => (
+                      <option key={`declare-month-${name}`} value={index}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Año
+                  <select
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={declareYear}
+                    onChange={(event) => {
+                      setDeclareYear(Number(event.target.value));
+                      clearDeclareMessages();
+                    }}
+                  >
+                    {declareYearOptions.map((year) => (
+                      <option key={`declare-year-${year}`} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="mt-4 grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                {MINI_WEEK_DAYS.map((label) => (
+                  <span key={`declare-weekday-${label}`}>{label}</span>
+                ))}
+              </div>
+              <div className="mt-1 grid grid-cols-7 gap-1">
+                {declareCalendarDays.map((date, index) => {
+                  if (!date) {
+                    return (
+                      <div
+                        key={`declare-empty-${index}`}
+                        className="h-9 rounded-xl border border-transparent bg-transparent"
+                        aria-hidden="true"
+                      />
+                    );
+                  }
+                  const dateKey = formatDateKey(date);
+                  const isSelected = dateKey === declareSelectedDateKey;
+                  const isToday =
+                    date.getDate() === today.getDate() &&
+                    date.getMonth() === today.getMonth() &&
+                    date.getFullYear() === today.getFullYear();
+
+                  return (
+                    <button
+                      key={`declare-date-${dateKey}`}
+                      type="button"
+                      onClick={() => handleDeclareDateSelect(date)}
+                      className={`flex h-9 items-center justify-center rounded-xl border text-sm font-semibold transition ${
+                        isSelected
+                          ? "border-fuchsia-400 bg-fuchsia-500 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:text-indigo-600"
+                      } ${isToday && !isSelected ? "ring-1 ring-indigo-200" : ""}`}
+                      aria-pressed={isSelected}
+                    >
+                      {date.getDate()}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {declareStatus.error ? (
+              <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
+                {declareStatus.error}
+              </p>
+            ) : null}
+            {declareStatus.success ? (
+              <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-600">
+                {declareStatus.success}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="text-xs text-slate-400">
+                Se guardará un registro en{" "}
+                <span className="font-semibold text-slate-500">
+                  horasDeclaradas
+                </span>{" "}
+                con tu usuario.
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={closeDeclareHoursModal}
+                  className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={declareStatus.loading}
+                  className="rounded-full border border-indigo-200 bg-indigo-500 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
+                >
+                  {declareStatus.loading ? "Guardando..." : "Guardar declaración"}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div

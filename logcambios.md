@@ -1,5 +1,13 @@
 # Log de cambios
 
+## v0.2.28
+- Nuevo modal "Declarar horas" dentro de "Cálculo de horas" con slider moderno y dinámico (máximo 7 horas, paso de 0,5).
+- Campo "Motivo" con entrada textual limitada a 200 caracteres y contador visible.
+- Calendario reducido idéntico al de "Crear varios eventos", ahora para seleccionar un único día y guardar `fechaHorasDeclaradas`.
+- Al guardar la declaración se crea un registro en la colección `horasDeclaradas` con `horasDeclaradas`, `motivo`, `fechaHorasDeclaradas` y el usuario.
+- La vista "Cálculo de horas" ahora prioriza un gráfico de barras gruesas con dos columnas: horas obtenidas y horas declaradas.
+- El rango máximo del gráfico se calcula como `horasObtenidas + 10`, manteniendo visibles los 3 KPI por encima del gráfico.
+
 ## v0.2.27
 - Corrección del guardado de `horasObtenidas` en Appwrite enviando el valor como string para cumplir el esquema actual de la colección.
 - Normalización de `horasObtenidas` a número en cliente para comparar correctamente antes de actualizar.
