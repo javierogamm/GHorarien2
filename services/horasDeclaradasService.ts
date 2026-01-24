@@ -1,4 +1,4 @@
-import { Models, Query } from "appwrite";
+import { ID, Models, Query } from "appwrite";
 import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClient";
 
 export type HorasDeclaradasRecord = Models.Document & {
@@ -6,6 +6,13 @@ export type HorasDeclaradasRecord = Models.Document & {
   user: string;
   motivo?: string;
   fechaHorasDeclaradas?: string;
+};
+
+type CreateHorasDeclaradasInput = {
+  user: string;
+  horasDeclaradas: number;
+  motivo: string;
+  fechaHorasDeclaradas: string;
 };
 
 const ensureHorasDeclaradasConfig = () => {
@@ -59,3 +66,22 @@ export const sumHorasDeclaradasForUser = async (username: string): Promise<numbe
   );
 };
 
+export const createHorasDeclaradas = async ({
+  user,
+  horasDeclaradas,
+  motivo,
+  fechaHorasDeclaradas
+}: CreateHorasDeclaradasInput): Promise<HorasDeclaradasRecord> => {
+  ensureHorasDeclaradasConfig();
+  return databases.createDocument<HorasDeclaradasRecord>(
+    appwriteConfig.databaseId,
+    appwriteConfig.horasDeclaradasCollectionId,
+    ID.unique(),
+    {
+      user,
+      horasDeclaradas,
+      motivo,
+      fechaHorasDeclaradas
+    }
+  );
+};
