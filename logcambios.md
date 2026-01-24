@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.25
+- Añadidos botones centrados "Crear evento" y "Crear varios eventos" junto al toggle Laboral/Natural.
+- Nuevo modal "Crear varios eventos" con selección de nombre, tipo, asistentes, establecimiento, hora de inicio y un calendario reducido con multiselección por mes y año.
+- La creación masiva genera eventos para cada día seleccionado y crea filas por asistente con los mismos detalles.
+- Ajustes en la gestión de asistentes y establecimiento para soportar la creación masiva.
+
 ## v0.2.24
 - Exportación CSV adaptada para Excel con separador punto y coma, sin comillas y con saneado de valores.
 

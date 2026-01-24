@@ -53,6 +53,8 @@ type CalendarProps = {
   onYearChange: (year: number) => void;
   onDaySelect: (date: Date, events: CalendarEventDisplay[]) => void;
   onAddEvent: (date: Date) => void;
+  onOpenCreateModal: () => void;
+  onOpenBulkCreateModal: () => void;
   onEventSelect: (event: CalendarEventDisplay) => void;
   onCategoryToggle: (category: CalendarEventDisplay["eventType"]) => void;
 };
@@ -223,6 +225,8 @@ export const Calendar = ({
   onYearChange,
   onDaySelect,
   onAddEvent,
+  onOpenCreateModal,
+  onOpenBulkCreateModal,
   onEventSelect,
   onCategoryToggle
 }: CalendarProps) => {
@@ -291,6 +295,24 @@ export const Calendar = ({
                 >
                   {workweekOnly ? "Laboral" : "Natural"}
                 </button>
+                {allowAddEvent ? (
+                  <div className="flex flex-wrap items-center gap-2 md:ml-2">
+                    <button
+                      type="button"
+                      onClick={onOpenCreateModal}
+                      className="rounded-full border border-emerald-200 bg-emerald-500 px-4 py-1 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600"
+                    >
+                      Crear evento
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onOpenBulkCreateModal}
+                      className="rounded-full border border-fuchsia-200 bg-fuchsia-500 px-4 py-1 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-fuchsia-600"
+                    >
+                      Crear varios eventos
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
             <h1 className="text-3xl font-semibold text-slate-900">

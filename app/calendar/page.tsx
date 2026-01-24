@@ -45,8 +45,29 @@ const formatDateTime = (date: Date) => {
   )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 };
 
+const formatDateKey = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
 const isSameMonthAndYear = (date: Date, month: number, year: number) =>
   date.getFullYear() === year && date.getMonth() === month;
+
+const MINI_WEEK_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+const buildMiniCalendarDays = (year: number, month: number) => {
+  const firstDay = new Date(year, month, 1);
+  const startWeekDay = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const totalCells = Math.ceil((startWeekDay + daysInMonth) / 7) * 7;
+
+  return Array.from({ length: totalCells }, (_, index) => {
+    const dayNumber = index - startWeekDay + 1;
+    if (dayNumber < 1 || dayNumber > daysInMonth) {
+      return null;
+    }
+    return new Date(year, month, dayNumber);
+  });
+};
 
 const USER_COLOR_PALETTE = [
   {
@@ -123,6 +144,23 @@ export default function CalendarPage() {
   const [eventEstablishment, setEventEstablishment] = useState("");
   const [attendees, setAttendees] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [bulkEventName, setBulkEventName] = useState("");
+  const [bulkEventType, setBulkEventType] = useState<EventCategory>(EVENT_CATEGORIES[0]);
+  const [bulkEventStartTime, setBulkEventStartTime] = useState(
+    EVENT_CATEGORY_META[EVENT_CATEGORIES[0]].startTime
+  );
+  const [bulkEventNotes, setBulkEventNotes] = useState("");
+  const [bulkEventEstablishment, setBulkEventEstablishment] = useState("");
+  const [bulkAttendees, setBulkAttendees] = useState<string[]>([]);
+  const [isBulkCreateModalOpen, setIsBulkCreateModalOpen] = useState(false);
+  const [bulkMonth, setBulkMonth] = useState(today.getMonth());
+  const [bulkYear, setBulkYear] = useState(today.getFullYear());
+  const [bulkSelectedDateKeys, setBulkSelectedDateKeys] = useState<string[]>([]);
+  const [bulkFormStatus, setBulkFormStatus] = useState({
+    loading: false,
+    error: "",
+    success: ""
+  });
   const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState(false);
   const [dayDetailEvents, setDayDetailEvents] = useState<CalendarEventDisplay[]>(
     []
@@ -149,7 +187,7 @@ export default function CalendarPage() {
   const [isEstablishmentModalOpen, setIsEstablishmentModalOpen] = useState(false);
   const [isAddingEstablishment, setIsAddingEstablishment] = useState(false);
   const [establishmentTarget, setEstablishmentTarget] = useState<
-    "create" | "edit" | null
+    "create" | "edit" | "bulk" | null
   >(null);
   const [establishmentStatus, setEstablishmentStatus] = useState({
     loading: false,
@@ -233,6 +271,7 @@ export default function CalendarPage() {
         names.sort((a, b) => a.localeCompare(b));
         setEstablishments(names);
         setEventEstablishment((prev) => (prev ? prev : names[0] ?? ""));
+        setBulkEventEstablishment((prev) => (prev ? prev : names[0] ?? ""));
       } catch (err) {
         setEstablishmentsError(
           "No se pudo cargar la lista de establecimientos."
@@ -271,6 +310,11 @@ export default function CalendarPage() {
     const meta = EVENT_CATEGORY_META[eventType];
     setEventStartTime(meta.startTime);
   }, [eventType]);
+
+  useEffect(() => {
+    const meta = EVENT_CATEGORY_META[bulkEventType];
+    setBulkEventStartTime(meta.startTime);
+  }, [bulkEventType]);
 
   useEffect(() => {
     if (!selectedEvent) {
@@ -448,6 +492,39 @@ export default function CalendarPage() {
     );
   };
 
+  const bulkCalendarDays = useMemo(
+    () => buildMiniCalendarDays(bulkYear, bulkMonth),
+    [bulkMonth, bulkYear]
+  );
+  const bulkYearOptions = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => bulkYear - 3 + index),
+    [bulkYear]
+  );
+  const bulkSelectedDateSet = useMemo(
+    () => new Set(bulkSelectedDateKeys),
+    [bulkSelectedDateKeys]
+  );
+  const bulkSelectedDates = useMemo(() => {
+    const parsedDates = bulkSelectedDateKeys
+      .map((key) => parseDateInput(key))
+      .filter((date): date is Date => Boolean(date));
+    parsedDates.sort((left, right) => left.getTime() - right.getTime());
+    return parsedDates;
+  }, [bulkSelectedDateKeys]);
+
+  const handleBulkDateToggle = (date: Date) => {
+    const key = formatDateKey(date);
+    setBulkSelectedDateKeys((prev) => {
+      if (prev.includes(key)) {
+        return prev.filter((value) => value !== key);
+      }
+      return [...prev, key].sort((left, right) => left.localeCompare(right));
+    });
+    setBulkFormStatus((prev) =>
+      prev.error ? { ...prev, error: "", success: "" } : prev
+    );
+  };
+
   const handleExportMyEvents = () => {
     if (myEvents.length === 0) return;
     const headers = [
@@ -525,6 +602,10 @@ export default function CalendarPage() {
     () => sortedUsers.filter((user) => !attendees.includes(user.user)),
     [attendees, sortedUsers]
   );
+  const availableBulkUsers = useMemo(
+    () => sortedUsers.filter((user) => !bulkAttendees.includes(user.user)),
+    [bulkAttendees, sortedUsers]
+  );
   const availableEditUsers = useMemo(
     () => sortedUsers.filter((user) => !editForm.attendees.includes(user.user)),
     [editForm.attendees, sortedUsers]
@@ -545,10 +626,14 @@ export default function CalendarPage() {
   const canEditDetails = userRole !== "User";
   const showControlTable = userRole === "Admin" || userRole === "Boss";
 
-  const handleAddAttendee = (value: string, target: "create" | "edit") => {
+  const handleAddAttendee = (value: string, target: "create" | "edit" | "bulk") => {
     if (!validUsernames.has(value)) return;
     if (target === "create") {
       setAttendees((prev) => (prev.includes(value) ? prev : [...prev, value]));
+      return;
+    }
+    if (target === "bulk") {
+      setBulkAttendees((prev) => (prev.includes(value) ? prev : [...prev, value]));
       return;
     }
     setEditForm((prev) => ({
@@ -559,9 +644,13 @@ export default function CalendarPage() {
     }));
   };
 
-  const handleRemoveAttendee = (value: string, target: "create" | "edit") => {
+  const handleRemoveAttendee = (value: string, target: "create" | "edit" | "bulk") => {
     if (target === "create") {
       setAttendees((prev) => prev.filter((item) => item !== value));
+      return;
+    }
+    if (target === "bulk") {
+      setBulkAttendees((prev) => prev.filter((item) => item !== value));
       return;
     }
     setEditForm((prev) => ({
@@ -582,12 +671,16 @@ export default function CalendarPage() {
     () => attendees.filter((attendee) => !validUsernames.has(attendee)),
     [attendees, validUsernames]
   );
+  const invalidBulkAttendees = useMemo(
+    () => bulkAttendees.filter((attendee) => !validUsernames.has(attendee)),
+    [bulkAttendees, validUsernames]
+  );
   const invalidEditAttendees = useMemo(
     () => editForm.attendees.filter((attendee) => !validUsernames.has(attendee)),
     [editForm.attendees, validUsernames]
   );
 
-  const openEstablishmentModal = (target: "create" | "edit") => {
+  const openEstablishmentModal = (target: "create" | "edit" | "bulk") => {
     setEstablishmentTarget(target);
     setIsEstablishmentModalOpen(true);
     setEstablishmentSearch("");
@@ -608,6 +701,8 @@ export default function CalendarPage() {
   const handleSelectEstablishment = (name: string) => {
     if (establishmentTarget === "edit") {
       setEditForm((prev) => ({ ...prev, establecimiento: name }));
+    } else if (establishmentTarget === "bulk") {
+      setBulkEventEstablishment(name);
     } else {
       setEventEstablishment(name);
     }
@@ -775,6 +870,146 @@ export default function CalendarPage() {
     }
   };
 
+  const handleBulkCreateEvents = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (userRole === "User") {
+      setBulkFormStatus({
+        loading: false,
+        error: "No tienes permisos para crear eventos.",
+        success: ""
+      });
+      return;
+    }
+    const trimmedName = bulkEventName.trim();
+    const attendeeList = bulkAttendees;
+    const dateList = bulkSelectedDates;
+
+    if (!trimmedName) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Indica el nombre del evento.",
+        success: ""
+      });
+      return;
+    }
+
+    if (dateList.length === 0) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Selecciona al menos un día en el calendario.",
+        success: ""
+      });
+      return;
+    }
+
+    if (usersLoading) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Estamos cargando los usuarios disponibles.",
+        success: ""
+      });
+      return;
+    }
+
+    if (usersError || validUsernames.size === 0) {
+      setBulkFormStatus({
+        loading: false,
+        error: "No hay usuarios disponibles para asignar asistentes.",
+        success: ""
+      });
+      return;
+    }
+
+    if (attendeeList.length === 0) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Agrega al menos un asistente.",
+        success: ""
+      });
+      return;
+    }
+
+    if (invalidBulkAttendees.length > 0) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Hay asistentes que no existen en la tabla de usuarios.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!bulkEventStartTime) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Indica la hora de inicio.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!bulkEventEstablishment) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Selecciona un establecimiento.",
+        success: ""
+      });
+      return;
+    }
+
+    const hasInvalidDates = dateList.some((date) =>
+      Number.isNaN(buildEventDateTime(date, bulkEventStartTime).getTime())
+    );
+    if (hasInvalidDates) {
+      setBulkFormStatus({
+        loading: false,
+        error: "Las horas indicadas no son válidas.",
+        success: ""
+      });
+      return;
+    }
+
+    setBulkFormStatus({ loading: true, error: "", success: "" });
+    try {
+      const duration = 0;
+      await Promise.all(
+        dateList.map((date) => {
+          const startDate = buildEventDateTime(date, bulkEventStartTime);
+          const isoDate = formatDateTime(startDate);
+          return createEventsForAttendees({
+            nombre: trimmedName,
+            eventType: bulkEventType,
+            attendees: attendeeList,
+            fecha: isoDate,
+            horaInicio: isoDate,
+            horaFin: isoDate,
+            duration,
+            notas: bulkEventNotes.trim(),
+            establecimiento: bulkEventEstablishment
+          });
+        })
+      );
+
+      const totalEvents = dateList.length * attendeeList.length;
+      setBulkEventName("");
+      setBulkAttendees([]);
+      setBulkEventNotes("");
+      setBulkSelectedDateKeys([]);
+      setBulkFormStatus({
+        loading: false,
+        error: "",
+        success: `${totalEvents} eventos creados correctamente.`
+      });
+      setIsBulkCreateModalOpen(false);
+      await loadAllEvents();
+    } catch (err) {
+      setBulkFormStatus({
+        loading: false,
+        error: "No se pudieron crear los eventos.",
+        success: ""
+      });
+    }
+  };
+
   const handleDaySelect = (date: Date, events: CalendarEventDisplay[]) => {
     setSelectedDate(date);
     setDayDetailEvents(events);
@@ -794,6 +1029,25 @@ export default function CalendarPage() {
     setIsDayDetailModalOpen(false);
   };
 
+  const handleOpenCreateModal = () => {
+    if (userRole === "User") return;
+    const baseDate = selectedDate ?? today;
+    setCurrentMonth(baseDate.getMonth());
+    setCurrentYear(baseDate.getFullYear());
+    handleAddEvent(baseDate);
+  };
+
+  const handleOpenBulkCreateModal = () => {
+    if (userRole === "User") return;
+    const baseDate = selectedDate ?? today;
+    setBulkMonth(baseDate.getMonth());
+    setBulkYear(baseDate.getFullYear());
+    setBulkSelectedDateKeys([]);
+    setBulkFormStatus({ loading: false, error: "", success: "" });
+    setIsBulkCreateModalOpen(true);
+    setIsDayDetailModalOpen(false);
+  };
+
   const handleEventSelect = (event: CalendarEventDisplay) => {
     setSelectedEvent(event);
   };
@@ -806,6 +1060,11 @@ export default function CalendarPage() {
   const closeCreateModal = () => {
     setIsCreateModalOpen(false);
     setFormStatus({ loading: false, error: "", success: "" });
+  };
+
+  const closeBulkCreateModal = () => {
+    setIsBulkCreateModalOpen(false);
+    setBulkFormStatus({ loading: false, error: "", success: "" });
   };
 
   const closeDayDetailModal = () => {
@@ -1555,6 +1814,8 @@ export default function CalendarPage() {
             onYearChange={setCurrentYear}
             onDaySelect={handleDaySelect}
             onAddEvent={handleAddEvent}
+            onOpenCreateModal={handleOpenCreateModal}
+            onOpenBulkCreateModal={handleOpenBulkCreateModal}
             onEventSelect={handleEventSelect}
             onCategoryToggle={handleCategoryToggle}
           />
@@ -1944,6 +2205,382 @@ export default function CalendarPage() {
                 className="rounded-full border border-indigo-200 bg-indigo-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
               >
                 {formStatus.loading ? "Creando..." : "Crear evento"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div
+        className={`fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 py-10 backdrop-blur-sm transition ${
+          isBulkCreateModalOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={closeBulkCreateModal}
+      >
+        <div
+          className={`max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-white/70 bg-white/95 p-6 shadow-soft transition ${
+            isBulkCreateModalOpen ? "translate-y-0 scale-100" : "translate-y-4 scale-95"
+          }`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">
+                Crear varios eventos
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Define los datos comunes y selecciona varios días en el calendario.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeBulkCreateModal}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <form className="mt-6 flex flex-col gap-6" onSubmit={handleBulkCreateEvents}>
+            <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="flex flex-col gap-4">
+                <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Nombre del evento
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="text"
+                      value={bulkEventName}
+                      onChange={(event) => setBulkEventName(event.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Tipo de evento
+                    <select
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      value={bulkEventType}
+                      onChange={(event) =>
+                        setBulkEventType(event.target.value as EventCategory)
+                      }
+                    >
+                      {EVENT_CATEGORIES.map((category) => (
+                        <option key={category} value={category}>
+                          {EVENT_CATEGORY_META[category].label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="grid gap-4 md:grid-cols-[0.8fr_1.2fr]">
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Hora inicio
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="time"
+                      value={bulkEventStartTime}
+                      onChange={(event) => setBulkEventStartTime(event.target.value)}
+                    />
+                  </label>
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Establecimiento
+                    <button
+                      type="button"
+                      onClick={() => openEstablishmentModal("bulk")}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2 text-left text-sm font-semibold text-slate-700 shadow-sm transition hover:border-indigo-300"
+                    >
+                      <span className="truncate">
+                        {bulkEventEstablishment || "Selecciona un establecimiento"}
+                      </span>
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 text-slate-500">
+                        <svg
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m21 21-4.35-4.35m1.1-4.15a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
+                          />
+                        </svg>
+                      </span>
+                    </button>
+                    {establishmentsError ? (
+                      <span className="text-xs text-rose-500">{establishmentsError}</span>
+                    ) : null}
+                  </label>
+                </div>
+                <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                  Notas
+                  <textarea
+                    className="min-h-[90px] rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                    value={bulkEventNotes}
+                    onChange={(event) => setBulkEventNotes(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-col gap-3 rounded-3xl border border-slate-200/80 bg-white/80 p-4 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-700">Calendario</span>
+                  <span className="text-xs font-semibold text-slate-400">
+                    {bulkSelectedDates.length} días seleccionados
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Mes
+                    <select
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      value={bulkMonth}
+                      onChange={(event) => {
+                        setBulkMonth(Number(event.target.value));
+                        setBulkFormStatus((prev) =>
+                          prev.error ? { ...prev, error: "", success: "" } : prev
+                        );
+                      }}
+                    >
+                      {MONTH_NAMES.map((name, index) => (
+                        <option key={name} value={index}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Año
+                    <select
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      value={bulkYear}
+                      onChange={(event) => {
+                        setBulkYear(Number(event.target.value));
+                        setBulkFormStatus((prev) =>
+                          prev.error ? { ...prev, error: "", success: "" } : prev
+                        );
+                      }}
+                    >
+                      {bulkYearOptions.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                  {MINI_WEEK_DAYS.map((label) => (
+                    <span key={label}>{label}</span>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {bulkCalendarDays.map((date, index) => {
+                    if (!date) {
+                      return (
+                        <div
+                          key={`bulk-empty-${index}`}
+                          className="h-9 rounded-xl border border-transparent bg-transparent"
+                          aria-hidden="true"
+                        />
+                      );
+                    }
+                    const dateKey = formatDateKey(date);
+                    const isSelected = bulkSelectedDateSet.has(dateKey);
+                    const isToday =
+                      date.getDate() === today.getDate() &&
+                      date.getMonth() === today.getMonth() &&
+                      date.getFullYear() === today.getFullYear();
+
+                    return (
+                      <button
+                        key={dateKey}
+                        type="button"
+                        onClick={() => handleBulkDateToggle(date)}
+                        className={`flex h-9 items-center justify-center rounded-xl border text-sm font-semibold transition ${
+                          isSelected
+                            ? "border-fuchsia-400 bg-fuchsia-500 text-white shadow-sm"
+                            : "border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:text-indigo-600"
+                        } ${isToday && !isSelected ? "ring-1 ring-indigo-200" : ""}`}
+                        aria-pressed={isSelected}
+                      >
+                        {date.getDate()}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {bulkSelectedDates.length === 0 ? (
+                    <p className="text-xs text-slate-400">
+                      Selecciona uno o varios días para crear los eventos.
+                    </p>
+                  ) : (
+                    bulkSelectedDates.map((date) => {
+                      const key = formatDateKey(date);
+                      return (
+                        <button
+                          key={`bulk-chip-${key}`}
+                          type="button"
+                          onClick={() => handleBulkDateToggle(date)}
+                          className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1 text-xs font-semibold text-fuchsia-600 transition hover:border-fuchsia-300 hover:bg-fuchsia-100"
+                        >
+                          {date.toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric"
+                          })}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 text-sm font-medium text-slate-600">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>Asistentes</span>
+                <span className="text-xs font-semibold text-slate-400">
+                  {bulkAttendees.length} seleccionados
+                </span>
+              </div>
+              {usersError ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                  {usersError}
+                </p>
+              ) : null}
+              <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Usuarios disponibles
+                  </span>
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                    {usersLoading ? (
+                      <p className="text-xs text-slate-400">Cargando usuarios...</p>
+                    ) : sortedUsers.length === 0 ? (
+                      <p className="text-xs text-slate-400">
+                        No hay usuarios registrados.
+                      </p>
+                    ) : availableBulkUsers.length === 0 ? (
+                      <p className="text-xs text-slate-400">
+                        No hay usuarios disponibles.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {availableBulkUsers.map((user) => {
+                          const color = getUserColor(user.user);
+                          return (
+                            <button
+                              key={`bulk-${user.$id}`}
+                              type="button"
+                              onClick={() => handleAddAttendee(user.user, "bulk")}
+                              className="flex items-center justify-between gap-3"
+                              aria-label={`Añadir ${user.user}`}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                  aria-hidden="true"
+                                />
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                >
+                                  {user.user}
+                                </span>
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                  {user.role}
+                                </span>
+                              </div>
+                              <span className="text-xs text-slate-400">
+                                Clic para añadir
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Seleccionados
+                  </span>
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm shadow-sm">
+                    {bulkAttendees.length === 0 ? (
+                      <p className="text-xs text-slate-400">
+                        Añade asistentes para este evento.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {bulkAttendees.map((attendee) => {
+                          const color = getUserColor(attendee);
+                          const role = userLookup.get(attendee)?.role;
+                          return (
+                            <button
+                              key={`bulk-selected-${attendee}`}
+                              type="button"
+                              onClick={() => handleRemoveAttendee(attendee, "bulk")}
+                              className="flex items-center justify-between gap-3"
+                              aria-label={`Quitar ${attendee}`}
+                            >
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${color.dotClass}`}
+                                  aria-hidden="true"
+                                />
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${color.badgeClass}`}
+                                >
+                                  {attendee}
+                                </span>
+                                {role ? (
+                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                                    {role}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <span className="text-xs text-rose-500">Clic para quitar</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {invalidBulkAttendees.length > 0 ? (
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-600">
+                  Hay asistentes que no existen en la tabla de usuarios.
+                </p>
+              ) : null}
+            </div>
+
+            {bulkFormStatus.error ? (
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+                {bulkFormStatus.error}
+              </p>
+            ) : null}
+            {bulkFormStatus.success ? (
+              <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-600">
+                {bulkFormStatus.success}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={closeBulkCreateModal}
+                className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={bulkFormStatus.loading}
+                className="rounded-full border border-fuchsia-200 bg-fuchsia-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-fuchsia-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-300"
+              >
+                {bulkFormStatus.loading ? "Creando eventos..." : "Crear varios eventos"}
               </button>
             </div>
           </form>
