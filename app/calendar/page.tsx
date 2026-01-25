@@ -183,7 +183,7 @@ const normalizeEstablishmentRecord = (
   nombre: record.nombre?.trim() ?? "",
   direccion: record.direccion ?? "",
   telefono: record.telefono ?? "",
-  urlMaps: record.urlMaps ?? "",
+  ubicacion: record.ubicacion ?? "",
   estado: record.estado ?? "aceptado"
 });
 
@@ -540,7 +540,7 @@ export default function CalendarPage() {
     nombre: "",
     direccion: "",
     telefono: "",
-    urlMaps: ""
+    ubicacion: ""
   });
   const [restaurantActionStatus, setRestaurantActionStatus] = useState({
     loading: false,
@@ -552,7 +552,7 @@ export default function CalendarPage() {
     nombre: "",
     direccion: "",
     telefono: "",
-    urlMaps: "",
+    ubicacion: "",
     estado: "aceptado" as EstablishmentStatus
   });
   type EditFormState = {
@@ -1636,7 +1636,7 @@ export default function CalendarPage() {
       const trimmedName = name?.trim();
       if (!trimmedName) return "";
       const record = establishmentLookup.get(trimmedName);
-      const urlValue = record?.urlMaps?.trim();
+      const urlValue = record?.ubicacion?.trim();
       if (urlValue) return urlValue;
       const locationValue = record?.direccion?.trim() || trimmedName;
       return buildEstablishmentLocationUrl(locationValue);
@@ -1765,7 +1765,7 @@ export default function CalendarPage() {
       nombre: "",
       direccion: "",
       telefono: "",
-      urlMaps: ""
+      ubicacion: ""
     });
     setRestaurantActionStatus({ loading: false, error: "", success: "" });
   };
@@ -1776,12 +1776,12 @@ export default function CalendarPage() {
       nombre: "",
       direccion: "",
       telefono: "",
-      urlMaps: ""
+      ubicacion: ""
     });
   };
 
   const handleRestaurantFormChange = (
-    field: "nombre" | "direccion" | "telefono" | "urlMaps",
+    field: "nombre" | "direccion" | "telefono" | "ubicacion",
     value: string
   ) => {
     setRestaurantForm((prev) => ({ ...prev, [field]: value }));
@@ -1809,7 +1809,7 @@ export default function CalendarPage() {
         nombre: trimmedName,
         direccion: restaurantForm.direccion.trim(),
         telefono: restaurantForm.telefono.trim(),
-        urlMaps: restaurantForm.urlMaps.trim(),
+        ubicacion: restaurantForm.ubicacion.trim(),
         estado: restaurantFormMode === "suggest" ? "sugerido" : "aceptado"
       } satisfies Parameters<typeof createEstablishment>[0];
       const created = await createEstablishment(payload);
@@ -1840,7 +1840,7 @@ export default function CalendarPage() {
       nombre: restaurant.nombre ?? "",
       direccion: restaurant.direccion ?? "",
       telefono: restaurant.telefono ?? "",
-      urlMaps: restaurant.urlMaps ?? "",
+      ubicacion: restaurant.ubicacion ?? "",
       estado: restaurant.estado ?? "aceptado"
     });
     setRestaurantActionStatus({ loading: false, error: "", success: "" });
@@ -1852,7 +1852,7 @@ export default function CalendarPage() {
   };
 
   const handleRestaurantEditChange = (
-    field: "nombre" | "direccion" | "telefono" | "urlMaps" | "estado",
+    field: "nombre" | "direccion" | "telefono" | "ubicacion" | "estado",
     value: string
   ) => {
     setRestaurantEditForm((prev) => ({
@@ -1877,7 +1877,7 @@ export default function CalendarPage() {
         nombre: trimmedName,
         direccion: restaurantEditForm.direccion.trim(),
         telefono: restaurantEditForm.telefono.trim(),
-        urlMaps: restaurantEditForm.urlMaps.trim(),
+        ubicacion: restaurantEditForm.ubicacion.trim(),
         estado: restaurantEditForm.estado
       });
       setEstablishments((prev) =>
@@ -3244,9 +3244,9 @@ export default function CalendarPage() {
                     <input
                       className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
                       type="url"
-                      value={restaurantForm.urlMaps}
+                      value={restaurantForm.ubicacion}
                       onChange={(event) =>
-                        handleRestaurantFormChange("urlMaps", event.target.value)
+                        handleRestaurantFormChange("ubicacion", event.target.value)
                       }
                     />
                   </label>
@@ -3344,10 +3344,10 @@ export default function CalendarPage() {
                               <input
                                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
                                 type="url"
-                                value={restaurantEditForm.urlMaps}
+                                value={restaurantEditForm.ubicacion}
                                 onChange={(event) =>
                                   handleRestaurantEditChange(
-                                    "urlMaps",
+                                    "ubicacion",
                                     event.target.value
                                   )
                                 }
@@ -3389,12 +3389,12 @@ export default function CalendarPage() {
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-semibold text-slate-500">Maps:</span>
-                              {restaurant.urlMaps?.trim() ? (
+                              {restaurant.ubicacion?.trim() ? (
                                 <a
-                                  href={restaurant.urlMaps}
+                                  href={restaurant.ubicacion.trim()}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex items-center gap-2 text-indigo-600 underline-offset-2 transition hover:text-indigo-700 hover:underline"
+                                  className="inline-flex items-center gap-2 break-all text-indigo-600 underline-offset-2 transition hover:text-indigo-700 hover:underline"
                                 >
                                   <span className="flex h-6 w-6 items-center justify-center rounded-full border border-indigo-200 bg-indigo-50 text-indigo-600">
                                     <svg
@@ -3413,7 +3413,7 @@ export default function CalendarPage() {
                                       <circle cx="12" cy="11" r="2.5" />
                                     </svg>
                                   </span>
-                                  Abrir en Maps
+                                  {restaurant.ubicacion.trim()}
                                 </a>
                               ) : (
                                 <span>—</span>

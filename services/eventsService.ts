@@ -135,7 +135,7 @@ export type EstablishmentRecord = Models.Document & {
   nombre: string;
   direccion?: string;
   telefono?: string;
-  urlMaps?: string;
+  ubicacion?: string;
   estado?: EstablishmentStatus;
 };
 
@@ -154,7 +154,7 @@ type CreateEstablishmentInput = {
   nombre: string;
   direccion?: string;
   telefono?: string;
-  urlMaps?: string;
+  ubicacion?: string;
   estado?: EstablishmentStatus;
 };
 
