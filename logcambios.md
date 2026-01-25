@@ -1,9 +1,5 @@
 # Log de cambios
 
-## v0.2.45
-- Se corrige la lectura/escritura del campo `ubicacion` (tipo URL) para los establecimientos.
-- Se consolida la versión de la app en `0.2.45`.
-
 ## v0.2.44
 - En el detalle de establecimientos se muestra la URL de Maps como hipervínculo visible.
 - Se consolida la versión de la app en `0.2.44`.

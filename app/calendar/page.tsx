@@ -3391,7 +3391,7 @@ export default function CalendarPage() {
                               <span className="font-semibold text-slate-500">Maps:</span>
                               {restaurant.ubicacion?.trim() ? (
                                 <a
-                                  href={restaurant.ubicacion.trim()}
+                                  href={restaurant.urlMaps.trim()}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-2 break-all text-indigo-600 underline-offset-2 transition hover:text-indigo-700 hover:underline"
@@ -3413,7 +3413,7 @@ export default function CalendarPage() {
                                       <circle cx="12" cy="11" r="2.5" />
                                     </svg>
                                   </span>
-                                  {restaurant.ubicacion.trim()}
+                                  {restaurant.urlMaps.trim()}
                                 </a>
                               ) : (
                                 <span>—</span>
