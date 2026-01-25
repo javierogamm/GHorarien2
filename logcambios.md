@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.45
+- Se corrige el acceso a la vista de restaurantes evitando errores cuando falta la URL de Maps.
+- El enlace de Maps ahora se genera a partir del valor de ubicación, con fallback a búsqueda en Google Maps si no es una URL.
+- Se consolida la versión de la app en `0.2.45`.
+
 ## v0.2.44
 - En el detalle de establecimientos se muestra la URL de Maps como hipervínculo visible.
 - Se consolida la versión de la app en `0.2.44`.

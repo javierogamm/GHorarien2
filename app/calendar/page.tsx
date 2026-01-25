@@ -3389,9 +3389,16 @@ export default function CalendarPage() {
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-semibold text-slate-500">Maps:</span>
-                              {restaurant.ubicacion?.trim() ? (
+                              {(() => {
+                                const restaurantLocation = restaurant.ubicacion?.trim();
+                                if (!restaurantLocation) return <span>—</span>;
+                                const mapsUrl = restaurantLocation.startsWith("http")
+                                  ? restaurantLocation
+                                  : buildEstablishmentLocationUrl(restaurantLocation);
+                                if (!mapsUrl) return <span>—</span>;
+                                return (
                                 <a
-                                  href={restaurant.urlMaps.trim()}
+                                  href={mapsUrl}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-2 break-all text-indigo-600 underline-offset-2 transition hover:text-indigo-700 hover:underline"
@@ -3413,11 +3420,10 @@ export default function CalendarPage() {
                                       <circle cx="12" cy="11" r="2.5" />
                                     </svg>
                                   </span>
-                                  {restaurant.urlMaps.trim()}
+                                  {restaurantLocation}
                                 </a>
-                              ) : (
-                                <span>—</span>
-                              )}
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
