@@ -102,6 +102,8 @@ const EVENT_NAME_DATE_FORMATTER = new Intl.DateTimeFormat("es-ES", {
   month: "2-digit",
   year: "numeric"
 });
+const isHoursGeneratingEvent = (eventType?: EventCategory | null) =>
+  eventType !== "Comida";
 
 type AutoEventNameParams = {
   eventType: EventCategory;
@@ -1555,6 +1557,7 @@ export default function CalendarPage() {
     const grouped = new Map<string, Set<string>>();
     allEvents.forEach((eventItem) => {
       if (!eventItem.fecha) return;
+      if (!isHoursGeneratingEvent(eventItem.eventType)) return;
       const eventDate = parseDateWithoutTime(eventItem.fecha);
       if (!eventDate) return;
       const key = buildEventGroupKey(eventItem);
@@ -2760,7 +2763,14 @@ export default function CalendarPage() {
       });
   }, [allEvents, targetUser]);
 
-  const obtainedHours = useMemo(() => myEvents.length * HOURS_PER_EVENT, [myEvents]);
+  const myHoursEligibleEvents = useMemo(
+    () => myEvents.filter((group) => isHoursGeneratingEvent(group.event.eventType)),
+    [myEvents]
+  );
+  const obtainedHours = useMemo(
+    () => myHoursEligibleEvents.length * HOURS_PER_EVENT,
+    [myHoursEligibleEvents]
+  );
 
   const myEventsByYear = useMemo(() => {
     const yearMap = new Map<number, Map<number, MyEventGroup[]>>();
@@ -3035,7 +3045,8 @@ export default function CalendarPage() {
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Recuento automático: cada evento asistido suma {HOURS_PER_EVENT}{" "}
-                  horas y se guarda en el perfil del usuario seleccionado.
+                  horas y se guarda en el perfil del usuario seleccionado. Los eventos
+                  de tipo Comida no generan horas extra.
                 </p>
                 {targetUser ? (
                   <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-amber-500">
@@ -3121,7 +3132,8 @@ export default function CalendarPage() {
                   {formatHoursValue(hoursSummary.obtained)}
                 </p>
                 <p className="text-xs text-emerald-600/80">
-                  {myEvents.length} eventos × {HOURS_PER_EVENT} horas
+                  {myHoursEligibleEvents.length} eventos (sin Comida) × {HOURS_PER_EVENT}{" "}
+                  horas
                 </p>
               </article>
               <article className="flex flex-col gap-2 rounded-2xl border border-sky-100 bg-sky-50/70 p-5">
@@ -3338,6 +3350,9 @@ export default function CalendarPage() {
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Vista global con las horas obtenidas y declaradas de todos los usuarios.
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Los eventos de tipo Comida no generan horas extra.
                 </p>
                 {reportSelectedUsers.length === 0 ? (
                   <p className="mt-1 text-xs text-slate-400">

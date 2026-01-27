@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.47
+- En el Gestor de horas (personal y rol Boss) los eventos de tipo **Comida** dejan de generar horas extra.
+- Se añade aviso en la interfaz para recordar la excepción de eventos Comida al calcular horas.
+- Se consolida la versión de la app en `0.2.47`.
+
 ## v0.2.46
 - Se añade el módulo **Reportes horarios** accesible solo para Admin y Boss desde "Tabla de control", con filtros multiusuario y KPIs globales.
 - Se incorpora un gráfico con sumatorios totales y vista con columnas por usuario para horas obtenidas/declaradas.
