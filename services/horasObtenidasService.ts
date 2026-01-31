@@ -1,4 +1,4 @@
-import { ID, Models } from "appwrite";
+import { ID, Models, Query } from "appwrite";
 import type { EventCategory } from "../constants/eventCategories";
 import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClient";
 
@@ -13,6 +13,13 @@ const HOURS_PER_EVENT = 3;
 const isHoursGeneratingEvent = (eventType: EventCategory) => eventType !== "Comida";
 
 type CreateHorasObtenidasInput = {
+  attendees: string[];
+  eventType: EventCategory;
+  causa: string;
+  fechaObtencion: string;
+};
+
+type DeleteHorasObtenidasInput = {
   attendees: string[];
   eventType: EventCategory;
   causa: string;
@@ -51,4 +58,48 @@ export const createHorasObtenidasForAttendees = async ({
   );
 
   return Promise.all(payloads);
+};
+
+export const deleteHorasObtenidasForAttendees = async ({
+  attendees,
+  eventType,
+  causa,
+  fechaObtencion
+}: DeleteHorasObtenidasInput): Promise<void> => {
+  if (!isHoursGeneratingEvent(eventType)) {
+    return;
+  }
+  ensureHorasObtenidasConfig();
+  const limit = 100;
+
+  await Promise.all(
+    attendees.map(async (attendee) => {
+      let offset = 0;
+      let fetched = 0;
+      do {
+        const response = await databases.listDocuments<HorasObtenidasRecord>(
+          appwriteConfig.databaseId,
+          appwriteConfig.horasObtenidasCollectionId,
+          [
+            Query.equal("user", attendee),
+            Query.equal("causa", causa),
+            Query.equal("fechaObtencion", fechaObtencion),
+            Query.limit(limit),
+            Query.offset(offset)
+          ]
+        );
+        fetched = response.documents.length;
+        offset += fetched;
+        await Promise.all(
+          response.documents.map((doc) =>
+            databases.deleteDocument(
+              appwriteConfig.databaseId,
+              appwriteConfig.horasObtenidasCollectionId,
+              doc.$id
+            )
+          )
+        );
+      } while (fetched === limit);
+    })
+  );
 };

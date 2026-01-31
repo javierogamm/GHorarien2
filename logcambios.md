@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.49
+- Se añade el botón "Eliminar evento" en el modal de edición, disponible solo para Admin, Boss y Eventmaster, que borra el evento completo y sus filas asociadas en `tabla` y `horasObtenidas`.
+- Se consolida la versión de la app en `0.2.49`.
+
 ## v0.2.48
 - Se añade la colección `horasObtenidas` con configuración por variable `NEXT_PUBLIC_APPWRITE_HORASOBTENIDAS_COLLECTION_ID`.
 - Al crear o editar eventos se generan automáticamente registros de horas obtenidas por asistente (solo para Cena, Taller y Visita cultural) con causa y fecha del evento.
