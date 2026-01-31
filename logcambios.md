@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.49
+- Se vuelve a permitir que el rol User edite asistentes en eventos existentes (puede añadirse a sí mismo o a otros usuarios) y guarde cambios, manteniendo la edición de detalles para Boss/Admin.
+- Se consolida la versión de la app en `0.2.49`.
+
 ## v0.2.48
 - Se habilita la edición de eventos Comida para el rol User desde "Mis eventos", manteniendo restringida la edición de asistentes y tipo de evento.
 - En el modal de edición se añade un slider para activar horas obtenidas en eventos Comida (2h por evento).
