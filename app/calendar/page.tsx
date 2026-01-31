@@ -50,6 +50,7 @@ import {
   toHorasDeclaradasNumber,
   updateHorasDeclaradas
 } from "../../services/horasDeclaradasService";
+import { deleteHorasObtenidasForAttendees } from "../../services/horasObtenidasService";
 import {
   fetchUsers,
   parseHorasObtenidas,
@@ -104,6 +105,8 @@ const EVENT_NAME_DATE_FORMATTER = new Intl.DateTimeFormat("es-ES", {
 });
 const isHoursGeneratingEvent = (eventType?: EventCategory | null) =>
   eventType !== "Comida";
+const canDeleteEventsByRole = (role?: string | null) =>
+  role === "Admin" || role === "Boss" || role === "Eventmaster";
 
 type AutoEventNameParams = {
   eventType: EventCategory;
@@ -2527,6 +2530,45 @@ export default function CalendarPage() {
     setSelectedEvent(null);
   };
 
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent || !canDeleteEventsByRole(userRole)) return;
+    const confirmed = window.confirm(
+      "¿Quieres eliminar este evento y todas sus filas asociadas?"
+    );
+    if (!confirmed) return;
+
+    setEditStatus({ loading: true, error: "", success: "" });
+    try {
+      const selectedGroupKey = buildEventGroupKey(selectedEvent);
+      const groupedEvents = allEvents.filter(
+        (eventItem) => buildEventGroupKey(eventItem) === selectedGroupKey
+      );
+      const attendees = Array.from(
+        new Set(groupedEvents.map((eventItem) => eventItem.user).filter(Boolean))
+      );
+      await deleteHorasObtenidasForAttendees({
+        attendees,
+        eventType: selectedEvent.eventType,
+        causa: selectedEvent.nombre ?? "",
+        fechaObtencion: selectedEvent.fecha
+      });
+      await Promise.all(groupedEvents.map((eventItem) => deleteEvent(eventItem.$id)));
+      setEditStatus({
+        loading: false,
+        error: "",
+        success: "Evento eliminado correctamente."
+      });
+      setSelectedEvent(null);
+      await loadAllEvents();
+    } catch (err) {
+      setEditStatus({
+        loading: false,
+        error: "No se pudo eliminar el evento.",
+        success: ""
+      });
+    }
+  };
+
   const handleUpdateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedEvent) return;
@@ -2717,6 +2759,7 @@ export default function CalendarPage() {
   };
 
   const currentUserRecord = targetUserRecord;
+  const canDeleteEvent = canDeleteEventsByRole(userRole);
 
   const calendarEvents = useMemo(
     () =>
@@ -6061,13 +6104,25 @@ export default function CalendarPage() {
                 </p>
               ) : null}
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <button
-                  type="button"
-                  onClick={closeEventModal}
-                  className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
-                >
-                  Cancelar
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={closeEventModal}
+                    className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
+                  >
+                    Cancelar
+                  </button>
+                  {canDeleteEvent ? (
+                    <button
+                      type="button"
+                      onClick={handleDeleteEvent}
+                      disabled={editStatus.loading}
+                      className="rounded-full border border-rose-200 bg-rose-50 px-5 py-2 text-sm font-semibold text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                    >
+                      Eliminar evento
+                    </button>
+                  ) : null}
+                </div>
                 <button
                   type="submit"
                   disabled={editStatus.loading}
