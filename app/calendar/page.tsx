@@ -1703,7 +1703,7 @@ export default function CalendarPage() {
   const canCreateEvents = userRole !== "User";
   const canEditDetails = canEditSelectedEventDetails(selectedEvent);
   const canEditEventType = userRole !== "User";
-  const canEditAttendees = userRole !== "User";
+  const canEditAttendees = userRole !== "User" || Boolean(username);
   const showControlTable = userRole === "Admin" || userRole === "Boss";
   const showReportHours = showControlTable;
   const canManageUsers = showControlTable;
