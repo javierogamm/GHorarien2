@@ -1738,7 +1738,7 @@ export default function CalendarPage() {
       .map((restaurantEntry) => ({
         ...restaurantEntry,
         months: [...restaurantEntry.months.entries()]
-          .sort((left, right) => right[0].localeCompare(left[0]))
+          .sort((left, right) => left[0].localeCompare(right[0]))
           .map(([monthKey, month]) => ({
             monthKey,
             ...month,
@@ -1802,7 +1802,7 @@ export default function CalendarPage() {
     });
 
     return [...grouped.entries()]
-      .sort((left, right) => right[0].localeCompare(left[0]))
+      .sort((left, right) => left[0].localeCompare(right[0]))
       .map(([, monthEntry]) => monthEntry);
   }, [importesByRestaurant]);
 

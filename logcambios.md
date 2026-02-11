@@ -1,5 +1,9 @@
 # Log de cambios
 
+## v0.2.57
+- En la vista **Importes** agrupada por mes, el listado ahora se ordena en cronológico ascendente (meses más antiguos arriba y más recientes abajo).
+- Se consolida la versión de la app en `0.2.57`.
+
 ## v0.2.56
 - Se incorpora soporte para usuarios con rol **Otros** en la app (tipado, normalización y creación desde frontend).
 - En creación y edición de evento, para roles **Admin**, **Boss** y **Eventmaster**, se añade el botón **"Añadir otros"** debajo de asistentes.
