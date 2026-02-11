@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.55
+- Se mantiene como vista por defecto de Importes el agrupado actual por restaurante (nivel 1), mes (nivel 2) y eventos.
+- Se añade un botón en Importes para alternar el nivel 1 del acordeón a **MES**; en este modo, el nivel 2 agrupa por restaurante y el nivel 3 lista eventos.
+- Se consolida la versión de la app en `0.2.55`.
+
 ## v0.2.54
 - Los eventos de tipo **Taller** ahora cargan por defecto el establecimiento cuyo `establecimientoId` es **11** (si existe en los establecimientos seleccionables), manteniéndose editable desde el formulario.
 - Los eventos de tipo **Comida** pasan a tener por defecto la hora de inicio **15:00**.

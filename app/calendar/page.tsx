@@ -537,6 +537,9 @@ export default function CalendarPage() {
   const [myEventsOnly, setMyEventsOnly] = useState(false);
   const [controlTableEnabled, setControlTableEnabled] = useState(false);
   const [importesViewEnabled, setImportesViewEnabled] = useState(false);
+  const [importesGroupMode, setImportesGroupMode] = useState<"restaurant" | "month">(
+    "restaurant"
+  );
   const [hoursCalculationEnabled, setHoursCalculationEnabled] = useState(false);
   const [restaurantsViewEnabled, setRestaurantsViewEnabled] = useState(false);
   const [reportHoursEnabled, setReportHoursEnabled] = useState(false);
@@ -937,6 +940,7 @@ export default function CalendarPage() {
     setImportesViewEnabled((prev) => {
       const next = !prev;
       if (next) {
+        setImportesGroupMode("restaurant");
         setViewUserOverride(null);
         setMyEventsOnly(false);
         setControlTableEnabled(false);
@@ -1731,7 +1735,8 @@ export default function CalendarPage() {
         ...restaurantEntry,
         months: [...restaurantEntry.months.entries()]
           .sort((left, right) => right[0].localeCompare(left[0]))
-          .map(([, month]) => ({
+          .map(([monthKey, month]) => ({
+            monthKey,
             ...month,
             events: [...month.events].sort((left, right) =>
               (left.fecha ?? "").localeCompare(right.fecha ?? "")
@@ -1756,6 +1761,46 @@ export default function CalendarPage() {
     );
     downloadCsvFile(`importes-${formatDateTime(new Date())}.csv`, headers, rows);
   };
+
+  const importesByMonth = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        monthLabel: string;
+        total: number;
+        restaurants: Map<string, { restaurant: string; total: number; events: CalendarEvent[] }>;
+      }
+    >();
+
+    importesByRestaurant.forEach((restaurantGroup) => {
+      restaurantGroup.months.forEach((monthGroup) => {
+        const monthKey = monthGroup.monthKey;
+        const monthEntry =
+          grouped.get(monthKey) ?? {
+            monthLabel: monthGroup.monthLabel,
+            total: 0,
+            restaurants: new Map()
+          };
+        monthEntry.total += monthGroup.total;
+
+        const restaurantEntry =
+          monthEntry.restaurants.get(restaurantGroup.restaurant) ?? {
+            restaurant: restaurantGroup.restaurant,
+            total: 0,
+            events: []
+          };
+        restaurantEntry.total += monthGroup.total;
+        restaurantEntry.events.push(...monthGroup.events);
+
+        monthEntry.restaurants.set(restaurantGroup.restaurant, restaurantEntry);
+        grouped.set(monthKey, monthEntry);
+      });
+    });
+
+    return [...grouped.entries()]
+      .sort((left, right) => right[0].localeCompare(left[0]))
+      .map(([, monthEntry]) => monthEntry);
+  }, [importesByRestaurant]);
 
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => a.user.localeCompare(b.user)),
@@ -4710,6 +4755,25 @@ export default function CalendarPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={() =>
+                    setImportesGroupMode((prev) =>
+                      prev === "restaurant" ? "month" : "restaurant"
+                    )
+                  }
+                  disabled={importesByRestaurant.length === 0}
+                  className={`flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
+                    importesByRestaurant.length === 0
+                      ? "cursor-not-allowed opacity-60"
+                      : "hover:border-indigo-200 hover:text-indigo-600"
+                  }`}
+                >
+                  <TableModuleIcon title="" className="h-4 w-4" />
+                  {importesGroupMode === "restaurant"
+                    ? "Agrupar nivel 1 por mes"
+                    : "Volver a agrupar por restaurante"}
+                </button>
+                <button
+                  type="button"
                   onClick={handleExportImportes}
                   disabled={importesByRestaurant.length === 0}
                   className={`flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
@@ -4736,7 +4800,7 @@ export default function CalendarPage() {
               <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
                 No hay importes registrados.
               </div>
-            ) : (
+            ) : importesGroupMode === "restaurant" ? (
               <div className="mt-6 flex flex-col gap-4">
                 {importesByRestaurant.map((restaurantGroup) => (
                   <details
@@ -4754,7 +4818,7 @@ export default function CalendarPage() {
                     <div className="mt-4 flex flex-col gap-3">
                       {restaurantGroup.months.map((monthGroup) => (
                         <details
-                          key={`${restaurantGroup.restaurant}-${monthGroup.monthLabel}`}
+                          key={`${restaurantGroup.restaurant}-${monthGroup.monthKey}`}
                           className="rounded-xl border border-slate-200 bg-white px-4 py-3"
                         >
                           <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
@@ -4788,6 +4852,67 @@ export default function CalendarPage() {
                           </div>
                         </details>
                       ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-4">
+                {importesByMonth.map((monthGroup) => (
+                  <details
+                    key={monthGroup.monthLabel}
+                    className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm"
+                  >
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                      <span className="flex items-center justify-between gap-3">
+                        <span>{monthGroup.monthLabel}</span>
+                        <span className="text-xs font-semibold text-emerald-600">
+                          {formatImporte(monthGroup.total)}
+                        </span>
+                      </span>
+                    </summary>
+                    <div className="mt-4 flex flex-col gap-3">
+                      {[...monthGroup.restaurants.values()]
+                        .sort((left, right) => left.restaurant.localeCompare(right.restaurant))
+                        .map((restaurantGroup) => (
+                          <details
+                            key={`${monthGroup.monthLabel}-${restaurantGroup.restaurant}`}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+                          >
+                            <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                              <span className="flex items-center justify-between gap-2">
+                                <span>{restaurantGroup.restaurant}</span>
+                                <span className="text-xs text-emerald-600">
+                                  {formatImporte(restaurantGroup.total)}
+                                </span>
+                              </span>
+                            </summary>
+                            <div className="mt-3 flex flex-col gap-2">
+                              {restaurantGroup.events
+                                .slice()
+                                .sort((left, right) => (left.fecha ?? "").localeCompare(right.fecha ?? ""))
+                                .map((eventItem) => (
+                                  <div
+                                    key={eventItem.$id}
+                                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="font-semibold text-slate-700">
+                                        {eventItem.nombre?.trim() || "Evento"}
+                                      </span>
+                                      <span className="font-semibold text-emerald-600">
+                                        {formatImporte(eventItem.importe)}
+                                      </span>
+                                    </div>
+                                    <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                                      <span>Fecha: {formatDisplayDate(eventItem.fecha)}</span>
+                                      <span>Promo: {eventItem.promocion?.trim() || "Sin promoción"}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          </details>
+                        ))}
                     </div>
                   </details>
                 ))}
