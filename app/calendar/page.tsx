@@ -97,6 +97,7 @@ const DECLARE_MIN_DURATION_HOURS = DECLARE_MIN_DURATION_MINUTES / 60;
 const DECLARE_START_MAX_MINUTES = DECLARE_RANGE_END_MINUTES - DECLARE_MIN_DURATION_MINUTES;
 const DEFAULT_CERTIFICATION: CertificationOption = "OTROS";
 const DEFAULT_ESTABLISHMENT = "Rte. Goya (Hotel Diagonal Plaza)";
+const DEFAULT_TALLER_ESTABLISHMENT_ID = 11;
 const MENU_MAX_ITEMS = 8;
 const MENU_PLACEHOLDER = "Gamba con foie;Escalopines;Dulce de leche";
 const MENU_HELP_TEXT = "Añade hasta 8 platos. Se guardan separados por punto y coma (;).";
@@ -142,6 +143,22 @@ const formatEventNameDate = (date?: Date | null) =>
 const resolveDefaultEstablishment = (names: string[]) => {
   if (names.includes(DEFAULT_ESTABLISHMENT)) return DEFAULT_ESTABLISHMENT;
   return names[0] ?? DEFAULT_ESTABLISHMENT;
+};
+
+const resolveDefaultEstablishmentByEventType = (
+  selectedEventType: EventCategory,
+  options: EstablishmentRecord[]
+) => {
+  const names = options.map((item) => item.nombre);
+  const fallback = resolveDefaultEstablishment(names);
+
+  if (selectedEventType !== "Taller") return fallback;
+
+  const tallerEstablishment = options.find(
+    (item) => item.establecimientoId === DEFAULT_TALLER_ESTABLISHMENT_ID
+  );
+
+  return tallerEstablishment?.nombre?.trim() || fallback;
 };
 
 const buildAutoEventName = ({
@@ -763,13 +780,23 @@ export default function CalendarPage() {
 
   useEffect(() => {
     const meta = EVENT_CATEGORY_META[eventType];
+    const accepted = establishments.filter((item) => item.estado !== "sugerido");
+    const selectionSource = accepted.length > 0 ? accepted : establishments;
     setEventStartTime(meta.startTime);
-  }, [eventType]);
+    setEventEstablishment(
+      resolveDefaultEstablishmentByEventType(eventType, selectionSource)
+    );
+  }, [establishments, eventType]);
 
   useEffect(() => {
     const meta = EVENT_CATEGORY_META[bulkEventType];
+    const accepted = establishments.filter((item) => item.estado !== "sugerido");
+    const selectionSource = accepted.length > 0 ? accepted : establishments;
     setBulkEventStartTime(meta.startTime);
-  }, [bulkEventType]);
+    setBulkEventEstablishment(
+      resolveDefaultEstablishmentByEventType(bulkEventType, selectionSource)
+    );
+  }, [bulkEventType, establishments]);
 
   useEffect(() => {
     if (!selectedEvent) {

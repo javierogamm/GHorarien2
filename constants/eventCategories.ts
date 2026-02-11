@@ -14,13 +14,13 @@ export const EVENT_CATEGORY_META: Record<EventCategory, EventCategoryMeta> = {
     label: "Comida",
     dotClass: "bg-category-1",
     cardClass: "bg-category-1/15 text-category-1 border-category-1/30",
-    startTime: "13:00"
+    startTime: "15:00"
   },
   Cena: {
     label: "Cena",
     dotClass: "bg-category-2",
     cardClass: "bg-category-2/15 text-category-2 border-category-2/30",
-    startTime: "20:00"
+    startTime: "21:00"
   },
   Taller: {
     label: "Taller",

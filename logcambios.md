@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.54
+- Los eventos de tipo **Taller** ahora cargan por defecto el establecimiento cuyo `establecimientoId` es **11** (si existe en los establecimientos seleccionables), manteniéndose editable desde el formulario.
+- Los eventos de tipo **Comida** pasan a tener por defecto la hora de inicio **15:00**.
+- Los eventos de tipo **Cena** pasan a tener por defecto la hora de inicio **21:00**.
+- Se consolida la versión de la app en `0.2.54`.
+
 ## v0.2.53
 - Se corrige la persistencia del importe en Appwrite para que el payload use la columna real `import` de la colección `tabla`.
 - Se añade normalización de eventos para mapear `import` -> `importe` en cliente y mantener compatibilidad al leer/mostrar datos.
