@@ -7,6 +7,15 @@ import { validateUserCredentials } from "../../services/usersService";
 const SESSION_KEY = "calendar_user";
 const ROLE_SESSION_KEY = "calendar_role";
 
+const normalizeUserRole = (role?: string | null) => {
+  const normalized = role?.trim().toLowerCase();
+  if (!normalized) return "User";
+  if (normalized === "admin") return "Admin";
+  if (normalized === "boss") return "Boss";
+  if (normalized === "eventmaster") return "Eventmaster";
+  return "User";
+};
+
 export default function LoginPage() {
   // Temporal: diagnóstico de variables de entorno en frontend.
   console.log("ENDPOINT", process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT);
@@ -72,7 +81,7 @@ export default function LoginPage() {
         return;
       }
       window.localStorage.setItem(SESSION_KEY, userRecord.user);
-      window.localStorage.setItem(ROLE_SESSION_KEY, userRecord.role);
+      window.localStorage.setItem(ROLE_SESSION_KEY, normalizeUserRole(userRecord.role));
       setConnectionLog((prev) => [
         ...prev,
         createLogEntry("Sesión iniciada y usuario autenticado.", "success")

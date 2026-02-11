@@ -116,6 +116,15 @@ const canDeleteEventsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
 const canManageImportesByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
+const normalizeUserRole = (role?: string | null) => {
+  const normalized = role?.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === "admin") return "Admin";
+  if (normalized === "boss") return "Boss";
+  if (normalized === "eventmaster") return "Eventmaster";
+  if (normalized === "user") return "User";
+  return role?.trim() ?? null;
+};
 const buildSoloComidaKey = (causa: string, fechaObtencion: string) =>
   `${causa.trim()}|${fechaObtencion}`;
 
@@ -503,6 +512,7 @@ export default function CalendarPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
   const [userRole, setUserRole] = useState<string | null>(null);
+  const normalizedUserRole = normalizeUserRole(userRole);
   const [calendarView, setCalendarView] = useState<"monthly" | "weekly">(
     "weekly"
   );
@@ -667,7 +677,7 @@ export default function CalendarPage() {
     }
     setUsername(savedUser);
     const savedRole = window.localStorage.getItem(ROLE_SESSION_KEY);
-    setUserRole(savedRole);
+    setUserRole(normalizeUserRole(savedRole));
   }, [router]);
 
   const loadAllEvents = useCallback(async () => {
@@ -736,9 +746,10 @@ export default function CalendarPage() {
         setUsers(sorted);
         if (!userRole) {
           const matchedRole = sorted.find((entry) => entry.user === username)?.role;
-          if (matchedRole) {
-            setUserRole(matchedRole);
-            window.localStorage.setItem(ROLE_SESSION_KEY, matchedRole);
+          const normalizedMatchedRole = normalizeUserRole(matchedRole);
+          if (normalizedMatchedRole) {
+            setUserRole(normalizedMatchedRole);
+            window.localStorage.setItem(ROLE_SESSION_KEY, normalizedMatchedRole);
           }
         }
       } catch (err) {
@@ -895,7 +906,7 @@ export default function CalendarPage() {
   };
 
   const handleImportesToggle = () => {
-    if (!canManageImportesByRole(userRole)) return;
+    if (!canManageImportesByRole(normalizedUserRole)) return;
     setImportesViewEnabled((prev) => {
       const next = !prev;
       if (next) {
@@ -1883,11 +1894,11 @@ export default function CalendarPage() {
         };
       });
   }, [reportActiveUserSet, reportDeclaredHoursRecords]);
-  const canCreateEvents = userRole !== "User";
-  const canEditDetails = userRole !== "User";
-  const showControlTable = canManageImportesByRole(userRole);
-  const canManageImportes = canManageImportesByRole(userRole);
-  const showReportHours = userRole === "Admin" || userRole === "Boss";
+  const canCreateEvents = normalizedUserRole !== "User";
+  const canEditDetails = normalizedUserRole !== "User";
+  const showControlTable = canManageImportesByRole(normalizedUserRole);
+  const canManageImportes = canManageImportesByRole(normalizedUserRole);
+  const showReportHours = normalizedUserRole === "Admin" || normalizedUserRole === "Boss";
   const canManageUsers = showControlTable;
   const targetUser = viewUserOverride ?? username ?? "";
   const targetUserHasRecord = targetUser ? validUsernames.has(targetUser) : false;
@@ -1970,9 +1981,11 @@ export default function CalendarPage() {
     }));
   };
 
-  const canManageRestaurants = userRole !== "User";
+  const canManageRestaurants = normalizedUserRole !== "User";
   const canAcceptSuggested =
-    userRole === "Admin" || userRole === "Boss" || userRole === "Eventmaster";
+    normalizedUserRole === "Admin" ||
+    normalizedUserRole === "Boss" ||
+    normalizedUserRole === "Eventmaster";
   const acceptedEstablishments = useMemo(
     () => establishments.filter((item) => item.estado !== "sugerido"),
     [establishments]
@@ -2340,7 +2353,7 @@ export default function CalendarPage() {
 
   const handleCreateEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (userRole === "User") {
+    if (normalizedUserRole === "User") {
       setFormStatus({
         loading: false,
         error: "No tienes permisos para crear eventos.",
@@ -2499,7 +2512,7 @@ export default function CalendarPage() {
 
   const handleBulkCreateEvents = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (userRole === "User") {
+    if (normalizedUserRole === "User") {
       setBulkFormStatus({
         loading: false,
         error: "No tienes permisos para crear eventos.",
@@ -2675,7 +2688,7 @@ export default function CalendarPage() {
   };
 
   const handleAddEvent = (date: Date) => {
-    if (userRole === "User") {
+    if (normalizedUserRole === "User") {
       return;
     }
     setSelectedDate(date);
@@ -2693,7 +2706,7 @@ export default function CalendarPage() {
   };
 
   const handleOpenCreateModal = () => {
-    if (userRole === "User") return;
+    if (normalizedUserRole === "User") return;
     const baseDate = selectedDate ?? today;
     setCurrentMonth(baseDate.getMonth());
     setCurrentYear(baseDate.getFullYear());
@@ -2701,7 +2714,7 @@ export default function CalendarPage() {
   };
 
   const handleOpenBulkCreateModal = () => {
-    if (userRole === "User") return;
+    if (normalizedUserRole === "User") return;
     const baseDate = selectedDate ?? today;
     setBulkMonth(baseDate.getMonth());
     setBulkYear(baseDate.getFullYear());
@@ -2743,7 +2756,7 @@ export default function CalendarPage() {
   };
 
   const handleDeleteEvent = async () => {
-    if (!selectedEvent || !canDeleteEventsByRole(userRole)) return;
+    if (!selectedEvent || !canDeleteEventsByRole(normalizedUserRole)) return;
     const confirmed = window.confirm(
       "¿Quieres eliminar este evento y todas sus filas asociadas?"
     );
@@ -2785,7 +2798,7 @@ export default function CalendarPage() {
     event.preventDefault();
     if (!selectedEvent) return;
 
-    const canEditDetails = userRole !== "User";
+    const canEditDetails = normalizedUserRole !== "User";
     const trimmedName = editForm.nombre.trim();
     const attendeeList = editForm.attendees;
     const selectedDateValue = canEditDetails
@@ -2985,7 +2998,7 @@ export default function CalendarPage() {
   };
 
   const currentUserRecord = targetUserRecord;
-  const canDeleteEvent = canDeleteEventsByRole(userRole);
+  const canDeleteEvent = canDeleteEventsByRole(normalizedUserRole);
 
   const calendarEvents = useMemo(
     () =>
