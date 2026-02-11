@@ -114,6 +114,8 @@ const isHoursGeneratingEvent = (eventType?: EventCategory | null) =>
   eventType !== "Comida";
 const canDeleteEventsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
+const canManageImportesByRole = (role?: string | null) =>
+  role === "Admin" || role === "Boss" || role === "Eventmaster";
 const buildSoloComidaKey = (causa: string, fechaObtencion: string) =>
   `${causa.trim()}|${fechaObtencion}`;
 
@@ -424,6 +426,18 @@ const downloadCsvFile = (filename: string, headers: string[], rows: string[][]) 
   URL.revokeObjectURL(url);
 };
 
+const parseImporteInput = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return { valid: true, value: 0 } as const;
+  if (!/^-?\d+$/.test(trimmed)) return { valid: false, value: 0 } as const;
+  return { valid: true, value: Number.parseInt(trimmed, 10) } as const;
+};
+
+const formatImporte = (value?: number | null) => {
+  const amount = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return `${amount} €`;
+};
+
 export default function CalendarPage() {
   const router = useRouter();
   const today = useMemo(() => new Date(), []);
@@ -446,6 +460,7 @@ export default function CalendarPage() {
     DEFAULT_CERTIFICATION
   );
   const [eventPromocion, setEventPromocion] = useState("");
+  const [eventImporte, setEventImporte] = useState("0");
   const [eventMenuItems, setEventMenuItems] = useState<string[]>([]);
   const [eventMenuSlots, setEventMenuSlots] = useState(0);
   const [eventEstablishment, setEventEstablishment] = useState(DEFAULT_ESTABLISHMENT);
@@ -494,6 +509,7 @@ export default function CalendarPage() {
   const [workweekOnly, setWorkweekOnly] = useState(true);
   const [myEventsOnly, setMyEventsOnly] = useState(false);
   const [controlTableEnabled, setControlTableEnabled] = useState(false);
+  const [importesViewEnabled, setImportesViewEnabled] = useState(false);
   const [hoursCalculationEnabled, setHoursCalculationEnabled] = useState(false);
   const [restaurantsViewEnabled, setRestaurantsViewEnabled] = useState(false);
   const [reportHoursEnabled, setReportHoursEnabled] = useState(false);
@@ -590,6 +606,7 @@ export default function CalendarPage() {
     establecimiento: string;
     certificacion: CertificationOption;
     promocion: string;
+    importe: string;
   };
   type MyEventGroup = {
     event: CalendarEvent;
@@ -609,7 +626,8 @@ export default function CalendarPage() {
     notas: "",
     establecimiento: DEFAULT_ESTABLISHMENT,
     certificacion: DEFAULT_CERTIFICATION,
-    promocion: ""
+    promocion: "",
+    importe: "0"
   });
   const [editMenuItems, setEditMenuItems] = useState<string[]>([]);
   const [editMenuSlots, setEditMenuSlots] = useState(0);
@@ -753,7 +771,8 @@ export default function CalendarPage() {
         notas: "",
         establecimiento: DEFAULT_ESTABLISHMENT,
         certificacion: DEFAULT_CERTIFICATION,
-        promocion: ""
+        promocion: "",
+        importe: "0"
       });
       setEditMenuItems([]);
       setEditMenuSlots(0);
@@ -784,7 +803,8 @@ export default function CalendarPage() {
       notas: selectedEvent.notas ?? "",
       establecimiento: selectedEvent.establecimiento ?? "",
       certificacion: normalizedCertification,
-      promocion: selectedEvent.promocion ?? ""
+      promocion: selectedEvent.promocion ?? "",
+      importe: String(selectedEvent.importe ?? 0)
     });
     setEditMenuItems(menuItems);
     setEditMenuSlots(menuItems.length);
@@ -852,6 +872,7 @@ export default function CalendarPage() {
         setControlTableEnabled(false);
         setHoursCalculationEnabled(false);
         setRestaurantsViewEnabled(false);
+        setImportesViewEnabled(false);
         setReportHoursEnabled(false);
       }
       return next;
@@ -864,6 +885,23 @@ export default function CalendarPage() {
       if (next) {
         setViewUserOverride(null);
         setMyEventsOnly(false);
+        setHoursCalculationEnabled(false);
+        setRestaurantsViewEnabled(false);
+        setImportesViewEnabled(false);
+        setReportHoursEnabled(false);
+      }
+      return next;
+    });
+  };
+
+  const handleImportesToggle = () => {
+    if (!canManageImportesByRole(userRole)) return;
+    setImportesViewEnabled((prev) => {
+      const next = !prev;
+      if (next) {
+        setViewUserOverride(null);
+        setMyEventsOnly(false);
+        setControlTableEnabled(false);
         setHoursCalculationEnabled(false);
         setRestaurantsViewEnabled(false);
         setReportHoursEnabled(false);
@@ -880,6 +918,7 @@ export default function CalendarPage() {
         setMyEventsOnly(false);
         setControlTableEnabled(false);
         setHoursCalculationEnabled(false);
+        setImportesViewEnabled(false);
         setReportHoursEnabled(false);
       }
       return next;
@@ -1599,6 +1638,87 @@ export default function CalendarPage() {
     );
   };
 
+  const importesByRestaurant = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        restaurant: string;
+        total: number;
+        months: Map<string, { monthLabel: string; total: number; events: CalendarEvent[] }>;
+      }
+    >();
+    const deduped = new Map<string, CalendarEvent>();
+    allEvents.forEach((eventItem) => {
+      const key = buildEventGroupKey(eventItem);
+      if (!deduped.has(key)) {
+        deduped.set(key, eventItem);
+      }
+    });
+
+    deduped.forEach((eventItem) => {
+      const restaurant = eventItem.establecimiento?.trim() || "Sin ubicación";
+      const dateValue = parseDateWithoutTime(eventItem.fecha);
+      const monthKey = dateValue
+        ? `${dateValue.getFullYear()}-${String(dateValue.getMonth() + 1).padStart(2, "0")}`
+        : "sin-fecha";
+      const monthLabel = dateValue
+        ? `${MONTH_NAMES[dateValue.getMonth()]} ${dateValue.getFullYear()}`
+        : "Sin fecha";
+      const amount = typeof eventItem.importe === "number" ? eventItem.importe : 0;
+
+      const restaurantEntry =
+        grouped.get(restaurant) ??
+        {
+          restaurant,
+          total: 0,
+          months: new Map()
+        };
+      restaurantEntry.total += amount;
+
+      const monthEntry =
+        restaurantEntry.months.get(monthKey) ??
+        {
+          monthLabel,
+          total: 0,
+          events: []
+        };
+      monthEntry.total += amount;
+      monthEntry.events.push(eventItem);
+      restaurantEntry.months.set(monthKey, monthEntry);
+      grouped.set(restaurant, restaurantEntry);
+    });
+
+    return [...grouped.values()]
+      .map((restaurantEntry) => ({
+        ...restaurantEntry,
+        months: [...restaurantEntry.months.entries()]
+          .sort((left, right) => right[0].localeCompare(left[0]))
+          .map(([, month]) => ({
+            ...month,
+            events: [...month.events].sort((left, right) =>
+              (left.fecha ?? "").localeCompare(right.fecha ?? "")
+            )
+          }))
+      }))
+      .sort((left, right) => left.restaurant.localeCompare(right.restaurant));
+  }, [allEvents]);
+
+  const handleExportImportes = () => {
+    if (importesByRestaurant.length === 0) return;
+    const headers = ["Fecha", "Nombre evento", "Restaurante", "Importe"];
+    const rows = importesByRestaurant.flatMap((restaurantGroup) =>
+      restaurantGroup.months.flatMap((monthGroup) =>
+        monthGroup.events.map((eventItem) => [
+          formatDisplayDate(eventItem.fecha),
+          eventItem.nombre?.trim() || "Evento",
+          restaurantGroup.restaurant,
+          String(typeof eventItem.importe === "number" ? eventItem.importe : 0)
+        ])
+      )
+    );
+    downloadCsvFile(`importes-${formatDateTime(new Date())}.csv`, headers, rows);
+  };
+
   const sortedUsers = useMemo(
     () => [...users].sort((a, b) => a.user.localeCompare(b.user)),
     [users]
@@ -1765,8 +1885,9 @@ export default function CalendarPage() {
   }, [reportActiveUserSet, reportDeclaredHoursRecords]);
   const canCreateEvents = userRole !== "User";
   const canEditDetails = userRole !== "User";
-  const showControlTable = userRole === "Admin" || userRole === "Boss";
-  const showReportHours = showControlTable;
+  const showControlTable = canManageImportesByRole(userRole);
+  const canManageImportes = canManageImportesByRole(userRole);
+  const showReportHours = userRole === "Admin" || userRole === "Boss";
   const canManageUsers = showControlTable;
   const targetUser = viewUserOverride ?? username ?? "";
   const targetUserHasRecord = targetUser ? validUsernames.has(targetUser) : false;
@@ -2311,6 +2432,16 @@ export default function CalendarPage() {
       return;
     }
 
+    const parsedImporte = parseImporteInput(eventImporte);
+    if (canManageImportes && !parsedImporte.valid) {
+      setFormStatus({
+        loading: false,
+        error: "El importe debe ser un número entero.",
+        success: ""
+      });
+      return;
+    }
+
     setFormStatus({ loading: true, error: "", success: "" });
     try {
       const startDate = buildEventDateTime(selectedDate, eventStartTime);
@@ -2336,7 +2467,8 @@ export default function CalendarPage() {
         establecimiento: eventEstablishment,
         certificacion: normalizeCertification(eventCertificacion) || DEFAULT_CERTIFICATION,
         promocion: eventPromocion.trim(),
-        menu: serializeMenuItems(eventMenuItems)
+        menu: serializeMenuItems(eventMenuItems),
+        importe: parsedImporte.value
       });
 
       setEventName("");
@@ -2346,6 +2478,7 @@ export default function CalendarPage() {
       setEventNotes("");
       setEventCertificacion(DEFAULT_CERTIFICATION);
       setEventPromocion("");
+      setEventImporte("0");
       setEventMenuItems([]);
       setEventMenuSlots(0);
       setFormStatus({
@@ -2553,6 +2686,7 @@ export default function CalendarPage() {
     setEventNameAuto("");
     setEventNameDirty(false);
     setAttendees([]);
+    setEventImporte("0");
     setEventEstablishment(defaultEstablishment);
     setIsCreateModalOpen(true);
     setIsDayDetailModalOpen(false);
@@ -2669,6 +2803,8 @@ export default function CalendarPage() {
     );
     const selectedEventPromotion = selectedEvent.promocion?.trim() ?? "";
     const selectedEventMenu = selectedEvent.menu?.trim() ?? "";
+    const selectedEventImporte =
+      typeof selectedEvent.importe === "number" ? selectedEvent.importe : 0;
 
     if (!selectedDateValue) {
       setEditStatus({
@@ -2716,6 +2852,16 @@ export default function CalendarPage() {
       setEditStatus({
         loading: false,
         error: "Selecciona un establecimiento.",
+        success: ""
+      });
+      return;
+    }
+
+    const parsedEditImporte = parseImporteInput(editForm.importe);
+    if (canManageImportes && !parsedEditImporte.valid) {
+      setEditStatus({
+        loading: false,
+        error: "El importe debe ser un número entero.",
         success: ""
       });
       return;
@@ -2785,7 +2931,9 @@ export default function CalendarPage() {
             DEFAULT_CERTIFICATION
           : selectedEventCertification,
         promocion: canEditDetails ? editForm.promocion.trim() : selectedEventPromotion,
-        menu: canEditDetails ? serializeMenuItems(editMenuItems) : selectedEventMenu
+        menu: canEditDetails ? serializeMenuItems(editMenuItems) : selectedEventMenu,
+        importe:
+          canEditDetails && canManageImportes ? parsedEditImporte.value : selectedEventImporte
       };
 
       const groupedEvents = allEvents.filter(
@@ -4507,7 +4655,106 @@ export default function CalendarPage() {
               </div>
             )}
           </section>
-        ) : controlTableEnabled ? (
+                ) : importesViewEnabled ? (
+          <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="flex items-center gap-3 text-2xl font-semibold text-slate-900">
+                  <TableModuleIcon title="" className="h-8 w-8" />
+                  <span>Importes</span>
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Resumen de importes por restaurante, mes y evento.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleExportImportes}
+                  disabled={importesByRestaurant.length === 0}
+                  className={`flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition ${
+                    importesByRestaurant.length === 0
+                      ? "cursor-not-allowed opacity-60"
+                      : "hover:border-emerald-200 hover:text-emerald-600"
+                  }`}
+                >
+                  <TableModuleIcon title="" className="h-4 w-4" />
+                  Exportar Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportesViewEnabled(false)}
+                  className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-indigo-200 hover:text-indigo-600"
+                >
+                  <CalendarModuleIcon title="" className="h-4 w-4" />
+                  Volver al calendario
+                </button>
+              </div>
+            </div>
+
+            {importesByRestaurant.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
+                No hay importes registrados.
+              </div>
+            ) : (
+              <div className="mt-6 flex flex-col gap-4">
+                {importesByRestaurant.map((restaurantGroup) => (
+                  <details
+                    key={restaurantGroup.restaurant}
+                    className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm"
+                  >
+                    <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                      <span className="flex items-center justify-between gap-3">
+                        <span>{restaurantGroup.restaurant}</span>
+                        <span className="text-xs font-semibold text-emerald-600">
+                          {formatImporte(restaurantGroup.total)}
+                        </span>
+                      </span>
+                    </summary>
+                    <div className="mt-4 flex flex-col gap-3">
+                      {restaurantGroup.months.map((monthGroup) => (
+                        <details
+                          key={`${restaurantGroup.restaurant}-${monthGroup.monthLabel}`}
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-3"
+                        >
+                          <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                            <span className="flex items-center justify-between gap-2">
+                              <span>{monthGroup.monthLabel}</span>
+                              <span className="text-xs text-emerald-600">
+                                {formatImporte(monthGroup.total)}
+                              </span>
+                            </span>
+                          </summary>
+                          <div className="mt-3 flex flex-col gap-2">
+                            {monthGroup.events.map((eventItem) => (
+                              <div
+                                key={eventItem.$id}
+                                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="font-semibold text-slate-700">
+                                    {eventItem.nombre?.trim() || "Evento"}
+                                  </span>
+                                  <span className="font-semibold text-emerald-600">
+                                    {formatImporte(eventItem.importe)}
+                                  </span>
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                                  <span>Fecha: {formatDisplayDate(eventItem.fecha)}</span>
+                                  <span>Promo: {eventItem.promocion?.trim() || "Sin promoción"}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            )}
+          </section>
+) : controlTableEnabled ? (
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -4521,6 +4768,16 @@ export default function CalendarPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {canManageImportes ? (
+                  <button
+                    type="button"
+                    onClick={handleImportesToggle}
+                    className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-emerald-200 hover:text-emerald-600"
+                  >
+                    <TableModuleIcon title="" className="h-4 w-4" />
+                    Importes
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleExportControlTable}
@@ -4813,6 +5070,7 @@ export default function CalendarPage() {
         !controlTableEnabled &&
         !hoursCalculationEnabled &&
         !restaurantsViewEnabled &&
+        !importesViewEnabled &&
         !reportHoursEnabled ? (
           <div className="flex items-center justify-end text-xs text-slate-400">
             Usa el botón &quot;Tabla de control&quot; para ver el resumen agrupado.
@@ -5514,6 +5772,18 @@ export default function CalendarPage() {
                     onChange={(event) => setEventPromocion(event.target.value)}
                   />
                 </label>
+                {canManageImportes ? (
+                  <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                    Importe
+                    <input
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+                      type="number"
+                      step="1"
+                      value={eventImporte}
+                      onChange={(event) => setEventImporte(event.target.value)}
+                    />
+                  </label>
+                ) : null}
               </div>
               <div className="flex flex-col gap-4">
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
@@ -6261,6 +6531,21 @@ export default function CalendarPage() {
                       disabled={!canEditDetails}
                     />
                   </label>
+                  {canManageImportes ? (
+                    <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
+                      Importe
+                      <input
+                        className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        type="number"
+                        step="1"
+                        value={editForm.importe}
+                        onChange={(event) =>
+                          setEditForm((prev) => ({ ...prev, importe: event.target.value }))
+                        }
+                        disabled={!canEditDetails}
+                      />
+                    </label>
+                  ) : null}
                 </div>
                 <div className="flex flex-col gap-4">
                   <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">

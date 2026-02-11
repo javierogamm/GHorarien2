@@ -1,5 +1,13 @@
 # Log de cambios
 
+## v0.2.51
+- Se añade el campo **Importe** (entero) en los modales de crear y editar evento.
+- El campo Importe y la funcionalidad asociada solo son visibles para los roles **Admin**, **Boss** y **Eventmaster**.
+- En "Tabla de control" se incorpora el nuevo botón **Importes** (a la izquierda de "Exportar Excel").
+- Nueva vista **Importes** con acordeón por restaurante y mes, mostrando sumas y detalle de cada evento (fecha, promoción e importe).
+- Se añade exportación Excel (CSV) para Importes con columnas: Fecha, nombre evento, restaurante e importe.
+- Se consolida la versión de la app en `0.2.51`.
+
 ## v0.2.50
 - En "Mis eventos" se añade el botón "Solo comida" para eventos de tipo Comida, con modal de confirmación y opción de eliminarlo cuando está activo.
 - Al confirmar "Solo comida" se crea un registro en `horasObtenidas` con 2 horas y, al eliminarlo, se borra esa fila.

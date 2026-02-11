@@ -16,6 +16,7 @@ export type CalendarEvent = Models.Document & {
   certificacion?: string;
   promocion?: string;
   menu?: string;
+  importe?: number;
 };
 
 export const fetchEventsForUser = async (
@@ -65,6 +66,7 @@ type CreateEventsInput = {
   certificacion?: string;
   promocion?: string;
   menu?: string;
+  importe?: number;
 };
 
 export const createEventsForAttendees = async ({
@@ -79,7 +81,8 @@ export const createEventsForAttendees = async ({
   establecimiento,
   certificacion,
   promocion,
-  menu
+  menu,
+  importe
 }: CreateEventsInput): Promise<CalendarEvent[]> => {
   ensureAppwriteConfig();
   const payloads = attendees.map((attendee) =>
@@ -99,7 +102,8 @@ export const createEventsForAttendees = async ({
         establecimiento: establecimiento ?? "",
         certificacion: certificacion ?? "",
         promocion: promocion ?? "",
-        menu: menu ?? ""
+        menu: menu ?? "",
+        importe: typeof importe === "number" ? importe : 0
       }
     )
   );
