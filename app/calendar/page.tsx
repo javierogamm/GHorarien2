@@ -120,6 +120,8 @@ const canDeleteEventsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
 const canManageImportesByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
+const canManageRestaurantsByRole = (role?: string | null) =>
+  role === "Admin" || role === "Boss" || role === "Eventmaster";
 const normalizeUserRole = (role?: string | null) => {
   return normalizeUserRoleValue(role) ?? role?.trim() ?? null;
 };
@@ -2069,6 +2071,7 @@ export default function CalendarPage() {
   }, [reportActiveUserSet, reportDeclaredHoursRecords]);
   const canCreateEvents = canManageImportesByRole(normalizedUserRole);
   const canEditDetails = canManageImportesByRole(normalizedUserRole);
+  const canEditAttendees = Boolean(username);
   const showControlTable = canManageImportesByRole(normalizedUserRole);
   const canManageImportes = canManageImportesByRole(normalizedUserRole);
   const showReportHours = normalizedUserRole === "Admin" || normalizedUserRole === "Boss";
@@ -2225,7 +2228,8 @@ export default function CalendarPage() {
     }));
   };
 
-  const canManageRestaurants = normalizedUserRole !== "User";
+  const canManageRestaurants = canManageRestaurantsByRole(normalizedUserRole);
+  const canSuggestRestaurants = Boolean(username);
   const canAcceptSuggested =
     normalizedUserRole === "Admin" ||
     normalizedUserRole === "Boss" ||
@@ -2425,6 +2429,14 @@ export default function CalendarPage() {
   ) => {
     event.preventDefault();
     if (!restaurantFormMode) return;
+    if (restaurantFormMode === "create" && !canManageRestaurants) {
+      setRestaurantActionStatus({
+        loading: false,
+        error: "No tienes permisos para crear restaurantes.",
+        success: ""
+      });
+      return;
+    }
     const trimmedName = restaurantForm.nombre.trim();
     if (!trimmedName) {
       setRestaurantActionStatus({
@@ -3155,6 +3167,15 @@ export default function CalendarPage() {
       setEditStatus({
         loading: false,
         error: "Hay asistentes que no existen en la tabla de usuarios.",
+        success: ""
+      });
+      return;
+    }
+
+    if (!canEditAttendees) {
+      setEditStatus({
+        loading: false,
+        error: "No tienes permisos para actualizar asistentes.",
         success: ""
       });
       return;
@@ -4332,7 +4353,7 @@ export default function CalendarPage() {
                   <span>Restaurantes</span>
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Gestión de establecimientos con estado sugerido o aceptado.
+                  Gestión de establecimientos con estado sugerido o aceptado. Los usuarios tipo User pueden sugerir nuevos restaurantes.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -4345,13 +4366,15 @@ export default function CalendarPage() {
                     Nuevo restaurante
                   </button>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => openRestaurantForm("suggest")}
-                  className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600"
-                >
-                  Sugerir restaurante
-                </button>
+                {canSuggestRestaurants ? (
+                  <button
+                    type="button"
+                    onClick={() => openRestaurantForm("suggest")}
+                    className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600"
+                  >
+                    Sugerir restaurante
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={() => setRestaurantsViewEnabled(false)}
@@ -6786,7 +6809,7 @@ export default function CalendarPage() {
                           type="button"
                           onClick={() => openOtherUsersModal("edit")}
                           className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600 transition hover:border-indigo-300 hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
-                          disabled={!canEditDetails}
+                          disabled={!canEditAttendees}
                         >
                           Añadir otros
                         </button>
@@ -6819,7 +6842,7 @@ export default function CalendarPage() {
                                       type="button"
                                       onClick={() => handleAddAttendee(user.user, "edit")}
                                       className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-indigo-300 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                                      disabled={!canEditDetails}
+                                      disabled={!canEditAttendees}
                                     >
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span
@@ -6853,7 +6876,7 @@ export default function CalendarPage() {
                                       onClick={() => handleRemoveAttendee(attendee, "edit")}
                                       className="flex items-center justify-between gap-3 disabled:cursor-not-allowed"
                                       aria-label={`Quitar ${attendee}`}
-                                      disabled={!canEditDetails}
+                                      disabled={!canEditAttendees}
                                     >
                                       <div className="flex flex-wrap items-center gap-2">
                                         <span

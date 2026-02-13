@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.59
+- Los usuarios con rol **User** ya pueden modificar asistentes de un evento existente desde el modal de edición, permitiendo añadirse a sí mismos o a otros usuarios sin habilitar la edición del resto de campos del evento.
+- Se mantiene la gestión avanzada de restaurantes para **Admin/Boss/Eventmaster** y se refuerza que los usuarios **User** puedan sugerir restaurantes desde la vista de **Restaurantes**.
+- Se añade validación en la creación de restaurantes para impedir altas directas (estado aceptado) cuando el rol no tiene permisos de gestión.
+- Se consolida la versión de la app en `0.2.59`.
+
 ## v0.2.58
 - En el bloque de sesión (arriba a la derecha), el nombre de usuario ahora funciona como disparador de un mini modal contextual.
 - Se añade la opción **Editar contraseña**, que abre un modal para actualizar la contraseña del usuario en sesión.
