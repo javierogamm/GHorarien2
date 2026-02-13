@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.58
+- En el bloque de sesión (arriba a la derecha), el nombre de usuario ahora funciona como disparador de un mini modal contextual.
+- Se añade la opción **Editar contraseña**, que abre un modal para actualizar la contraseña del usuario en sesión.
+- Al guardar, la contraseña se sobrescribe directamente en la tabla `users` (campo `pass`) y se refleja en el estado local.
+- Se consolida la versión de la app en `0.2.58`.
+
 ## v0.2.57
 - En la vista **Importes** agrupada por mes, el listado ahora se ordena en cronológico ascendente (meses más antiguos arriba y más recientes abajo).
 - Se consolida la versión de la app en `0.2.57`.

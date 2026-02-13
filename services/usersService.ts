@@ -78,6 +78,19 @@ export const updateUserHorasObtenidas = async (
   );
 };
 
+export const updateUserPassword = async (
+  documentId: string,
+  password: string
+): Promise<UserRecord> => {
+  ensureAppwriteConfig();
+  return databases.updateDocument<UserRecord>(
+    appwriteConfig.databaseId,
+    appwriteConfig.usersCollectionId,
+    documentId,
+    { pass: password }
+  );
+};
+
 export const createOtherUser = async (name: string): Promise<UserRecord> => {
   ensureAppwriteConfig();
   const normalizedName = name.trim();
