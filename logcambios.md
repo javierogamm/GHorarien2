@@ -1,5 +1,12 @@
 # Log de cambios
 
+## v0.2.67
+- Se corrige la resolución de la tabla de eventos en Supabase para soportar entornos donde el nombre real es `eventos` y mantener compatibilidad con el nombre legacy `tabla`.
+- Se refuerza el flujo de eventos para **CREAR EVENTO**, **EDITAR EVENTO** y **ELIMINAR EVENTO** usando detección automática de tabla disponible y reutilizándola en lectura/escritura.
+- Se ajusta el guardado de campos de evento con esquema real de base de datos (`duration` e `import` como texto) para evitar fallos de inserción/actualización por tipo.
+- Se evita bloquear la carga cuando existen filas legacy sin `id`/`$id`, asignando un identificador sintético de solo lectura para que la información siga mostrándose.
+- Se consolida la versión de la app en `0.2.67`.
+
 ## v0.2.66
 - Se corrige la integración con Supabase para inserciones en todas las tablas funcionales (eventos, horas declaradas/obtenidas, usuarios y establecimientos), generando automáticamente `"$id"` cuando no llega informado para evitar el error: "La fila no contiene una columna id o $id en Supabase."
 - Con este ajuste, los flujos de **CREAR EVENTO**, **DECLARAR HORAS**, **CREAR ESTABLECIMIENTO** y cualquier alta relacionada quedan persistidos con identificador válido y pasan a ser editables/sobrescribibles desde la UI.

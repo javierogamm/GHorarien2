@@ -3,7 +3,8 @@ export const supabaseConfig = {
   anonKey:
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "",
   usersTable: "users",
-  eventsTable: "tabla",
+  eventsTable: process.env.NEXT_PUBLIC_SUPABASE_EVENTS_TABLE ?? process.env.SUPABASE_EVENTS_TABLE ?? "eventos",
+  fallbackEventsTable: "tabla",
   horasDeclaradasTable: "horasdeclaradas",
   horasObtenidasTable: "horasobtenidas",
   establishmentTable: "establecimiento"
@@ -97,18 +98,30 @@ export const ensureSupabaseConfig = () => {
     throw new Error("Falta SUPABASE_ANON_KEY (o NEXT_PUBLIC_SUPABASE_ANON_KEY)");
 };
 
-export const mapSupabaseDocument = <T extends SupabaseDocument>(row: T) => {
-  const rawId = row.id ?? row["$id"];
-  if (typeof rawId === "undefined" || rawId === null) {
-    throw new Error("La fila no contiene una columna id o $id en Supabase.");
+const createSyntheticDocumentId = (row: SupabaseDocument) => {
+  const createdAt = row.created_at ?? row["$createdAt"] ?? "";
+  const updatedAt = row.updated_at ?? row["$updatedAt"] ?? "";
+  const fingerprint = JSON.stringify({ ...row, createdAt, updatedAt });
+  let hash = 0;
+
+  for (let index = 0; index < fingerprint.length; index += 1) {
+    hash = (hash * 31 + fingerprint.charCodeAt(index)) | 0;
   }
 
+  return `legacy-${Math.abs(hash)}`;
+};
+
+export const mapSupabaseDocument = <T extends SupabaseDocument>(row: T) => {
+  const rawId = row.id ?? row["$id"];
   const createdAt = row.created_at ?? row["$createdAt"];
   const updatedAt = row.updated_at ?? row["$updatedAt"];
 
   return {
     ...row,
-    $id: String(rawId),
+    $id:
+      typeof rawId === "undefined" || rawId === null
+        ? createSyntheticDocumentId(row)
+        : String(rawId),
     $createdAt: createdAt ?? undefined,
     $updatedAt: updatedAt ?? undefined
   };
@@ -172,6 +185,16 @@ export const deleteRows = async (table: string, filters: Filter[]): Promise<void
       Prefer: "return=minimal"
     }
   });
+};
+
+
+export const isMissingRelationError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("relation") &&
+    (message.includes("does not exist") || message.includes("not exist"))
+  );
 };
 
 export const filters = {
