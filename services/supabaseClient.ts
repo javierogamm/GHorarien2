@@ -18,6 +18,8 @@ export type SupabaseDocument = {
   "$updatedAt"?: string | null;
 };
 
+type SupabaseInsertPayload = Record<string, unknown>;
+
 type FilterValue = string | number | boolean;
 type Filter = {
   column: string;
@@ -66,6 +68,28 @@ const getHeaders = () => ({
   "Content-Type": "application/json"
 });
 
+const createDocumentId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const withSupabaseDocumentId = (payload: SupabaseInsertPayload): SupabaseInsertPayload => {
+  const hasValidId =
+    typeof payload["$id"] === "string" && payload["$id"].trim().length > 0;
+
+  if (hasValidId) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    "$id": createDocumentId()
+  };
+};
+
 export const ensureSupabaseConfig = () => {
   if (!supabaseConfig.url)
     throw new Error("Falta SUPABASE_URL (o NEXT_PUBLIC_SUPABASE_URL)");
@@ -107,13 +131,17 @@ export const selectRows = async <T>(
 export const insertRows = async <T>(table: string, payload: object | object[]): Promise<T[]> => {
   ensureSupabaseConfig();
   const url = buildUrl(table, []);
+  const normalizedPayload = Array.isArray(payload)
+    ? payload.map((row) => withSupabaseDocumentId(row as SupabaseInsertPayload))
+    : withSupabaseDocumentId(payload as SupabaseInsertPayload);
+
   return requestJson<T[]>(url, {
     method: "POST",
     headers: {
       ...getHeaders(),
       Prefer: "return=representation"
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(normalizedPayload)
   });
 };
 
