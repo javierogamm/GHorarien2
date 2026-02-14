@@ -4,9 +4,12 @@ import { EventItem } from "./EventItem";
 type DayCellProps = {
   date: Date | null;
   isToday: boolean;
+  isPastDay: boolean;
   isSelected: boolean;
   events: CalendarEventDisplay[];
   highlightCategory?: CalendarEventDisplay["eventType"] | null;
+  myEventsOnly?: boolean;
+  currentUser?: string | null;
   allowAddEvent?: boolean;
   onSelect: (date: Date, events: CalendarEventDisplay[]) => void;
   onAddEvent: (date: Date) => void;
@@ -16,9 +19,12 @@ type DayCellProps = {
 export const DayCell = ({
   date,
   isToday,
+  isPastDay,
   isSelected,
   events,
   highlightCategory = null,
+  myEventsOnly = false,
+  currentUser = null,
   allowAddEvent = true,
   onSelect,
   onAddEvent,
@@ -39,6 +45,8 @@ export const DayCell = ({
       }}
       className={`flex min-h-[140px] flex-col gap-2 rounded-2xl border bg-white/70 p-3 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md ${
         isToday ? "border-indigo-400/70 bg-indigo-50/60" : "border-slate-200/70"
+      } ${isPastDay && !isToday ? "border-slate-300/70 bg-slate-100/70" : ""} ${
+        isPastDay ? "text-slate-500" : ""
       } ${isSelected ? "ring-2 ring-indigo-400/70" : ""} ${
         !date ? "cursor-not-allowed opacity-40" : "cursor-pointer"
       }`}
@@ -77,14 +85,27 @@ export const DayCell = ({
           const isFiltered = Boolean(highlightCategory);
           const isHighlighted =
             isFiltered && event.eventType === highlightCategory;
+          const normalizedCurrentUser = currentUser?.trim().toLowerCase() ?? "";
+          const isMyEvent =
+            normalizedCurrentUser.length > 0
+              ? event.attendees.some(
+                  (attendee) => attendee.trim().toLowerCase() === normalizedCurrentUser
+                )
+              : false;
+          const eventDate = date ? new Date(date) : null;
+          if (eventDate) {
+            eventDate.setHours(23, 59, 59, 999);
+          }
+          const isPastEvent = Boolean(eventDate && eventDate.getTime() < Date.now());
 
           return (
             <EventItem
               key={event.groupKey}
               event={event}
               onSelect={onEventSelect}
-              isDimmed={isFiltered && !isHighlighted}
+              isDimmed={(isFiltered && !isHighlighted) || (myEventsOnly && !isMyEvent)}
               isHighlighted={isHighlighted}
+              isPastEvent={isPastEvent}
             />
           );
         })}
