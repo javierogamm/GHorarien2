@@ -48,7 +48,6 @@ type CalendarProps = {
   workweekOnly: boolean;
   onWorkweekToggle: () => void;
   myEventsOnly: boolean;
-  currentUser: string | null;
   onMyEventsToggle: () => void;
   weekAnchorDate: Date;
   controlTableEnabled: boolean;
@@ -161,12 +160,6 @@ const buildWeekDates = (date: Date, includeWeekends: boolean) => {
   });
 };
 
-const isPastCalendarDay = (date: Date) => {
-  const endOfDay = new Date(date);
-  endOfDay.setHours(23, 59, 59, 999);
-  return endOfDay.getTime() < Date.now();
-};
-
 const getEventsForDay = (
   events: CalendarEvent[],
   date: Date | null
@@ -216,7 +209,6 @@ export const Calendar = ({
   workweekOnly,
   onWorkweekToggle,
   myEventsOnly,
-  currentUser,
   onMyEventsToggle,
   weekAnchorDate,
   controlTableEnabled,
@@ -460,7 +452,6 @@ export const Calendar = ({
                 date.getMonth() === selectedDate.getMonth() &&
                 date.getFullYear() === selectedDate.getFullYear();
               const dayEvents = getEventsForDay(events, date);
-              const isPastDay = isPastCalendarDay(date);
 
               return (
                 <div
@@ -478,8 +469,6 @@ export const Calendar = ({
                     isToday
                       ? "border-indigo-400/70 bg-indigo-50/60"
                       : "border-slate-200/70"
-                  } ${isPastDay && !isToday ? "border-slate-300/70 bg-slate-100/70" : ""} ${
-                    isPastDay ? "text-slate-500" : ""
                   } ${isSelected ? "ring-2 ring-indigo-400/70" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -527,15 +516,6 @@ export const Calendar = ({
                         const isFiltered = Boolean(activeCategory);
                         const isHighlighted =
                           isFiltered && event.eventType === activeCategory;
-                        const normalizedCurrentUser = currentUser?.trim().toLowerCase() ?? "";
-                        const isMyEvent =
-                          normalizedCurrentUser.length > 0
-                            ? event.attendees.some(
-                                (attendee) =>
-                                  attendee.trim().toLowerCase() === normalizedCurrentUser
-                              )
-                            : false;
-                        const isPastEvent = isPastCalendarDay(date);
 
                         return (
                           <button
@@ -546,13 +526,8 @@ export const Calendar = ({
                               onEventSelect(event);
                             }}
                             className={`relative flex w-full flex-col gap-1.5 rounded-2xl border px-4 py-2.5 pb-8 pr-14 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
-                              (isFiltered && !isHighlighted) ||
-                              (myEventsOnly && !isMyEvent)
-                                ? "opacity-40"
-                                : ""
-                            } ${isPastEvent ? "brightness-95" : ""} ${
-                              isHighlighted ? "ring-2 ring-white/70" : ""
-                            }`}
+                              isFiltered && !isHighlighted ? "opacity-40" : ""
+                            } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
                           >
                             <span
                               className={`absolute inset-y-0 left-0 w-1.5 rounded-l-2xl ${meta.dotClass}`}
@@ -609,19 +584,15 @@ export const Calendar = ({
                   date.getMonth() === selectedDate.getMonth() &&
                   date.getFullYear() === selectedDate.getFullYear();
                 const dayEvents = getEventsForDay(events, date);
-                const isPastDay = Boolean(date && isPastCalendarDay(date));
 
                 return (
                   <DayCell
                     key={`${currentYear}-${currentMonth}-${index}`}
                     date={date}
                     isToday={Boolean(isToday)}
-                    isPastDay={isPastDay}
                     isSelected={Boolean(isSelected)}
                     events={dayEvents}
                     highlightCategory={activeCategory}
-                    myEventsOnly={myEventsOnly}
-                    currentUser={currentUser}
                     allowAddEvent={allowAddEvent}
                     onSelect={onDaySelect}
                     onAddEvent={onAddEvent}
