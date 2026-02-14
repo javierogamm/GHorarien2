@@ -6,7 +6,6 @@ type EventItemProps = {
   onSelect: (event: CalendarEventDisplay) => void;
   isDimmed?: boolean;
   isHighlighted?: boolean;
-  isPastEvent?: boolean;
 };
 
 const fallbackMeta = {
@@ -33,8 +32,7 @@ export const EventItem = ({
   event,
   onSelect,
   isDimmed = false,
-  isHighlighted = false,
-  isPastEvent = false
+  isHighlighted = false
 }: EventItemProps) => {
   const meta = EVENT_CATEGORY_META[event.eventType] ?? fallbackMeta;
 
@@ -51,9 +49,7 @@ export const EventItem = ({
       }}
       className={`relative flex w-full flex-col items-start gap-1.5 rounded-xl border px-3 py-2 pl-5 pr-12 text-left text-xs font-semibold shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
         isDimmed ? "opacity-35" : ""
-      } ${isHighlighted ? "ring-2 ring-white/70" : ""} ${
-        isPastEvent ? "brightness-95" : ""
-      }`}
+      } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
     >
       {/* Banda de color según eventType */}
       <span
