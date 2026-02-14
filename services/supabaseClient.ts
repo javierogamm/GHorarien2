@@ -1,6 +1,7 @@
 export const supabaseConfig = {
-  url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-  anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+  url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "",
+  anonKey:
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "",
   usersTable: "users",
   eventsTable: "tabla",
   horasDeclaradasTable: "horasdeclaradas",
@@ -63,8 +64,10 @@ const getHeaders = () => ({
 });
 
 export const ensureSupabaseConfig = () => {
-  if (!supabaseConfig.url) throw new Error("Falta NEXT_PUBLIC_SUPABASE_URL");
-  if (!supabaseConfig.anonKey) throw new Error("Falta NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!supabaseConfig.url)
+    throw new Error("Falta SUPABASE_URL (o NEXT_PUBLIC_SUPABASE_URL)");
+  if (!supabaseConfig.anonKey)
+    throw new Error("Falta SUPABASE_ANON_KEY (o NEXT_PUBLIC_SUPABASE_ANON_KEY)");
 };
 
 export const mapSupabaseDocument = <T extends SupabaseDocument>(row: T) => {

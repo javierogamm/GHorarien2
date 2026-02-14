@@ -1,5 +1,12 @@
 # Log de cambios
 
+## v0.2.63
+- Se corrige la carga de configuración de Supabase para aceptar tanto `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` como `SUPABASE_URL`/`SUPABASE_ANON_KEY`.
+- Se añade mapeo de variables de entorno en `next.config.js` para exponer correctamente las claves en cliente cuando solo se define el par `SUPABASE_*`.
+- Se eliminan logs de diagnóstico en la pantalla de login que repetían mensajes de variables faltantes en consola.
+- Se actualiza README con la configuración recomendada y compatibilidad de variables.
+- Se consolida la versión de la app en `0.2.63`.
+
 ## v0.2.62
 - Se corrige incompatibilidad de compilación en `services/supabaseClient.ts` reemplazando `replaceAll` por `replace(/,/g, ...)`, compatible con la configuración actual de TypeScript/ES2020.
 - Se mantiene idéntico el comportamiento del escape para filtros `in(...)` en llamadas REST a Supabase.

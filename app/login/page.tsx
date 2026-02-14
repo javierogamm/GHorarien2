@@ -17,10 +17,6 @@ const normalizeUserRole = (role?: string | null) => {
 };
 
 export default function LoginPage() {
-  // Temporal: diagnóstico de variables de entorno en frontend.
-  console.log("SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
-  console.log("SUPABASE_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "CONFIGURADA" : "FALTA");
-
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
