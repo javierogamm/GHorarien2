@@ -1,5 +1,13 @@
 # Log de cambios
 
+## v0.2.69
+- Se añade soporte completo de **REVIEWS de eventos** con nueva integración sobre la tabla `reviews` de Supabase (alta, edición y lectura), incluyendo campos `establecimiento`, `user`, `evento_nombre`, `fechaevento`, `notas` y `stars` (1-10).
+- Se añade `reviews.sql` con el DDL de creación de la tabla `public.reviews` para facilitar la consolidación de la estructura en base de datos.
+- En **Mis eventos**, al desplegar cada evento pasado aparece el botón de review y se abre un modal visual para puntuar con estrellas (1-10) y escribir notas; si ya existe review del usuario para ese evento, se edita la misma fila.
+- En **Restaurantes**, se muestra la puntuación media por establecimiento calculada a partir de las reviews registradas.
+- En **Importes** (agrupación por establecimientos), se muestra en nivel 1 la media del establecimiento y en nivel 2 la media de cada evento.
+- Se consolida la versión de la app en `0.2.69`.
+
 ## v0.2.68
 - Se alinea la integración de eventos con el esquema real en Supabase usando `tabla` como tabla principal y `eventos` solo como fallback legacy.
 - Se mejora la detección de tabla inexistente en Supabase (incluyendo errores de schema cache), evitando bloqueos cuando no existe `eventos`.
