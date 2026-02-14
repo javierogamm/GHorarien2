@@ -1,5 +1,22 @@
 # Log de cambios
 
+## v0.2.62
+- Se corrige incompatibilidad de compilación en `services/supabaseClient.ts` reemplazando `replaceAll` por `replace(/,/g, ...)`, compatible con la configuración actual de TypeScript/ES2020.
+- Se mantiene idéntico el comportamiento del escape para filtros `in(...)` en llamadas REST a Supabase.
+- Se consolida la versión de la app en `0.2.62`.
+
+## v0.2.61
+- Se corrige error de compilación en `calendar/page.tsx` al ordenar declaraciones de horas: ahora el campo `$updatedAt` se trata como opcional (`$updatedAt ?? 0`) para evitar el fallo de TypeScript en build/deploy.
+- Se mantiene el comportamiento funcional de ordenación (más reciente primero cuando existe timestamp).
+- Se consolida la versión de la app en `0.2.61`.
+
+## v0.2.60
+- Migración completa de servicios de datos desde Appwrite a Supabase usando las nuevas variables de entorno `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Se configuran los nombres de tablas de Supabase exactamente como: `users`, `tabla`, `horasobtenidas`, `horasdeclaradas` y `establecimiento`, manteniendo la misma estructura de columnas y el comportamiento funcional existente.
+- Se sustituye el acceso SDK por llamadas REST a Supabase (`/rest/v1`) con mapeo compatible de IDs/fechas (`$id`, `$createdAt`, `$updatedAt`) para no romper la UI actual.
+- Se actualiza la pantalla de login y la documentación del proyecto para reflejar Supabase y despliegue en Vercel con el nuevo entorno.
+- Se consolida la versión de la app en `0.2.60`.
+
 ## v0.2.59
 - Los usuarios con rol **User** ya pueden modificar asistentes de un evento existente desde el modal de edición, permitiendo añadirse a sí mismos o a otros usuarios sin habilitar la edición del resto de campos del evento.
 - Se mantiene la gestión avanzada de restaurantes para **Admin/Boss/Eventmaster** y se refuerza que los usuarios **User** puedan sugerir restaurantes desde la vista de **Restaurantes**.

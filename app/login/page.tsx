@@ -18,8 +18,8 @@ const normalizeUserRole = (role?: string | null) => {
 
 export default function LoginPage() {
   // Temporal: diagnóstico de variables de entorno en frontend.
-  console.log("ENDPOINT", process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT);
-  console.log("PROJECT", process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID);
+  console.log("SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log("SUPABASE_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "CONFIGURADA" : "FALTA");
 
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -56,25 +56,25 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     setConnectionLog([
-      createLogEntry("Iniciando verificación de credenciales con Appwrite.")
+      createLogEntry("Iniciando verificación de credenciales con Supabase.")
     ]);
 
     try {
       setConnectionLog((prev) => [
         ...prev,
-        createLogEntry("Validando configuración de Appwrite.")
+        createLogEntry("Validando configuración de Supabase.")
       ]);
       const userRecord = await validateUserCredentials(username, password);
       setConnectionLog((prev) => [
         ...prev,
-        createLogEntry("Respuesta recibida desde Appwrite.", "success")
+        createLogEntry("Respuesta recibida desde Supabase.", "success")
       ]);
       if (!userRecord) {
         setError("Credenciales inválidas. Inténtalo de nuevo.");
         setConnectionLog((prev) => [
           ...prev,
           createLogEntry(
-            "Appwrite respondió correctamente, pero no se encontraron credenciales válidas.",
+            "Supabase respondió correctamente, pero no se encontraron credenciales válidas.",
             "error"
           )
         ]);
@@ -90,7 +90,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Error inesperado al conectar.";
-      setError("No se pudo conectar con Appwrite.");
+      setError("No se pudo conectar con Supabase.");
       setConnectionLog((prev) => [
         ...prev,
         createLogEntry(`Error de conexión: ${message}`, "error")
@@ -164,7 +164,7 @@ export default function LoginPage() {
 
         <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
           <div className="mb-3 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-            <span>Estado de conexión con Appwrite</span>
+            <span>Estado de conexión con Supabase</span>
             {loading ? (
               <span className="rounded-full bg-indigo-100 px-2 py-1 text-[10px] text-indigo-600">
                 En curso

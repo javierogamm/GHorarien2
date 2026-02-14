@@ -3442,7 +3442,7 @@ export default function CalendarPage() {
         if (cancelled) return;
         const sortedDeclarations = [...declarations].sort((a, b) => {
           const updatedAtDiff =
-            new Date(b.$updatedAt).getTime() - new Date(a.$updatedAt).getTime();
+            new Date(b.$updatedAt ?? 0).getTime() - new Date(a.$updatedAt ?? 0).getTime();
           if (updatedAtDiff !== 0) return updatedAtDiff;
           return (
             new Date(b.fechaHorasDeclaradas ?? 0).getTime() -

@@ -1,8 +1,18 @@
-import { ID, Models, Query } from "appwrite";
 import type { EventCategory } from "../constants/eventCategories";
-import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClient";
+import {
+  deleteRows,
+  filters,
+  insertRows,
+  mapSupabaseDocument,
+  selectRows,
+  supabaseConfig,
+  type SupabaseDocument
+} from "./supabaseClient";
 
-export type HorasObtenidasRecord = Models.Document & {
+export type HorasObtenidasRecord = SupabaseDocument & {
+  $id: string;
+  $createdAt?: string;
+  $updatedAt?: string;
   user: string;
   numeroHoras: number;
   causa: string;
@@ -46,38 +56,25 @@ type FetchHorasObtenidasForUserInput = {
   numeroHoras?: number;
 };
 
-const ensureHorasObtenidasConfig = () => {
-  ensureAppwriteConfig();
-  if (!appwriteConfig.horasObtenidasCollectionId) {
-    throw new Error("Falta NEXT_PUBLIC_APPWRITE_HORASOBTENIDAS_COLLECTION_ID");
-  }
-};
-
 export const createHorasObtenidasForAttendees = async ({
   attendees,
   eventType,
   causa,
   fechaObtencion
 }: CreateHorasObtenidasInput): Promise<HorasObtenidasRecord[]> => {
-  if (!isHoursGeneratingEvent(eventType)) {
+  if (!isHoursGeneratingEvent(eventType) || attendees.length === 0) {
     return [];
   }
-  ensureHorasObtenidasConfig();
-  const payloads = attendees.map((attendee) =>
-    databases.createDocument<HorasObtenidasRecord>(
-      appwriteConfig.databaseId,
-      appwriteConfig.horasObtenidasCollectionId,
-      ID.unique(),
-      {
-        user: attendee,
-        numeroHoras: HOURS_PER_EVENT,
-        causa,
-        fechaObtencion
-      }
-    )
-  );
 
-  return Promise.all(payloads);
+  const rows = attendees.map((attendee) => ({
+    user: attendee,
+    numeroHoras: HOURS_PER_EVENT,
+    causa,
+    fechaObtencion
+  }));
+
+  const data = await insertRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, rows);
+  return data.map((row) => mapSupabaseDocument(row) as HorasObtenidasRecord);
 };
 
 export const deleteHorasObtenidasForAttendees = async ({
@@ -86,42 +83,16 @@ export const deleteHorasObtenidasForAttendees = async ({
   causa,
   fechaObtencion
 }: DeleteHorasObtenidasInput): Promise<void> => {
-  if (!isHoursGeneratingEvent(eventType)) {
+  if (!isHoursGeneratingEvent(eventType) || attendees.length === 0) {
     return;
   }
-  ensureHorasObtenidasConfig();
-  const limit = 100;
 
-  await Promise.all(
-    attendees.map(async (attendee) => {
-      let offset = 0;
-      let fetched = 0;
-      do {
-        const response = await databases.listDocuments<HorasObtenidasRecord>(
-          appwriteConfig.databaseId,
-          appwriteConfig.horasObtenidasCollectionId,
-          [
-            Query.equal("user", attendee),
-            Query.equal("causa", causa),
-            Query.equal("fechaObtencion", fechaObtencion),
-            Query.limit(limit),
-            Query.offset(offset)
-          ]
-        );
-        fetched = response.documents.length;
-        offset += fetched;
-        await Promise.all(
-          response.documents.map((doc) =>
-            databases.deleteDocument(
-              appwriteConfig.databaseId,
-              appwriteConfig.horasObtenidasCollectionId,
-              doc.$id
-            )
-          )
-        );
-      } while (fetched === limit);
-    })
-  );
+  await deleteRows(supabaseConfig.horasObtenidasTable, [
+    filters.in("user", attendees),
+    filters.eq("causa", causa),
+    filters.eq("fechaObtencion", fechaObtencion),
+    filters.eq("numeroHoras", HOURS_PER_EVENT)
+  ]);
 };
 
 export const createHorasObtenidasForSoloComida = async ({
@@ -129,18 +100,15 @@ export const createHorasObtenidasForSoloComida = async ({
   causa,
   fechaObtencion
 }: CreateHorasObtenidasSoloComidaInput): Promise<HorasObtenidasRecord> => {
-  ensureHorasObtenidasConfig();
-  return databases.createDocument<HorasObtenidasRecord>(
-    appwriteConfig.databaseId,
-    appwriteConfig.horasObtenidasCollectionId,
-    ID.unique(),
-    {
-      user,
-      numeroHoras: HOURS_PER_SOLO_COMIDA,
-      causa,
-      fechaObtencion
-    }
-  );
+  const data = await insertRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, {
+    user,
+    numeroHoras: HOURS_PER_SOLO_COMIDA,
+    causa,
+    fechaObtencion
+  });
+
+  if (!data[0]) throw new Error("No se pudo crear horas obtenidas para solo comida.");
+  return mapSupabaseDocument(data[0]) as HorasObtenidasRecord;
 };
 
 export const deleteHorasObtenidasForSoloComida = async ({
@@ -148,36 +116,12 @@ export const deleteHorasObtenidasForSoloComida = async ({
   causa,
   fechaObtencion
 }: DeleteHorasObtenidasSoloComidaInput): Promise<void> => {
-  ensureHorasObtenidasConfig();
-  const limit = 100;
-  let offset = 0;
-  let fetched = 0;
-
-  do {
-    const response = await databases.listDocuments<HorasObtenidasRecord>(
-      appwriteConfig.databaseId,
-      appwriteConfig.horasObtenidasCollectionId,
-      [
-        Query.equal("user", user),
-        Query.equal("causa", causa),
-        Query.equal("fechaObtencion", fechaObtencion),
-        Query.equal("numeroHoras", HOURS_PER_SOLO_COMIDA),
-        Query.limit(limit),
-        Query.offset(offset)
-      ]
-    );
-    fetched = response.documents.length;
-    offset += fetched;
-    await Promise.all(
-      response.documents.map((doc) =>
-        databases.deleteDocument(
-          appwriteConfig.databaseId,
-          appwriteConfig.horasObtenidasCollectionId,
-          doc.$id
-        )
-      )
-    );
-  } while (fetched === limit);
+  await deleteRows(supabaseConfig.horasObtenidasTable, [
+    filters.eq("user", user),
+    filters.eq("causa", causa),
+    filters.eq("fechaObtencion", fechaObtencion),
+    filters.eq("numeroHoras", HOURS_PER_SOLO_COMIDA)
+  ]);
 };
 
 export const fetchHorasObtenidasForUser = async ({
@@ -186,33 +130,13 @@ export const fetchHorasObtenidasForUser = async ({
   fechaObtencion,
   numeroHoras
 }: FetchHorasObtenidasForUserInput): Promise<HorasObtenidasRecord[]> => {
-  ensureHorasObtenidasConfig();
-  const limit = 100;
-  let offset = 0;
-  let fetched = 0;
-  let allDocuments: HorasObtenidasRecord[] = [];
-
-  const queries = [Query.equal("user", user)];
-  if (causa) {
-    queries.push(Query.equal("causa", causa));
-  }
-  if (fechaObtencion) {
-    queries.push(Query.equal("fechaObtencion", fechaObtencion));
-  }
+  const queryFilters = [filters.eq("user", user)];
+  if (causa) queryFilters.push(filters.eq("causa", causa));
+  if (fechaObtencion) queryFilters.push(filters.eq("fechaObtencion", fechaObtencion));
   if (typeof numeroHoras === "number") {
-    queries.push(Query.equal("numeroHoras", numeroHoras));
+    queryFilters.push(filters.eq("numeroHoras", numeroHoras));
   }
 
-  do {
-    const response = await databases.listDocuments<HorasObtenidasRecord>(
-      appwriteConfig.databaseId,
-      appwriteConfig.horasObtenidasCollectionId,
-      [...queries, Query.limit(limit), Query.offset(offset)]
-    );
-    fetched = response.documents.length;
-    offset += fetched;
-    allDocuments = allDocuments.concat(response.documents);
-  } while (fetched === limit);
-
-  return allDocuments;
+  const data = await selectRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, queryFilters);
+  return data.map((row) => mapSupabaseDocument(row) as HorasObtenidasRecord);
 };

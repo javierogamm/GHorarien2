@@ -1,10 +1,21 @@
-import { ID, Models, Query } from "appwrite";
 import type { EventCategory } from "../constants/eventCategories";
-import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClient";
+import {
+  deleteRows,
+  filters,
+  insertRows,
+  mapSupabaseDocument,
+  selectRows,
+  supabaseConfig,
+  type SupabaseDocument,
+  updateRows
+} from "./supabaseClient";
 import { createHorasObtenidasForAttendees } from "./horasObtenidasService";
 import { fetchUsers, normalizeUserRoleValue } from "./usersService";
 
-export type CalendarEvent = Models.Document & {
+export type CalendarEvent = SupabaseDocument & {
+  $id: string;
+  $createdAt?: string;
+  $updatedAt?: string;
   eventType: EventCategory;
   user: string;
   nombre?: string;
@@ -38,35 +49,16 @@ const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
 export const fetchEventsForUser = async (
   username: string
 ): Promise<CalendarEvent[]> => {
-  ensureAppwriteConfig();
-  const response = await databases.listDocuments<CalendarEvent>(
-    appwriteConfig.databaseId,
-    appwriteConfig.eventsCollectionId,
-    [Query.equal("user", username)]
-  );
+  const data = await selectRows<CalendarEvent>(supabaseConfig.eventsTable, [
+    filters.eq("user", username)
+  ]);
 
-  return response.documents.map(normalizeEvent);
+  return data.map((row) => normalizeEvent(mapSupabaseDocument(row) as CalendarEvent));
 };
 
 export const fetchAllEvents = async (): Promise<CalendarEvent[]> => {
-  ensureAppwriteConfig();
-  const limit = 100;
-  let offset = 0;
-  let allDocuments: CalendarEvent[] = [];
-  let fetched = 0;
-
-  do {
-    const response = await databases.listDocuments<CalendarEvent>(
-      appwriteConfig.databaseId,
-      appwriteConfig.eventsCollectionId,
-      [Query.limit(limit), Query.offset(offset)]
-    );
-    fetched = response.documents.length;
-    allDocuments = allDocuments.concat(response.documents.map(normalizeEvent));
-    offset += fetched;
-  } while (fetched === limit);
-
-  return allDocuments;
+  const data = await selectRows<CalendarEvent>(supabaseConfig.eventsTable);
+  return data.map((row) => normalizeEvent(mapSupabaseDocument(row) as CalendarEvent));
 };
 
 type CreateEventsInput = {
@@ -100,31 +92,27 @@ export const createEventsForAttendees = async ({
   menu,
   importe
 }: CreateEventsInput): Promise<CalendarEvent[]> => {
-  ensureAppwriteConfig();
-  const payloads = attendees.map((attendee) =>
-    databases.createDocument<CalendarEvent>(
-      appwriteConfig.databaseId,
-      appwriteConfig.eventsCollectionId,
-      ID.unique(),
-      {
-        nombre,
-        eventType,
-        user: attendee,
-        fecha,
-        horaInicio,
-        horaFin,
-        duration,
-        notas: notas ?? "",
-        establecimiento: establecimiento ?? "",
-        certificacion: certificacion ?? "",
-        promocion: promocion ?? "",
-        menu: menu ?? "",
-        import: typeof importe === "number" ? importe : 0
-      }
-    )
-  );
+  if (attendees.length === 0) return [];
 
-  const createdEvents = await Promise.all(payloads);
+  const rows = attendees.map((attendee) => ({
+    nombre,
+    eventType,
+    user: attendee,
+    fecha,
+    horaInicio,
+    horaFin,
+    duration,
+    notas: notas ?? "",
+    establecimiento: establecimiento ?? "",
+    certificacion: certificacion ?? "",
+    promocion: promocion ?? "",
+    menu: menu ?? "",
+    import: typeof importe === "number" ? importe : 0
+  }));
+
+  const data = await insertRows<CalendarEvent>(supabaseConfig.eventsTable, rows);
+  const createdEvents = data.map((row) => mapSupabaseDocument(row) as CalendarEvent);
+
   const users = await fetchUsers();
   const excludedHoursUsers = new Set(
     users
@@ -147,7 +135,6 @@ export const updateEvent = async (
   documentId: string,
   data: Partial<CalendarEvent>
 ): Promise<CalendarEvent> => {
-  ensureAppwriteConfig();
   const payload: Partial<CalendarEvent> = {
     ...data
   };
@@ -157,28 +144,26 @@ export const updateEvent = async (
     delete payload.importe;
   }
 
-  const updatedEvent = await databases.updateDocument<CalendarEvent>(
-    appwriteConfig.databaseId,
-    appwriteConfig.eventsCollectionId,
-    documentId,
-    payload
+  const updated = await updateRows<CalendarEvent>(
+    supabaseConfig.eventsTable,
+    payload,
+    [filters.eq("id", documentId)]
   );
 
-  return normalizeEvent(updatedEvent);
+  if (!updated[0]) throw new Error("No se pudo actualizar el evento.");
+  return normalizeEvent(mapSupabaseDocument(updated[0]) as CalendarEvent);
 };
 
 export const deleteEvent = async (documentId: string): Promise<void> => {
-  ensureAppwriteConfig();
-  await databases.deleteDocument(
-    appwriteConfig.databaseId,
-    appwriteConfig.eventsCollectionId,
-    documentId
-  );
+  await deleteRows(supabaseConfig.eventsTable, [filters.eq("id", documentId)]);
 };
 
 export type EstablishmentStatus = "sugerido" | "aceptado";
 
-export type EstablishmentRecord = Models.Document & {
+export type EstablishmentRecord = SupabaseDocument & {
+  $id: string;
+  $createdAt?: string;
+  $updatedAt?: string;
   establecimientoId?: number;
   nombre: string;
   direccion?: string;
@@ -188,13 +173,8 @@ export type EstablishmentRecord = Models.Document & {
 };
 
 export const fetchEstablishments = async (): Promise<EstablishmentRecord[]> => {
-  ensureAppwriteConfig();
-  const response = await databases.listDocuments<EstablishmentRecord>(
-    appwriteConfig.databaseId,
-    appwriteConfig.establishmentCollectionId
-  );
-
-  return response.documents;
+  const data = await selectRows<EstablishmentRecord>(supabaseConfig.establishmentTable);
+  return data.map((row) => mapSupabaseDocument(row) as EstablishmentRecord);
 };
 
 type CreateEstablishmentInput = {
@@ -209,33 +189,25 @@ type CreateEstablishmentInput = {
 export const createEstablishment = async (
   payload: CreateEstablishmentInput
 ): Promise<EstablishmentRecord> => {
-  ensureAppwriteConfig();
-  return databases.createDocument<EstablishmentRecord>(
-    appwriteConfig.databaseId,
-    appwriteConfig.establishmentCollectionId,
-    ID.unique(),
-    payload
-  );
+  const data = await insertRows<EstablishmentRecord>(supabaseConfig.establishmentTable, payload);
+  if (!data[0]) throw new Error("No se pudo crear el establecimiento.");
+  return mapSupabaseDocument(data[0]) as EstablishmentRecord;
 };
 
 export const updateEstablishment = async (
   documentId: string,
   data: Partial<EstablishmentRecord>
 ): Promise<EstablishmentRecord> => {
-  ensureAppwriteConfig();
-  return databases.updateDocument<EstablishmentRecord>(
-    appwriteConfig.databaseId,
-    appwriteConfig.establishmentCollectionId,
-    documentId,
-    data
+  const updated = await updateRows<EstablishmentRecord>(
+    supabaseConfig.establishmentTable,
+    data,
+    [filters.eq("id", documentId)]
   );
+
+  if (!updated[0]) throw new Error("No se pudo actualizar el establecimiento.");
+  return mapSupabaseDocument(updated[0]) as EstablishmentRecord;
 };
 
 export const deleteEstablishment = async (documentId: string): Promise<void> => {
-  ensureAppwriteConfig();
-  await databases.deleteDocument(
-    appwriteConfig.databaseId,
-    appwriteConfig.establishmentCollectionId,
-    documentId
-  );
+  await deleteRows(supabaseConfig.establishmentTable, [filters.eq("id", documentId)]);
 };
