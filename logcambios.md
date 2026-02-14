@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.64
+- Se corrige la compatibilidad con esquemas migrados de Supabase donde el identificador se almacena en la columna `"$id"` (en lugar de `id`), ajustando el mapeo de documentos para aceptar ambos formatos.
+- Se amplía el mapeo de timestamps para aceptar tanto `created_at`/`updated_at` como `"$createdAt"`/`"$updatedAt"` y mantener la compatibilidad de la UI.
+- Se actualizan las operaciones de actualización/borrado para filtrar por `"$id"`, evitando errores de conexión al editar o eliminar registros tras la migración.
+- Se consolida la versión de la app en `0.2.64`.
+
 ## v0.2.63
 - Se corrige la carga de configuración de Supabase para aceptar tanto `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` como `SUPABASE_URL`/`SUPABASE_ANON_KEY`.
 - Se añade mapeo de variables de entorno en `next.config.js` para exponer correctamente las claves en cliente cuando solo se define el par `SUPABASE_*`.

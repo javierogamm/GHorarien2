@@ -10,9 +10,12 @@ export const supabaseConfig = {
 };
 
 export type SupabaseDocument = {
-  id: string | number;
-  created_at?: string;
-  updated_at?: string;
+  id?: string | number | null;
+  "$id"?: string | number | null;
+  created_at?: string | null;
+  "$createdAt"?: string | null;
+  updated_at?: string | null;
+  "$updatedAt"?: string | null;
 };
 
 type FilterValue = string | number | boolean;
@@ -71,16 +74,19 @@ export const ensureSupabaseConfig = () => {
 };
 
 export const mapSupabaseDocument = <T extends SupabaseDocument>(row: T) => {
-  const rawId = row.id;
+  const rawId = row.id ?? row["$id"];
   if (typeof rawId === "undefined" || rawId === null) {
-    throw new Error("La fila no contiene una columna id en Supabase.");
+    throw new Error("La fila no contiene una columna id o $id en Supabase.");
   }
+
+  const createdAt = row.created_at ?? row["$createdAt"];
+  const updatedAt = row.updated_at ?? row["$updatedAt"];
 
   return {
     ...row,
     $id: String(rawId),
-    $createdAt: row.created_at,
-    $updatedAt: row.updated_at
+    $createdAt: createdAt ?? undefined,
+    $updatedAt: updatedAt ?? undefined
   };
 };
 

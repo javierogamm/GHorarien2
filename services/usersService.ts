@@ -66,7 +66,7 @@ export const updateUserHorasObtenidas = async (
   const data = await updateRows<UserRecord>(
     supabaseConfig.usersTable,
     { horasObtenidas: String(horasObtenidas) },
-    [filters.eq("id", documentId)]
+    [filters.eq("$id", documentId)]
   );
 
   if (!data[0]) throw new Error("No se pudo actualizar horasObtenidas.");
@@ -80,7 +80,7 @@ export const updateUserPassword = async (
   const data = await updateRows<UserRecord>(
     supabaseConfig.usersTable,
     { pass: password },
-    [filters.eq("id", documentId)]
+    [filters.eq("$id", documentId)]
   );
 
   if (!data[0]) throw new Error("No se pudo actualizar la contraseña.");
