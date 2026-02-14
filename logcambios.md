@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.72
+- El toggle **Mis eventos** en la vista principal del calendario ahora mantiene la vista mensual/semanal activa y atenúa (sin ocultar) los eventos en los que el usuario seleccionado no está apuntado.
+- Se mejora la visibilidad de histórico en calendario **mensual** y **semanal** con un sombreado sutil para los días ya pasados.
+- Los eventos ya pasados también se muestran con un oscurecido ligero para diferenciarlos sin perder legibilidad.
+- Se consolida la versión de la app en `0.2.72`.
+
 ## v0.2.71
 - En el listado de **Restaurantes**, la cabecera del acordeón colapsado muestra la valoración media en estrellas y el número total de reviews por establecimiento.
 - Nuevo bloque **REVIEWS** con vista en acordeón de 3 niveles:
