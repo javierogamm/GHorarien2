@@ -586,6 +586,7 @@ export default function CalendarPage() {
   );
   const [workweekOnly, setWorkweekOnly] = useState(true);
   const [myEventsOnly, setMyEventsOnly] = useState(false);
+  const [viewMyEventsEnabled, setViewMyEventsEnabled] = useState(false);
   const [controlTableEnabled, setControlTableEnabled] = useState(false);
   const [importesViewEnabled, setImportesViewEnabled] = useState(false);
   const [importesGroupMode, setImportesGroupMode] = useState<"restaurant" | "month">(
@@ -5251,7 +5252,12 @@ export default function CalendarPage() {
                                 group.event.eventType === "Comida" &&
                                 soloComidaKeys.has(soloComidaKey);
                               const canReview =
-                                Boolean(targetUser) && isPastEventDate(group.event.fecha);
+                                Boolean(targetUser) &&
+                                isPastEventDate(group.event.fecha) &&
+                                ((establishmentLookup
+                                  .get(group.event.establecimiento?.trim() ?? "")
+                                  ?.tipo?.trim()
+                                  .toLowerCase() ?? "") === "restaurante");
                               const currentReview = targetUser
                                 ? reviewsByEventAndUser.get(
                                     buildEventReviewKey(
@@ -5876,6 +5882,9 @@ export default function CalendarPage() {
             onWorkweekToggle={() => setWorkweekOnly((prev) => !prev)}
             myEventsOnly={myEventsOnly}
             onMyEventsToggle={handleMyEventsToggle}
+            viewMyEventsEnabled={viewMyEventsEnabled}
+            onViewMyEventsToggle={() => setViewMyEventsEnabled((prev) => !prev)}
+            targetUsername={targetUser}
             weekAnchorDate={weekAnchorDate}
             controlTableEnabled={controlTableEnabled}
             onControlTableToggle={handleControlTableToggle}
