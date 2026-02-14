@@ -15,6 +15,7 @@ import { fetchUsers, normalizeUserRoleValue } from "./usersService";
 
 export type CalendarEvent = SupabaseDocument & {
   $id: string;
+  $permissions?: string;
   $createdAt?: string;
   $updatedAt?: string;
   eventType: EventCategory;
@@ -24,6 +25,7 @@ export type CalendarEvent = SupabaseDocument & {
   horaInicio: string;
   horaFin: string;
   duration: number | string;
+  status?: string;
   notas?: string;
   establecimiento?: string;
   certificacion?: string;
@@ -39,11 +41,22 @@ const asText = (value: unknown, fallback = ""): string => {
   return fallback;
 };
 
+const parsePromotion = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
+  const trimmed = asText(value).trim();
+  if (!trimmed) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 
 const eventTableCandidates = [
+  "tabla",
   supabaseConfig.eventsTable,
   supabaseConfig.fallbackEventsTable
-].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
+].filter(
+  (value, index, list): value is string => Boolean(value) && list.indexOf(value) === index
+);
 
 let resolvedEventsTable: string | null = null;
 
@@ -98,6 +111,7 @@ const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
     horaInicio: asText(event.horaInicio),
     horaFin: asText(event.horaFin),
     duration: durationValue,
+    status: asText(event.status),
     notas: asText(event.notas),
     establecimiento: asText(event.establecimiento),
     certificacion: asText(event.certificacion),
@@ -168,7 +182,7 @@ export const createEventsForAttendees = async ({
     notas: notas ?? "",
     establecimiento: establecimiento ?? "",
     certificacion: certificacion ?? "",
-    promocion: promocion ?? "",
+    promocion: parsePromotion(promocion),
     menu: menu ?? "",
     import: typeof importe === "number" ? String(importe) : "0"
   }));
@@ -210,6 +224,10 @@ export const updateEvent = async (
 
   if (typeof data.duration !== "undefined") {
     payload.duration = String(data.duration ?? 0);
+  }
+
+  if (typeof data.promocion !== "undefined") {
+    payload.promocion = parsePromotion(data.promocion);
   }
 
   const updated = await updateRows<CalendarEvent>(
