@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.68
+- Se alinea la integración de eventos con el esquema real en Supabase usando `tabla` como tabla principal y `eventos` solo como fallback legacy.
+- Se mejora la detección de tabla inexistente en Supabase (incluyendo errores de schema cache), evitando bloqueos cuando no existe `eventos`.
+- Se amplía el tipado/normalización de eventos con columnas reales adicionales (`$permissions`, `status`) y se adapta `promocion` al tipo `bigint` al crear/editar registros.
+- Se consolida la versión de la app en `0.2.68`.
+
 ## v0.2.67
 - Se corrige la resolución de la tabla de eventos en Supabase para soportar entornos donde el nombre real es `eventos` y mantener compatibilidad con el nombre legacy `tabla`.
 - Se refuerza el flujo de eventos para **CREAR EVENTO**, **EDITAR EVENTO** y **ELIMINAR EVENTO** usando detección automática de tabla disponible y reutilizándola en lectura/escritura.

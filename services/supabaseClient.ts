@@ -3,8 +3,11 @@ export const supabaseConfig = {
   anonKey:
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "",
   usersTable: "users",
-  eventsTable: process.env.NEXT_PUBLIC_SUPABASE_EVENTS_TABLE ?? process.env.SUPABASE_EVENTS_TABLE ?? "eventos",
-  fallbackEventsTable: "tabla",
+  eventsTable:
+    process.env.NEXT_PUBLIC_SUPABASE_EVENTS_TABLE ??
+    process.env.SUPABASE_EVENTS_TABLE ??
+    "tabla",
+  fallbackEventsTable: "eventos",
   horasDeclaradasTable: "horasdeclaradas",
   horasObtenidasTable: "horasobtenidas",
   establishmentTable: "establecimiento"
@@ -192,8 +195,11 @@ export const isMissingRelationError = (error: unknown): boolean => {
   if (!(error instanceof Error)) return false;
   const message = error.message.toLowerCase();
   return (
-    message.includes("relation") &&
-    (message.includes("does not exist") || message.includes("not exist"))
+    ((message.includes("relation") &&
+      (message.includes("does not exist") || message.includes("not exist"))) ||
+      (message.includes("table") && message.includes("not found")) ||
+      (message.includes("could not find") && message.includes("table")) ||
+      (message.includes("schema cache") && message.includes("table")))
   );
 };
 
