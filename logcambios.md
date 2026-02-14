@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.61
+- Se corrige error de compilación en `calendar/page.tsx` al ordenar declaraciones de horas: ahora el campo `$updatedAt` se trata como opcional (`$updatedAt ?? 0`) para evitar el fallo de TypeScript en build/deploy.
+- Se mantiene el comportamiento funcional de ordenación (más reciente primero cuando existe timestamp).
+- Se consolida la versión de la app en `0.2.61`.
+
 ## v0.2.60
 - Migración completa de servicios de datos desde Appwrite a Supabase usando las nuevas variables de entorno `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - Se configuran los nombres de tablas de Supabase exactamente como: `users`, `tabla`, `horasobtenidas`, `horasdeclaradas` y `establecimiento`, manteniendo la misma estructura de columnas y el comportamiento funcional existente.
