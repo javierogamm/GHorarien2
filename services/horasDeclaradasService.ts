@@ -20,6 +20,22 @@ export type HorasDeclaradasRecord = SupabaseDocument & {
   fechaHorasDeclaradas?: string;
 };
 
+const asText = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+};
+
+const normalizeHorasDeclaradasRecord = (
+  row: HorasDeclaradasRecord
+): HorasDeclaradasRecord => ({
+  ...row,
+  user: asText(row.user),
+  motivo: asText(row.motivo),
+  horasDeclaradasRango: asText(row.horasDeclaradasRango),
+  fechaHorasDeclaradas: asText(row.fechaHorasDeclaradas)
+});
+
 type CreateHorasDeclaradasInput = {
   user: string;
   horasDeclaradas: number;
@@ -51,12 +67,16 @@ export const fetchHorasDeclaradasForUser = async (
     filters.eq("user", username)
   ]);
 
-  return data.map((row) => mapSupabaseDocument(row) as HorasDeclaradasRecord);
+  return data.map((row) =>
+    normalizeHorasDeclaradasRecord(mapSupabaseDocument(row) as HorasDeclaradasRecord)
+  );
 };
 
 export const fetchAllHorasDeclaradas = async (): Promise<HorasDeclaradasRecord[]> => {
   const data = await selectRows<HorasDeclaradasRecord>(supabaseConfig.horasDeclaradasTable);
-  return data.map((row) => mapSupabaseDocument(row) as HorasDeclaradasRecord);
+  return data.map((row) =>
+    normalizeHorasDeclaradasRecord(mapSupabaseDocument(row) as HorasDeclaradasRecord)
+  );
 };
 
 export const sumHorasDeclaradasForUser = async (username: string): Promise<number> => {
@@ -83,7 +103,7 @@ export const createHorasDeclaradas = async ({
   });
 
   if (!data[0]) throw new Error("No se pudo crear la declaración de horas.");
-  return mapSupabaseDocument(data[0]) as HorasDeclaradasRecord;
+  return normalizeHorasDeclaradasRecord(mapSupabaseDocument(data[0]) as HorasDeclaradasRecord);
 };
 
 export const updateHorasDeclaradas = async (
@@ -107,7 +127,7 @@ export const updateHorasDeclaradas = async (
   );
 
   if (!data[0]) throw new Error("No se pudo actualizar la declaración de horas.");
-  return mapSupabaseDocument(data[0]) as HorasDeclaradasRecord;
+  return normalizeHorasDeclaradasRecord(mapSupabaseDocument(data[0]) as HorasDeclaradasRecord);
 };
 
 export const deleteHorasDeclaradas = async (documentId: string): Promise<void> => {

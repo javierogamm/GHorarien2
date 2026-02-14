@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.65
+- Se corrige el error en cliente `TypeError: e.trim is not a function` al entrar en la app tras conectar con Supabase, normalizando datos no-string recibidos desde las tablas (`users`, `tabla`, `horasobtenidas`, `horasdeclaradas` y `establecimiento`).
+- Se endurece la normalización de roles para aceptar valores no textuales sin romper el login ni la carga de calendario.
+- Se añade saneamiento de campos de texto en los servicios de datos para garantizar compatibilidad con registros legacy o columnas con tipado inconsistente.
+- Se consolida la versión de la app en `0.2.65`.
+
 ## v0.2.64
 - Se corrige la compatibilidad con esquemas migrados de Supabase donde el identificador se almacena en la columna `"$id"` (en lugar de `id`), ajustando el mapeo de documentos para aceptar ambos formatos.
 - Se amplía el mapeo de timestamps para aceptar tanto `created_at`/`updated_at` como `"$createdAt"`/`"$updatedAt"` y mantener la compatibilidad de la UI.

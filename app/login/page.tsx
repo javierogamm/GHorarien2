@@ -7,8 +7,15 @@ import { validateUserCredentials } from "../../services/usersService";
 const SESSION_KEY = "calendar_user";
 const ROLE_SESSION_KEY = "calendar_role";
 
-const normalizeUserRole = (role?: string | null) => {
-  const normalized = role?.trim().toLowerCase();
+const normalizeUserRole = (role?: unknown) => {
+  const normalized =
+    (typeof role === "string"
+      ? role
+      : typeof role === "number" || typeof role === "boolean"
+      ? String(role)
+      : "")
+      .trim()
+      .toLowerCase();
   if (!normalized) return "User";
   if (normalized === "admin") return "Admin";
   if (normalized === "boss") return "Boss";

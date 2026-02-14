@@ -19,6 +19,25 @@ export type HorasObtenidasRecord = SupabaseDocument & {
   fechaObtencion: string;
 };
 
+const asText = (value: unknown): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return "";
+};
+
+const normalizeHorasObtenidasRecord = (
+  row: HorasObtenidasRecord
+): HorasObtenidasRecord => ({
+  ...row,
+  user: asText(row.user),
+  numeroHoras:
+    typeof row.numeroHoras === "number"
+      ? row.numeroHoras
+      : Number.parseFloat(asText(row.numeroHoras)) || 0,
+  causa: asText(row.causa),
+  fechaObtencion: asText(row.fechaObtencion)
+});
+
 const HOURS_PER_EVENT = 3;
 const HOURS_PER_SOLO_COMIDA = 2;
 const isHoursGeneratingEvent = (eventType: EventCategory) => eventType !== "Comida";
@@ -74,7 +93,9 @@ export const createHorasObtenidasForAttendees = async ({
   }));
 
   const data = await insertRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, rows);
-  return data.map((row) => mapSupabaseDocument(row) as HorasObtenidasRecord);
+  return data.map((row) =>
+    normalizeHorasObtenidasRecord(mapSupabaseDocument(row) as HorasObtenidasRecord)
+  );
 };
 
 export const deleteHorasObtenidasForAttendees = async ({
@@ -108,7 +129,7 @@ export const createHorasObtenidasForSoloComida = async ({
   });
 
   if (!data[0]) throw new Error("No se pudo crear horas obtenidas para solo comida.");
-  return mapSupabaseDocument(data[0]) as HorasObtenidasRecord;
+  return normalizeHorasObtenidasRecord(mapSupabaseDocument(data[0]) as HorasObtenidasRecord);
 };
 
 export const deleteHorasObtenidasForSoloComida = async ({
@@ -138,5 +159,7 @@ export const fetchHorasObtenidasForUser = async ({
   }
 
   const data = await selectRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, queryFilters);
-  return data.map((row) => mapSupabaseDocument(row) as HorasObtenidasRecord);
+  return data.map((row) =>
+    normalizeHorasObtenidasRecord(mapSupabaseDocument(row) as HorasObtenidasRecord)
+  );
 };

@@ -122,8 +122,17 @@ const canManageImportesByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
 const canManageRestaurantsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
-const normalizeUserRole = (role?: string | null) => {
-  return normalizeUserRoleValue(role) ?? role?.trim() ?? null;
+const normalizeUserRole = (role?: unknown) => {
+  const fallbackRole =
+    typeof role === "string"
+      ? role
+      : typeof role === "number" || typeof role === "boolean"
+      ? String(role)
+      : "";
+  const normalizedRole = normalizeUserRoleValue(role);
+  if (normalizedRole) return normalizedRole;
+  const trimmedFallbackRole = fallbackRole.trim();
+  return trimmedFallbackRole || null;
 };
 const buildSoloComidaKey = (causa: string, fechaObtencion: string) =>
   `${causa.trim()}|${fechaObtencion}`;
