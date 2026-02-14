@@ -49,6 +49,9 @@ type CalendarProps = {
   onWorkweekToggle: () => void;
   myEventsOnly: boolean;
   onMyEventsToggle: () => void;
+  viewMyEventsEnabled: boolean;
+  onViewMyEventsToggle: () => void;
+  targetUsername?: string | null;
   weekAnchorDate: Date;
   controlTableEnabled: boolean;
   onControlTableToggle: () => void;
@@ -150,6 +153,14 @@ const getWeekStart = (date: Date) => {
   return start;
 };
 
+const isDateInPast = (date: Date, today: Date) => {
+  const current = new Date(date);
+  current.setHours(0, 0, 0, 0);
+  const reference = new Date(today);
+  reference.setHours(0, 0, 0, 0);
+  return current.getTime() < reference.getTime();
+};
+
 const buildWeekDates = (date: Date, includeWeekends: boolean) => {
   const start = getWeekStart(date);
   const totalDays = includeWeekends ? 7 : 5;
@@ -210,6 +221,9 @@ export const Calendar = ({
   onWorkweekToggle,
   myEventsOnly,
   onMyEventsToggle,
+  viewMyEventsEnabled,
+  onViewMyEventsToggle,
+  targetUsername,
   weekAnchorDate,
   controlTableEnabled,
   onControlTableToggle,
@@ -337,6 +351,18 @@ export const Calendar = ({
                 >
                   {workweekOnly ? "Laboral" : "Natural"}
                 </button>
+                <button
+                  type="button"
+                  onClick={onViewMyEventsToggle}
+                  aria-pressed={viewMyEventsEnabled}
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                    viewMyEventsEnabled
+                      ? "border-indigo-200 bg-indigo-500 text-white"
+                      : "border-slate-200 bg-white text-slate-500 hover:text-indigo-500"
+                  }`}
+                >
+                  Ver mis eventos
+                </button>
                 {allowAddEvent ? (
                   <div className="flex flex-wrap items-center gap-2 md:ml-2">
                     <button
@@ -452,6 +478,7 @@ export const Calendar = ({
                 date.getMonth() === selectedDate.getMonth() &&
                 date.getFullYear() === selectedDate.getFullYear();
               const dayEvents = getEventsForDay(events, date);
+              const isPastDay = isDateInPast(date, today);
 
               return (
                 <div
@@ -469,6 +496,8 @@ export const Calendar = ({
                     isToday
                       ? "border-indigo-400/70 bg-indigo-50/60"
                       : "border-slate-200/70"
+                  } ${!isToday && isPastDay ? "border-slate-300/70 bg-slate-100/70" : ""} ${
+                    !isToday && !isPastDay ? "bg-white/70" : ""
                   } ${isSelected ? "ring-2 ring-indigo-400/70" : ""}`}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -516,6 +545,11 @@ export const Calendar = ({
                         const isFiltered = Boolean(activeCategory);
                         const isHighlighted =
                           isFiltered && event.eventType === activeCategory;
+                        const isAssignedToUser = Boolean(
+                          targetUsername && event.attendees.includes(targetUsername)
+                        );
+                        const shouldDimByAssignment =
+                          viewMyEventsEnabled && Boolean(targetUsername) && !isAssignedToUser;
 
                         return (
                           <button
@@ -526,7 +560,11 @@ export const Calendar = ({
                               onEventSelect(event);
                             }}
                             className={`relative flex w-full flex-col gap-1.5 rounded-2xl border px-4 py-2.5 pb-8 pr-14 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${meta.cardClass} ${
-                              isFiltered && !isHighlighted ? "opacity-40" : ""
+                              isFiltered && !isHighlighted
+                                ? "opacity-40"
+                                : shouldDimByAssignment
+                                  ? "opacity-45"
+                                  : ""
                             } ${isHighlighted ? "ring-2 ring-white/70" : ""}`}
                           >
                             <span
@@ -584,15 +622,19 @@ export const Calendar = ({
                   date.getMonth() === selectedDate.getMonth() &&
                   date.getFullYear() === selectedDate.getFullYear();
                 const dayEvents = getEventsForDay(events, date);
+                const isPastDay = Boolean(date && isDateInPast(date, today));
 
                 return (
                   <DayCell
                     key={`${currentYear}-${currentMonth}-${index}`}
                     date={date}
                     isToday={Boolean(isToday)}
+                    isPastDay={isPastDay}
                     isSelected={Boolean(isSelected)}
                     events={dayEvents}
                     highlightCategory={activeCategory}
+                    dimUnassignedEvents={viewMyEventsEnabled}
+                    highlightUsername={targetUsername}
                     allowAddEvent={allowAddEvent}
                     onSelect={onDaySelect}
                     onAddEvent={onAddEvent}

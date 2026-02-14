@@ -1,5 +1,12 @@
 # Log de cambios
 
+## v0.2.72
+- Se limita la valoración de eventos en **Mis eventos**: ahora solo se puede añadir/editar review si el establecimiento del evento tiene `tipo = "restaurante"` y el evento ya ha pasado.
+- Se añade un nuevo botón toggle **"Ver mis eventos"** en la cabecera del calendario, situado a la derecha del toggle **Laboral/Natural**, sin modificar el botón existente **Mis eventos**.
+- Con el toggle **"Ver mis eventos"** activo, los eventos no asignados al usuario seleccionado se muestran semitransparentes en las vistas mensual y semanal.
+- En las vistas **mensual** y **semanal**, los días ya pasados se muestran con un gris ligeramente más oscuro para mejorar la lectura visual temporal.
+- Se consolida la versión de la app en `0.2.72`.
+
 ## v0.2.71
 - En el listado de **Restaurantes**, la cabecera del acordeón colapsado muestra la valoración media en estrellas y el número total de reviews por establecimiento.
 - Nuevo bloque **REVIEWS** con vista en acordeón de 3 niveles:
