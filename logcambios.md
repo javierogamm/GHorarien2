@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.73
+- Se reactiva el botón de **review** en **Mis eventos** para que aparezca cuando el evento ya ha pasado y el usuario seleccionado figura como asistente.
+- Se mantiene el flujo de **añadir** y **editar** review sobre el mismo evento para el mismo usuario, sin restringirlo al tipo de establecimiento.
+- Se consolida la versión de la app en `0.2.73`.
+
 ## v0.2.72
 - Se limita la valoración de eventos en **Mis eventos**: ahora solo se puede añadir/editar review si el establecimiento del evento tiene `tipo = "restaurante"` y el evento ya ha pasado.
 - Se añade un nuevo botón toggle **"Ver mis eventos"** en la cabecera del calendario, situado a la derecha del toggle **Laboral/Natural**, sin modificar el botón existente **Mis eventos**.

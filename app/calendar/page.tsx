@@ -412,6 +412,12 @@ const isPastEventDate = (eventDateRaw?: string | null) => {
   return eventDate.getTime() < today.getTime();
 };
 
+const hasUserAttendedEvent = (attendees: string[], username?: string | null) => {
+  const safeUsername = (username ?? "").trim();
+  if (!safeUsername) return false;
+  return attendees.some((attendee) => attendee.trim() === safeUsername);
+};
+
 const renderStars = (value: number) =>
   Array.from({ length: 10 }, (_, index) => (index < value ? "★" : "☆")).join("");
 
@@ -5251,13 +5257,13 @@ export default function CalendarPage() {
                               const isSoloComidaActive =
                                 group.event.eventType === "Comida" &&
                                 soloComidaKeys.has(soloComidaKey);
+                              const hasAttended = hasUserAttendedEvent(
+                                group.attendees,
+                                targetUser
+                              );
                               const canReview =
-                                Boolean(targetUser) &&
-                                isPastEventDate(group.event.fecha) &&
-                                ((establishmentLookup
-                                  .get(group.event.establecimiento?.trim() ?? "")
-                                  ?.tipo?.trim()
-                                  .toLowerCase() ?? "") === "restaurante");
+                                hasAttended &&
+                                isPastEventDate(group.event.fecha);
                               const currentReview = targetUser
                                 ? reviewsByEventAndUser.get(
                                     buildEventReviewKey(
