@@ -20,8 +20,25 @@ export type UserRecord = SupabaseDocument & {
   horasObtenidas?: number | string;
 };
 
-export const normalizeUserRoleValue = (role?: string | null): UserRole | null => {
-  const normalized = role?.trim().toLowerCase();
+const asOptionalText = (value: unknown): string | null => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return null;
+};
+
+const normalizeUserRecord = (row: UserRecord): UserRecord => ({
+  ...row,
+  user: asOptionalText(row.user) ?? "",
+  pass: asOptionalText(row.pass) ?? "",
+  role: (normalizeUserRoleValue(row.role) ?? "User") as UserRole,
+  horasObtenidas:
+    typeof row.horasObtenidas === "number" || typeof row.horasObtenidas === "string"
+      ? row.horasObtenidas
+      : "0"
+});
+
+export const normalizeUserRoleValue = (role?: unknown): UserRole | null => {
+  const normalized = asOptionalText(role)?.trim().toLowerCase();
   if (!normalized) return null;
   if (normalized === "admin") return "Admin";
   if (normalized === "boss") return "Boss";
@@ -51,12 +68,12 @@ export const validateUserCredentials = async (
   );
 
   const row = data[0];
-  return row ? (mapSupabaseDocument(row) as UserRecord) : null;
+  return row ? normalizeUserRecord(mapSupabaseDocument(row) as UserRecord) : null;
 };
 
 export const fetchUsers = async (): Promise<UserRecord[]> => {
   const data = await selectRows<UserRecord>(supabaseConfig.usersTable);
-  return data.map((row) => mapSupabaseDocument(row) as UserRecord);
+  return data.map((row) => normalizeUserRecord(mapSupabaseDocument(row) as UserRecord));
 };
 
 export const updateUserHorasObtenidas = async (
@@ -70,7 +87,7 @@ export const updateUserHorasObtenidas = async (
   );
 
   if (!data[0]) throw new Error("No se pudo actualizar horasObtenidas.");
-  return mapSupabaseDocument(data[0]) as UserRecord;
+  return normalizeUserRecord(mapSupabaseDocument(data[0]) as UserRecord);
 };
 
 export const updateUserPassword = async (
@@ -84,7 +101,7 @@ export const updateUserPassword = async (
   );
 
   if (!data[0]) throw new Error("No se pudo actualizar la contraseña.");
-  return mapSupabaseDocument(data[0]) as UserRecord;
+  return normalizeUserRecord(mapSupabaseDocument(data[0]) as UserRecord);
 };
 
 export const createOtherUser = async (name: string): Promise<UserRecord> => {
@@ -101,5 +118,5 @@ export const createOtherUser = async (name: string): Promise<UserRecord> => {
   });
 
   if (!data[0]) throw new Error("No se pudo crear el usuario.");
-  return mapSupabaseDocument(data[0]) as UserRecord;
+  return normalizeUserRecord(mapSupabaseDocument(data[0]) as UserRecord);
 };

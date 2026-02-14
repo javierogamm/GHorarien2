@@ -32,6 +32,12 @@ export type CalendarEvent = SupabaseDocument & {
   import?: number;
 };
 
+const asText = (value: unknown, fallback = ""): string => {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return fallback;
+};
+
 const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
   const backendImporte =
     typeof event.importe === "number"
@@ -42,6 +48,17 @@ const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
 
   return {
     ...event,
+    eventType: asText(event.eventType) as EventCategory,
+    user: asText(event.user),
+    nombre: asText(event.nombre),
+    fecha: asText(event.fecha),
+    horaInicio: asText(event.horaInicio),
+    horaFin: asText(event.horaFin),
+    notas: asText(event.notas),
+    establecimiento: asText(event.establecimiento),
+    certificacion: asText(event.certificacion),
+    promocion: asText(event.promocion),
+    menu: asText(event.menu),
     importe: backendImporte
   };
 };
@@ -174,7 +191,21 @@ export type EstablishmentRecord = SupabaseDocument & {
 
 export const fetchEstablishments = async (): Promise<EstablishmentRecord[]> => {
   const data = await selectRows<EstablishmentRecord>(supabaseConfig.establishmentTable);
-  return data.map((row) => mapSupabaseDocument(row) as EstablishmentRecord);
+  return data.map((row) => {
+    const record = mapSupabaseDocument(row) as EstablishmentRecord;
+    return {
+      ...record,
+      establecimientoId:
+        typeof record.establecimientoId === "number"
+          ? record.establecimientoId
+          : Number.parseInt(asText(record.establecimientoId, ""), 10) || undefined,
+      nombre: asText(record.nombre),
+      direccion: asText(record.direccion),
+      telefono: asText(record.telefono),
+      ubicacion: asText(record.ubicacion),
+      estado: record.estado === "sugerido" ? "sugerido" : "aceptado"
+    };
+  });
 };
 
 type CreateEstablishmentInput = {
