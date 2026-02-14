@@ -30,16 +30,20 @@ import {
 } from "../../constants/certifications";
 import {
   type CalendarEvent,
+  createReview,
   createEstablishment,
   createEventsForAttendees,
   deleteEstablishment,
   deleteEvent,
+  type EventReviewRecord,
   type EstablishmentRecord,
   type EstablishmentStatus,
   fetchAllEvents,
   fetchEstablishments,
+  fetchReviews,
   updateEstablishment,
-  updateEvent
+  updateEvent,
+  updateReview
 } from "../../services/eventsService";
 import {
   createHorasDeclaradas,
@@ -388,6 +392,29 @@ const formatDateKey = (date: Date) => {
 const isSameMonthAndYear = (date: Date, month: number, year: number) =>
   date.getFullYear() === year && date.getMonth() === month;
 
+const normalizeReviewStars = (value: unknown) => {
+  const parsed = typeof value === "number" ? value : Number.parseFloat(String(value ?? "0"));
+  if (!Number.isFinite(parsed)) return 1;
+  return Math.min(10, Math.max(1, Math.round(parsed)));
+};
+
+const buildEventReviewKey = (
+  eventName?: string | null,
+  eventDate?: string | null,
+  username?: string | null
+) => `${(eventName ?? "").trim()}|${(eventDate ?? "").trim()}|${(username ?? "").trim()}`;
+
+const isPastEventDate = (eventDateRaw?: string | null) => {
+  const eventDate = parseDateWithoutTime(eventDateRaw ?? "");
+  if (!eventDate) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return eventDate.getTime() < today.getTime();
+};
+
+const renderStars = (value: number) =>
+  Array.from({ length: 10 }, (_, index) => (index < value ? "★" : "☆")).join("");
+
 const MINI_WEEK_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const buildMiniCalendarDays = (year: number, month: number) => {
   const firstDay = new Date(year, month, 1);
@@ -670,6 +697,13 @@ export default function CalendarPage() {
     isOpen: boolean;
     group: MyEventGroup | null;
   };
+  type ReviewModalState = {
+    isOpen: boolean;
+    group: MyEventGroup | null;
+    reviewId: string | null;
+    stars: number;
+    notas: string;
+  };
 
   const [editForm, setEditForm] = useState<EditFormState>({
     nombre: "",
@@ -712,6 +746,22 @@ export default function CalendarPage() {
     isOpen: false,
     group: null
   });
+  const [reviews, setReviews] = useState<EventReviewRecord[]>([]);
+  const [reviewsStatus, setReviewsStatus] = useState({
+    loading: false,
+    error: ""
+  });
+  const [reviewActionStatus, setReviewActionStatus] = useState({
+    loading: false,
+    error: ""
+  });
+  const [reviewModal, setReviewModal] = useState<ReviewModalState>({
+    isOpen: false,
+    group: null,
+    reviewId: null,
+    stars: 8,
+    notas: ""
+  });
 
   useEffect(() => {
     const savedUser = window.localStorage.getItem(SESSION_KEY);
@@ -744,6 +794,36 @@ export default function CalendarPage() {
     if (!username) return;
     loadAllEvents();
   }, [loadAllEvents, username]);
+
+  useEffect(() => {
+    if (!username) return;
+    let cancelled = false;
+
+    const loadReviews = async () => {
+      setReviewsStatus({ loading: true, error: "" });
+      try {
+        const data = await fetchReviews();
+        if (cancelled) return;
+        setReviews(data);
+        setReviewsStatus({ loading: false, error: "" });
+      } catch (error) {
+        if (cancelled) return;
+        setReviewsStatus({
+          loading: false,
+          error:
+            error instanceof Error && error.message
+              ? error.message
+              : "No se pudieron cargar las reviews."
+        });
+      }
+    };
+
+    loadReviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [username]);
 
   useEffect(() => {
     if (!username) return;
@@ -1380,6 +1460,72 @@ export default function CalendarPage() {
     if (soloComidaActionStatus.loading) return;
     setSoloComidaModal({ isOpen: false, group: null });
     setSoloComidaActionStatus({ loading: false, error: "" });
+  };
+
+  const handleReviewOpen = (group: MyEventGroup) => {
+    if (!targetUser) return;
+    const existingReview = reviewsByEventAndUser.get(
+      buildEventReviewKey(group.event.nombre, group.event.fecha, targetUser)
+    );
+
+    setReviewActionStatus({ loading: false, error: "" });
+    setReviewModal({
+      isOpen: true,
+      group,
+      reviewId: existingReview?.$id ?? null,
+      stars: normalizeReviewStars(existingReview?.stars ?? 8),
+      notas: existingReview?.notas?.trim() ?? ""
+    });
+  };
+
+  const handleReviewClose = () => {
+    if (reviewActionStatus.loading) return;
+    setReviewModal({
+      isOpen: false,
+      group: null,
+      reviewId: null,
+      stars: 8,
+      notas: ""
+    });
+    setReviewActionStatus({ loading: false, error: "" });
+  };
+
+  const handleReviewSave = async () => {
+    if (!reviewModal.group || !targetUser) return;
+
+    const event = reviewModal.group.event;
+    const establishment = event.establecimiento?.trim() || "Sin ubicación";
+    const eventName = event.nombre?.trim() || "Evento";
+    const safeStars = normalizeReviewStars(reviewModal.stars);
+
+    setReviewActionStatus({ loading: true, error: "" });
+    try {
+      const payload = {
+        establecimiento: establishment,
+        user: targetUser,
+        evento_nombre: eventName,
+        fechaevento: event.fecha,
+        notas: reviewModal.notas.trim(),
+        stars: safeStars
+      };
+
+      if (reviewModal.reviewId) {
+        const updated = await updateReview(reviewModal.reviewId, payload);
+        setReviews((prev) =>
+          prev.map((item) => (item.$id === updated.$id ? updated : item))
+        );
+      } else {
+        const created = await createReview(payload);
+        setReviews((prev) => [...prev, created]);
+      }
+
+      handleReviewClose();
+    } catch (error) {
+      setReviewActionStatus({
+        loading: false,
+        error: getErrorMessage(error, "No se pudo guardar la review.")
+      });
+    }
   };
 
   const handleSoloComidaConfirm = async () => {
@@ -3319,6 +3465,56 @@ export default function CalendarPage() {
       });
   }, [allEvents, targetUser]);
 
+  const reviewsByEventAndUser = useMemo(() => {
+    const map = new Map<string, EventReviewRecord>();
+    reviews.forEach((review) => {
+      const key = buildEventReviewKey(review.evento_nombre, review.fechaevento, review.user);
+      if (key === "||") return;
+      map.set(key, review);
+    });
+    return map;
+  }, [reviews]);
+
+  const reviewAveragesByRestaurant = useMemo(() => {
+    const grouped = new Map<string, { total: number; count: number }>();
+    reviews.forEach((review) => {
+      const restaurant = review.establecimiento?.trim();
+      if (!restaurant) return;
+      const stars = normalizeReviewStars(review.stars);
+      const entry = grouped.get(restaurant) ?? { total: 0, count: 0 };
+      entry.total += stars;
+      entry.count += 1;
+      grouped.set(restaurant, entry);
+    });
+
+    const averages = new Map<string, number>();
+    grouped.forEach((entry, restaurant) => {
+      averages.set(restaurant, entry.count > 0 ? entry.total / entry.count : 0);
+    });
+    return averages;
+  }, [reviews]);
+
+  const reviewAveragesByEvent = useMemo(() => {
+    const grouped = new Map<string, { total: number; count: number }>();
+    reviews.forEach((review) => {
+      const restaurant = review.establecimiento?.trim();
+      const eventName = review.evento_nombre?.trim();
+      if (!restaurant || !eventName) return;
+      const stars = normalizeReviewStars(review.stars);
+      const key = `${restaurant}|${eventName}`;
+      const entry = grouped.get(key) ?? { total: 0, count: 0 };
+      entry.total += stars;
+      entry.count += 1;
+      grouped.set(key, entry);
+    });
+
+    const averages = new Map<string, number>();
+    grouped.forEach((entry, key) => {
+      averages.set(key, entry.count > 0 ? entry.total / entry.count : 0);
+    });
+    return averages;
+  }, [reviews]);
+
   useEffect(() => {
     if (!targetUser || (!myEventsOnly && !hoursCalculationEnabled)) {
       setSoloComidaRecords([]);
@@ -4503,6 +4699,8 @@ export default function CalendarPage() {
                 {restaurantsList.map((restaurant) => {
                   const isEditing = restaurantEditId === restaurant.$id;
                   const statusValue = restaurant.estado ?? "aceptado";
+                  const averageStars = reviewAveragesByRestaurant.get(restaurant.nombre) ?? 0;
+                  const roundedAverageStars = averageStars > 0 ? Math.round(averageStars * 10) / 10 : 0;
                   return (
                     <details
                       key={restaurant.$id}
@@ -4617,6 +4815,14 @@ export default function CalendarPage() {
                                 Teléfono:
                               </span>
                               <span>{restaurant.telefono?.trim() || "—"}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <span className="font-semibold text-slate-500">Valoración:</span>
+                              <span>
+                                {roundedAverageStars > 0
+                                  ? `${renderStars(Math.round(roundedAverageStars))} (${roundedAverageStars.toFixed(1)}/10)`
+                                  : "Sin reviews"}
+                              </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-semibold text-slate-500">Maps:</span>
@@ -4792,6 +4998,12 @@ export default function CalendarPage() {
               </div>
             ) : null}
 
+            {reviewsStatus.error ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {reviewsStatus.error}
+              </div>
+            ) : null}
+
             {myEvents.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-white/70 px-4 py-10 text-center text-sm text-slate-500">
                 {targetUser
@@ -4857,6 +5069,17 @@ export default function CalendarPage() {
                               const isSoloComidaActive =
                                 group.event.eventType === "Comida" &&
                                 soloComidaKeys.has(soloComidaKey);
+                              const canReview =
+                                Boolean(targetUser) && isPastEventDate(group.event.fecha);
+                              const currentReview = targetUser
+                                ? reviewsByEventAndUser.get(
+                                    buildEventReviewKey(
+                                      group.event.nombre,
+                                      group.event.fecha,
+                                      targetUser
+                                    )
+                                  )
+                                : null;
                               return (
                                 <details
                                   key={group.event.$id}
@@ -4954,6 +5177,22 @@ export default function CalendarPage() {
                                         </span>
                                       </div>
                                     ) : null}
+                                    {canReview ? (
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleReviewOpen(group)}
+                                          className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 transition hover:-translate-y-0.5 hover:border-amber-300"
+                                        >
+                                          {currentReview ? "Editar review" : "Añadir review"}
+                                        </button>
+                                        <span className="text-[11px] text-slate-500">
+                                          {currentReview
+                                            ? `${renderStars(normalizeReviewStars(currentReview.stars))} (${normalizeReviewStars(currentReview.stars)}/10)`
+                                            : "Valora el evento de 1 a 10 estrellas."}
+                                        </span>
+                                      </div>
+                                    ) : null}
                                   </div>
                                 </details>
                               );
@@ -5029,7 +5268,13 @@ export default function CalendarPage() {
               </div>
             ) : importesGroupMode === "restaurant" ? (
               <div className="mt-6 flex flex-col gap-4">
-                {importesByRestaurant.map((restaurantGroup) => (
+                {importesByRestaurant.map((restaurantGroup) => {
+                  const restaurantAverage = reviewAveragesByRestaurant.get(restaurantGroup.restaurant) ?? 0;
+                  const restaurantAverageLabel =
+                    restaurantAverage > 0
+                      ? `${(Math.round(restaurantAverage * 10) / 10).toFixed(1)}/10`
+                      : "Sin reviews";
+                  return (
                   <details
                     key={restaurantGroup.restaurant}
                     className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 shadow-sm"
@@ -5037,8 +5282,9 @@ export default function CalendarPage() {
                     <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
                       <span className="flex items-center justify-between gap-3">
                         <span>{restaurantGroup.restaurant}</span>
-                        <span className="text-xs font-semibold text-emerald-600">
-                          {formatImporte(restaurantGroup.total)}
+                        <span className="flex flex-col items-end text-xs font-semibold">
+                          <span className="text-emerald-600">{formatImporte(restaurantGroup.total)}</span>
+                          <span className="text-amber-600">★ {restaurantAverageLabel}</span>
                         </span>
                       </span>
                     </summary>
@@ -5057,7 +5303,16 @@ export default function CalendarPage() {
                             </span>
                           </summary>
                           <div className="mt-3 flex flex-col gap-2">
-                            {monthGroup.events.map((eventItem) => (
+                            {monthGroup.events.map((eventItem) => {
+                              const eventStarsAverage =
+                                reviewAveragesByEvent.get(
+                                  `${restaurantGroup.restaurant}|${eventItem.nombre?.trim() || "Evento"}`
+                                ) ?? 0;
+                              const eventStarsLabel =
+                                eventStarsAverage > 0
+                                  ? `${(Math.round(eventStarsAverage * 10) / 10).toFixed(1)}/10`
+                                  : "Sin reviews";
+                              return (
                               <div
                                 key={eventItem.$id}
                                 className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"
@@ -5073,15 +5328,18 @@ export default function CalendarPage() {
                                 <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
                                   <span>Fecha: {formatDisplayDate(eventItem.fecha)}</span>
                                   <span>Promo: {eventItem.promocion?.trim() || "Sin promoción"}</span>
+                                  <span className="text-amber-600">★ {eventStarsLabel}</span>
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </details>
                       ))}
                     </div>
                   </details>
-                ))}
+                );
+                })}
               </div>
             ) : (
               <div className="mt-6 flex flex-col gap-4">
@@ -5553,6 +5811,120 @@ export default function CalendarPage() {
                 : soloComidaModalActive
                   ? "Eliminar"
                   : "Confirmar"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={`fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/50 px-4 py-10 backdrop-blur-sm transition ${
+          reviewModal.isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={handleReviewClose}
+      >
+        <div
+          className={`w-full max-w-xl rounded-[32px] border border-white/70 bg-white/95 p-6 shadow-soft transition ${
+            reviewModal.isOpen ? "translate-y-0 scale-100" : "translate-y-4 scale-95"
+          }`}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-semibold text-slate-900">
+                {reviewModal.reviewId ? "Editar review" : "Nueva review"}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Valora el evento de 1 a 10 estrellas y añade notas opcionales.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleReviewClose}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          {reviewModal.group ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
+              <div className="flex flex-wrap gap-2">
+                <span className="font-semibold text-slate-500">Evento:</span>
+                <span>{reviewModal.group.event.nombre?.trim() || "Evento"}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <span className="font-semibold text-slate-500">Establecimiento:</span>
+                <span>{reviewModal.group.event.establecimiento?.trim() || "Sin ubicación"}</span>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Puntuación
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {Array.from({ length: 10 }, (_, index) => {
+                const value = index + 1;
+                const active = value <= reviewModal.stars;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() =>
+                      setReviewModal((prev) => ({ ...prev, stars: value }))
+                    }
+                    className={`h-9 w-9 rounded-full border text-sm font-semibold transition ${
+                      active
+                        ? "border-amber-300 bg-amber-100 text-amber-600"
+                        : "border-slate-200 bg-white text-slate-400 hover:border-amber-200 hover:text-amber-500"
+                    }`}
+                  >
+                    ★
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Selección actual: {reviewModal.stars}/10
+            </p>
+          </div>
+
+          <label className="mt-4 flex flex-col gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Notas
+            <textarea
+              value={reviewModal.notas}
+              onChange={(event) =>
+                setReviewModal((prev) => ({ ...prev, notas: event.target.value }))
+              }
+              rows={4}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
+              placeholder="¿Qué te pareció el evento?"
+            />
+          </label>
+
+          {reviewActionStatus.error ? (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+              {reviewActionStatus.error}
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={handleReviewClose}
+              disabled={reviewActionStatus.loading}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleReviewSave}
+              disabled={reviewActionStatus.loading}
+              className="rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {reviewActionStatus.loading ? "Guardando..." : "Guardar review"}
             </button>
           </div>
         </div>

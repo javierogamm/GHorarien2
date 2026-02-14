@@ -316,3 +316,62 @@ export const updateEstablishment = async (
 export const deleteEstablishment = async (documentId: string): Promise<void> => {
   await deleteRows(supabaseConfig.establishmentTable, [filters.eq("$id", documentId)]);
 };
+
+export type EventReviewRecord = SupabaseDocument & {
+  $id: string;
+  $createdAt?: string;
+  $updatedAt?: string;
+  establecimiento?: string;
+  user?: string;
+  evento_nombre?: string;
+  fechaevento?: string;
+  notas?: string;
+  stars?: number;
+};
+
+const normalizeReview = (row: EventReviewRecord): EventReviewRecord => ({
+  ...row,
+  establecimiento: asText(row.establecimiento),
+  user: asText(row.user),
+  evento_nombre: asText(row.evento_nombre),
+  fechaevento: asText(row.fechaevento),
+  notas: asText(row.notas),
+  stars:
+    typeof row.stars === "number"
+      ? row.stars
+      : Number.parseFloat(asText(row.stars, "0")) || 0
+});
+
+export const fetchReviews = async (): Promise<EventReviewRecord[]> => {
+  const data = await selectRows<EventReviewRecord>("reviews");
+  return data.map((row) => normalizeReview(mapSupabaseDocument(row) as EventReviewRecord));
+};
+
+type CreateReviewInput = {
+  establecimiento: string;
+  user: string;
+  evento_nombre: string;
+  fechaevento: string;
+  notas?: string;
+  stars: number;
+};
+
+export const createReview = async (
+  payload: CreateReviewInput
+): Promise<EventReviewRecord> => {
+  const data = await insertRows<EventReviewRecord>("reviews", payload);
+  if (!data[0]) throw new Error("No se pudo crear la review.");
+  return normalizeReview(mapSupabaseDocument(data[0]) as EventReviewRecord);
+};
+
+export const updateReview = async (
+  documentId: string,
+  data: Partial<EventReviewRecord>
+): Promise<EventReviewRecord> => {
+  const updated = await updateRows<EventReviewRecord>("reviews", data, [
+    filters.eq("$id", documentId)
+  ]);
+
+  if (!updated[0]) throw new Error("No se pudo actualizar la review.");
+  return normalizeReview(mapSupabaseDocument(updated[0]) as EventReviewRecord);
+};
