@@ -1,5 +1,14 @@
 # Log de cambios
 
+## v0.2.71
+- En el listado de **Restaurantes**, la cabecera del acordeón colapsado muestra la valoración media en estrellas y el número total de reviews por establecimiento.
+- Nuevo bloque **REVIEWS** con vista en acordeón de 3 niveles:
+  - Nivel 1: establecimiento (estrellas medias y nº de reviews).
+  - Nivel 2: eventos del establecimiento (estrellas medias y nº de reviews).
+  - Nivel 3: reviews individuales (usuario, estrellas y notas).
+- Consolidación y ordenación de reviews para mostrar primero los establecimientos/eventos con más actividad y los comentarios más recientes dentro de cada evento.
+- Se consolida la versión de la app en `0.2.71`.
+
 ## v0.2.70
 - Se corrige el guardado de reviews en Supabase evitando enviar automáticamente el campo `"$id"` al crear registros en la tabla `reviews`, lo que elimina el error `PGRST204` al guardar nuevas reviews.
 - Se corrige la edición de reviews para filtrar por la columna real `id` en Supabase (en lugar de `"$id"`), asegurando que las actualizaciones funcionen en esquemas SQL estándar.
