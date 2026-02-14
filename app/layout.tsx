@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Calendario GHorarien",
-  description: "Calendario mensual con Appwrite"
+  description: "Calendario mensual con Supabase"
 };
 
 export default function RootLayout({

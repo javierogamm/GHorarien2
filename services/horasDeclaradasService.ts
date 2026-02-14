@@ -1,7 +1,18 @@
-import { ID, Models, Query } from "appwrite";
-import { appwriteConfig, databases, ensureAppwriteConfig } from "./appwriteClient";
+import {
+  deleteRows,
+  filters,
+  insertRows,
+  mapSupabaseDocument,
+  selectRows,
+  supabaseConfig,
+  type SupabaseDocument,
+  updateRows
+} from "./supabaseClient";
 
-export type HorasDeclaradasRecord = Models.Document & {
+export type HorasDeclaradasRecord = SupabaseDocument & {
+  $id: string;
+  $createdAt?: string;
+  $updatedAt?: string;
   horasDeclaradas?: number | string | null;
   horasDeclaradasRango?: string;
   user: string;
@@ -24,13 +35,6 @@ type UpdateHorasDeclaradasInput = {
   fechaHorasDeclaradas: string;
 };
 
-const ensureHorasDeclaradasConfig = () => {
-  ensureAppwriteConfig();
-  if (!appwriteConfig.horasDeclaradasCollectionId) {
-    throw new Error("Falta NEXT_PUBLIC_APPWRITE_HORASDECLARADAS_COLLECTION_ID");
-  }
-};
-
 export const toHorasDeclaradasNumber = (value: number | string | null | undefined) => {
   if (typeof value === "number") return value;
   if (typeof value === "string") {
@@ -43,49 +47,16 @@ export const toHorasDeclaradasNumber = (value: number | string | null | undefine
 export const fetchHorasDeclaradasForUser = async (
   username: string
 ): Promise<HorasDeclaradasRecord[]> => {
-  ensureHorasDeclaradasConfig();
-  const limit = 100;
-  let offset = 0;
-  let allDocuments: HorasDeclaradasRecord[] = [];
-  let fetched = 0;
+  const data = await selectRows<HorasDeclaradasRecord>(supabaseConfig.horasDeclaradasTable, [
+    filters.eq("user", username)
+  ]);
 
-  do {
-    const response = await databases.listDocuments<HorasDeclaradasRecord>(
-      appwriteConfig.databaseId,
-      appwriteConfig.horasDeclaradasCollectionId,
-      [
-        Query.equal("user", username),
-        Query.limit(limit),
-        Query.offset(offset)
-      ]
-    );
-    fetched = response.documents.length;
-    allDocuments = allDocuments.concat(response.documents);
-    offset += fetched;
-  } while (fetched === limit);
-
-  return allDocuments;
+  return data.map((row) => mapSupabaseDocument(row) as HorasDeclaradasRecord);
 };
 
 export const fetchAllHorasDeclaradas = async (): Promise<HorasDeclaradasRecord[]> => {
-  ensureHorasDeclaradasConfig();
-  const limit = 100;
-  let offset = 0;
-  let allDocuments: HorasDeclaradasRecord[] = [];
-  let fetched = 0;
-
-  do {
-    const response = await databases.listDocuments<HorasDeclaradasRecord>(
-      appwriteConfig.databaseId,
-      appwriteConfig.horasDeclaradasCollectionId,
-      [Query.limit(limit), Query.offset(offset)]
-    );
-    fetched = response.documents.length;
-    allDocuments = allDocuments.concat(response.documents);
-    offset += fetched;
-  } while (fetched === limit);
-
-  return allDocuments;
+  const data = await selectRows<HorasDeclaradasRecord>(supabaseConfig.horasDeclaradasTable);
+  return data.map((row) => mapSupabaseDocument(row) as HorasDeclaradasRecord);
 };
 
 export const sumHorasDeclaradasForUser = async (username: string): Promise<number> => {
@@ -103,19 +74,16 @@ export const createHorasDeclaradas = async ({
   motivo,
   fechaHorasDeclaradas
 }: CreateHorasDeclaradasInput): Promise<HorasDeclaradasRecord> => {
-  ensureHorasDeclaradasConfig();
-  return databases.createDocument<HorasDeclaradasRecord>(
-    appwriteConfig.databaseId,
-    appwriteConfig.horasDeclaradasCollectionId,
-    ID.unique(),
-    {
-      user,
-      horasDeclaradas,
-      horasDeclaradasRango,
-      motivo,
-      fechaHorasDeclaradas
-    }
-  );
+  const data = await insertRows<HorasDeclaradasRecord>(supabaseConfig.horasDeclaradasTable, {
+    user,
+    horasDeclaradas,
+    horasDeclaradasRango,
+    motivo,
+    fechaHorasDeclaradas
+  });
+
+  if (!data[0]) throw new Error("No se pudo crear la declaración de horas.");
+  return mapSupabaseDocument(data[0]) as HorasDeclaradasRecord;
 };
 
 export const updateHorasDeclaradas = async (
@@ -127,25 +95,21 @@ export const updateHorasDeclaradas = async (
     fechaHorasDeclaradas
   }: UpdateHorasDeclaradasInput
 ): Promise<HorasDeclaradasRecord> => {
-  ensureHorasDeclaradasConfig();
-  return databases.updateDocument<HorasDeclaradasRecord>(
-    appwriteConfig.databaseId,
-    appwriteConfig.horasDeclaradasCollectionId,
-    documentId,
+  const data = await updateRows<HorasDeclaradasRecord>(
+    supabaseConfig.horasDeclaradasTable,
     {
       horasDeclaradas,
       horasDeclaradasRango,
       motivo,
       fechaHorasDeclaradas
-    }
+    },
+    [filters.eq("id", documentId)]
   );
+
+  if (!data[0]) throw new Error("No se pudo actualizar la declaración de horas.");
+  return mapSupabaseDocument(data[0]) as HorasDeclaradasRecord;
 };
 
 export const deleteHorasDeclaradas = async (documentId: string): Promise<void> => {
-  ensureHorasDeclaradasConfig();
-  await databases.deleteDocument(
-    appwriteConfig.databaseId,
-    appwriteConfig.horasDeclaradasCollectionId,
-    documentId
-  );
+  await deleteRows(supabaseConfig.horasDeclaradasTable, [filters.eq("id", documentId)]);
 };

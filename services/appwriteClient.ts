@@ -1,41 +1,5 @@
-import { Client, Databases } from "appwrite";
+import { ensureSupabaseConfig, supabaseConfig } from "./supabaseClient";
 
-const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT;
-const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID;
-
-const client = new Client();
-if (endpoint) {
-  client.setEndpoint(endpoint);
-}
-if (projectId) {
-  client.setProject(projectId);
-}
-
-export const databases = new Databases(client);
-
-export const appwriteConfig = {
-  databaseId: process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ?? "",
-  usersCollectionId: process.env.NEXT_PUBLIC_APPWRITE_USERS_COLLECTION_ID ?? "",
-  eventsCollectionId: process.env.NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID ?? "",
-  horasDeclaradasCollectionId:
-    process.env.NEXT_PUBLIC_APPWRITE_HORASDECLARADAS_COLLECTION_ID ?? "",
-  horasObtenidasCollectionId:
-    process.env.NEXT_PUBLIC_APPWRITE_HORASOBTENIDAS_COLLECTION_ID ?? "",
-  establishmentCollectionId:
-    process.env.NEXT_PUBLIC_APPWRITE_ESTABLISHMENT_ID ?? ""
-};
-
-export const ensureAppwriteConfig = () => {
-  if (!appwriteConfig.databaseId) {
-    throw new Error("Falta NEXT_PUBLIC_APPWRITE_DATABASE_ID");
-  }
-  if (!appwriteConfig.usersCollectionId) {
-    throw new Error("Falta NEXT_PUBLIC_APPWRITE_USERS_COLLECTION_ID");
-  }
-  if (!appwriteConfig.eventsCollectionId) {
-    throw new Error("Falta NEXT_PUBLIC_APPWRITE_EVENTS_COLLECTION_ID");
-  }
-  if (!appwriteConfig.establishmentCollectionId) {
-    throw new Error("Falta NEXT_PUBLIC_APPWRITE_ESTABLISHMENT_ID");
-  }
-};
+export const appwriteConfig = supabaseConfig;
+export const ensureAppwriteConfig = ensureSupabaseConfig;
+export const databases = null;

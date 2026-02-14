@@ -1,5 +1,12 @@
 # Log de cambios
 
+## v0.2.60
+- Migración completa de servicios de datos desde Appwrite a Supabase usando las nuevas variables de entorno `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- Se configuran los nombres de tablas de Supabase exactamente como: `users`, `tabla`, `horasobtenidas`, `horasdeclaradas` y `establecimiento`, manteniendo la misma estructura de columnas y el comportamiento funcional existente.
+- Se sustituye el acceso SDK por llamadas REST a Supabase (`/rest/v1`) con mapeo compatible de IDs/fechas (`$id`, `$createdAt`, `$updatedAt`) para no romper la UI actual.
+- Se actualiza la pantalla de login y la documentación del proyecto para reflejar Supabase y despliegue en Vercel con el nuevo entorno.
+- Se consolida la versión de la app en `0.2.60`.
+
 ## v0.2.59
 - Los usuarios con rol **User** ya pueden modificar asistentes de un evento existente desde el modal de edición, permitiendo añadirse a sí mismos o a otros usuarios sin habilitar la edición del resto de campos del evento.
 - Se mantiene la gestión avanzada de restaurantes para **Admin/Boss/Eventmaster** y se refuerza que los usuarios **User** puedan sugerir restaurantes desde la vista de **Restaurantes**.
