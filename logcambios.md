@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.66
+- Se corrige la integración con Supabase para inserciones en todas las tablas funcionales (eventos, horas declaradas/obtenidas, usuarios y establecimientos), generando automáticamente `"$id"` cuando no llega informado para evitar el error: "La fila no contiene una columna id o $id en Supabase."
+- Con este ajuste, los flujos de **CREAR EVENTO**, **DECLARAR HORAS**, **CREAR ESTABLECIMIENTO** y cualquier alta relacionada quedan persistidos con identificador válido y pasan a ser editables/sobrescribibles desde la UI.
+- Se amplía la normalización tipada de establecimientos para contemplar todos los campos reales del esquema (`tipo`, `correoElectronico`) en creación y edición.
+- Se consolida la versión de la app en `0.2.66`.
+
 ## v0.2.65
 - Se corrige el error en cliente `TypeError: e.trim is not a function` al entrar en la app tras conectar con Supabase, normalizando datos no-string recibidos desde las tablas (`users`, `tabla`, `horasobtenidas`, `horasdeclaradas` y `establecimiento`).
 - Se endurece la normalización de roles para aceptar valores no textuales sin romper el login ni la carga de calendario.

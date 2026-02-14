@@ -184,35 +184,40 @@ export type EstablishmentRecord = SupabaseDocument & {
   establecimientoId?: number;
   nombre: string;
   direccion?: string;
+  tipo?: string;
   telefono?: string;
+  correoElectronico?: string;
   ubicacion?: string;
   estado?: EstablishmentStatus;
 };
 
+const normalizeEstablishment = (row: EstablishmentRecord): EstablishmentRecord => ({
+  ...row,
+  establecimientoId:
+    typeof row.establecimientoId === "number"
+      ? row.establecimientoId
+      : Number.parseInt(asText(row.establecimientoId, ""), 10) || undefined,
+  nombre: asText(row.nombre),
+  direccion: asText(row.direccion),
+  tipo: asText(row.tipo),
+  telefono: asText(row.telefono),
+  correoElectronico: asText(row.correoElectronico),
+  ubicacion: asText(row.ubicacion),
+  estado: row.estado === "sugerido" ? "sugerido" : "aceptado"
+});
+
 export const fetchEstablishments = async (): Promise<EstablishmentRecord[]> => {
   const data = await selectRows<EstablishmentRecord>(supabaseConfig.establishmentTable);
-  return data.map((row) => {
-    const record = mapSupabaseDocument(row) as EstablishmentRecord;
-    return {
-      ...record,
-      establecimientoId:
-        typeof record.establecimientoId === "number"
-          ? record.establecimientoId
-          : Number.parseInt(asText(record.establecimientoId, ""), 10) || undefined,
-      nombre: asText(record.nombre),
-      direccion: asText(record.direccion),
-      telefono: asText(record.telefono),
-      ubicacion: asText(record.ubicacion),
-      estado: record.estado === "sugerido" ? "sugerido" : "aceptado"
-    };
-  });
+  return data.map((row) => normalizeEstablishment(mapSupabaseDocument(row) as EstablishmentRecord));
 };
 
 type CreateEstablishmentInput = {
   establecimientoId: number;
   nombre: string;
   direccion?: string;
+  tipo?: string;
   telefono?: string;
+  correoElectronico?: string;
   ubicacion?: string;
   estado?: EstablishmentStatus;
 };
@@ -222,7 +227,7 @@ export const createEstablishment = async (
 ): Promise<EstablishmentRecord> => {
   const data = await insertRows<EstablishmentRecord>(supabaseConfig.establishmentTable, payload);
   if (!data[0]) throw new Error("No se pudo crear el establecimiento.");
-  return mapSupabaseDocument(data[0]) as EstablishmentRecord;
+  return normalizeEstablishment(mapSupabaseDocument(data[0]) as EstablishmentRecord);
 };
 
 export const updateEstablishment = async (
@@ -236,7 +241,7 @@ export const updateEstablishment = async (
   );
 
   if (!updated[0]) throw new Error("No se pudo actualizar el establecimiento.");
-  return mapSupabaseDocument(updated[0]) as EstablishmentRecord;
+  return normalizeEstablishment(mapSupabaseDocument(updated[0]) as EstablishmentRecord);
 };
 
 export const deleteEstablishment = async (documentId: string): Promise<void> => {
