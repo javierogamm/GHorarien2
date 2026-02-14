@@ -1,5 +1,10 @@
 # Log de cambios
 
+## v0.2.62
+- Se corrige incompatibilidad de compilación en `services/supabaseClient.ts` reemplazando `replaceAll` por `replace(/,/g, ...)`, compatible con la configuración actual de TypeScript/ES2020.
+- Se mantiene idéntico el comportamiento del escape para filtros `in(...)` en llamadas REST a Supabase.
+- Se consolida la versión de la app en `0.2.62`.
+
 ## v0.2.61
 - Se corrige error de compilación en `calendar/page.tsx` al ordenar declaraciones de horas: ahora el campo `$updatedAt` se trata como opcional (`$updatedAt ?? 0`) para evitar el fallo de TypeScript en build/deploy.
 - Se mantiene el comportamiento funcional de ordenación (más reciente primero cuando existe timestamp).

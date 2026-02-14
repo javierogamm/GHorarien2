@@ -32,7 +32,7 @@ const buildUrl = (table: string, filters: Filter[], limit?: number) => {
     }
 
     const values = (filter.value as FilterValue[])
-      .map((value) => `${value}`.replaceAll(",", "\\,"))
+      .map((value) => `${value}`.replace(/,/g, "\\,"))
       .join(",");
     url.searchParams.append(filter.column, `in.(${values})`);
   });
