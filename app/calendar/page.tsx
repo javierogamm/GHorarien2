@@ -3515,6 +3515,94 @@ export default function CalendarPage() {
     return averages;
   }, [reviews]);
 
+  const reviewsAccordionByEstablishment = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        totalStars: number;
+        reviewCount: number;
+        events: Map<
+          string,
+          {
+            eventName: string;
+            totalStars: number;
+            reviewCount: number;
+            reviews: EventReviewRecord[];
+          }
+        >;
+      }
+    >();
+
+    reviews.forEach((review) => {
+      const establishmentName = review.establecimiento?.trim() || "Sin establecimiento";
+      const eventName = review.evento_nombre?.trim() || "Evento";
+      const stars = normalizeReviewStars(review.stars);
+
+      const establishmentEntry =
+        grouped.get(establishmentName) ??
+        {
+          totalStars: 0,
+          reviewCount: 0,
+          events: new Map()
+        };
+
+      establishmentEntry.totalStars += stars;
+      establishmentEntry.reviewCount += 1;
+
+      const eventEntry =
+        establishmentEntry.events.get(eventName) ??
+        {
+          eventName,
+          totalStars: 0,
+          reviewCount: 0,
+          reviews: []
+        };
+
+      eventEntry.totalStars += stars;
+      eventEntry.reviewCount += 1;
+      eventEntry.reviews.push(review);
+
+      establishmentEntry.events.set(eventName, eventEntry);
+      grouped.set(establishmentName, establishmentEntry);
+    });
+
+    return Array.from(grouped.entries())
+      .map(([establishmentName, establishmentEntry]) => ({
+        establishmentName,
+        reviewCount: establishmentEntry.reviewCount,
+        averageStars:
+          establishmentEntry.reviewCount > 0
+            ? establishmentEntry.totalStars / establishmentEntry.reviewCount
+            : 0,
+        events: Array.from(establishmentEntry.events.values())
+          .map((eventEntry) => ({
+            eventName: eventEntry.eventName,
+            reviewCount: eventEntry.reviewCount,
+            averageStars:
+              eventEntry.reviewCount > 0
+                ? eventEntry.totalStars / eventEntry.reviewCount
+                : 0,
+            reviews: [...eventEntry.reviews].sort((left, right) => {
+              const leftDate = new Date(left.$createdAt ?? "").getTime();
+              const rightDate = new Date(right.$createdAt ?? "").getTime();
+              return rightDate - leftDate;
+            })
+          }))
+          .sort((left, right) => {
+            if (right.reviewCount !== left.reviewCount) {
+              return right.reviewCount - left.reviewCount;
+            }
+            return left.eventName.localeCompare(right.eventName);
+          })
+      }))
+      .sort((left, right) => {
+        if (right.reviewCount !== left.reviewCount) {
+          return right.reviewCount - left.reviewCount;
+        }
+        return left.establishmentName.localeCompare(right.establishmentName);
+      });
+  }, [reviews]);
+
   useEffect(() => {
     if (!targetUser || (!myEventsOnly && !hoursCalculationEnabled)) {
       setSoloComidaRecords([]);
@@ -4701,6 +4789,9 @@ export default function CalendarPage() {
                   const statusValue = restaurant.estado ?? "aceptado";
                   const averageStars = reviewAveragesByRestaurant.get(restaurant.nombre) ?? 0;
                   const roundedAverageStars = averageStars > 0 ? Math.round(averageStars * 10) / 10 : 0;
+                  const restaurantReviewCount = reviews.filter(
+                    (review) => review.establecimiento?.trim() === restaurant.nombre
+                  ).length;
                   return (
                     <details
                       key={restaurant.$id}
@@ -4720,6 +4811,11 @@ export default function CalendarPage() {
                           </span>
                           <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                             {ESTABLISHMENT_STATUS_LABELS[statusValue]}
+                          </span>
+                          <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                            {roundedAverageStars > 0
+                              ? `${renderStars(Math.round(roundedAverageStars))} ${roundedAverageStars.toFixed(1)}/10 · ${restaurantReviewCount} reviews`
+                              : `${restaurantReviewCount} reviews · Sin valoración`}
                           </span>
                         </span>
                       </summary>
@@ -4927,6 +5023,91 @@ export default function CalendarPage() {
                 })}
               </div>
             )}
+
+            <div className="mt-8 rounded-3xl border border-slate-200 bg-white/80 p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">REVIEWS</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Vista en acordeón por establecimiento, evento y detalle de review.
+                  </p>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-500">
+                  {reviews.length} reviews
+                </span>
+              </div>
+
+              {reviewsAccordionByEstablishment.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                  No hay reviews registradas.
+                </div>
+              ) : (
+                <div className="mt-4 flex flex-col gap-3">
+                  {reviewsAccordionByEstablishment.map((establishmentGroup) => {
+                    const roundedEstablishmentStars =
+                      Math.round(establishmentGroup.averageStars * 10) / 10;
+                    return (
+                      <details
+                        key={establishmentGroup.establishmentName}
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                      >
+                        <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                          <span className="flex flex-wrap items-center justify-between gap-3">
+                            <span>{establishmentGroup.establishmentName}</span>
+                            <span className="text-xs font-semibold text-amber-700">
+                              ★ {roundedEstablishmentStars.toFixed(1)}/10 · {establishmentGroup.reviewCount} reviews
+                            </span>
+                          </span>
+                        </summary>
+
+                        <div className="mt-3 flex flex-col gap-3">
+                          {establishmentGroup.events.map((eventGroup) => {
+                            const roundedEventStars =
+                              Math.round(eventGroup.averageStars * 10) / 10;
+                            return (
+                              <details
+                                key={`${establishmentGroup.establishmentName}-${eventGroup.eventName}`}
+                                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                              >
+                                <summary className="cursor-pointer list-none text-sm font-semibold text-slate-700">
+                                  <span className="flex flex-wrap items-center justify-between gap-3">
+                                    <span>{eventGroup.eventName}</span>
+                                    <span className="text-xs font-semibold text-amber-700">
+                                      ★ {roundedEventStars.toFixed(1)}/10 · {eventGroup.reviewCount} reviews
+                                    </span>
+                                  </span>
+                                </summary>
+
+                                <div className="mt-3 flex flex-col gap-2">
+                                  {eventGroup.reviews.map((reviewItem) => (
+                                    <div
+                                      key={reviewItem.$id}
+                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
+                                    >
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <span className="font-semibold text-slate-700">
+                                          {reviewItem.user?.trim() || "Usuario"}
+                                        </span>
+                                        <span className="font-semibold text-amber-700">
+                                          {renderStars(normalizeReviewStars(reviewItem.stars))} ({normalizeReviewStars(reviewItem.stars)}/10)
+                                        </span>
+                                      </div>
+                                      <p className="mt-1 text-slate-500">
+                                        {reviewItem.notas?.trim() || "Sin notas."}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </section>
         ) : myEventsOnly ? (
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
