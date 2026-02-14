@@ -5109,7 +5109,7 @@ export default function CalendarPage() {
               )}
             </div>
           </section>
-        ) : myEventsOnly ? (
+        ) : false ? (
           <section className="rounded-3xl border border-white/70 bg-white/70 p-6 shadow-soft backdrop-blur">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -5875,6 +5875,7 @@ export default function CalendarPage() {
             workweekOnly={workweekOnly}
             onWorkweekToggle={() => setWorkweekOnly((prev) => !prev)}
             myEventsOnly={myEventsOnly}
+            currentUser={targetUser}
             onMyEventsToggle={handleMyEventsToggle}
             weekAnchorDate={weekAnchorDate}
             controlTableEnabled={controlTableEnabled}
