@@ -7,7 +7,8 @@ import {
   selectRows,
   supabaseConfig,
   type SupabaseDocument,
-  updateRows
+  updateRows,
+  isMissingRelationError
 } from "./supabaseClient";
 import { createHorasObtenidasForAttendees } from "./horasObtenidasService";
 import { fetchUsers, normalizeUserRoleValue } from "./usersService";
@@ -22,14 +23,14 @@ export type CalendarEvent = SupabaseDocument & {
   fecha: string;
   horaInicio: string;
   horaFin: string;
-  duration: number;
+  duration: number | string;
   notas?: string;
   establecimiento?: string;
   certificacion?: string;
   promocion?: string;
   menu?: string;
   importe?: number;
-  import?: number;
+  import?: number | string;
 };
 
 const asText = (value: unknown, fallback = ""): string => {
@@ -38,13 +39,55 @@ const asText = (value: unknown, fallback = ""): string => {
   return fallback;
 };
 
+
+const eventTableCandidates = [
+  supabaseConfig.eventsTable,
+  supabaseConfig.fallbackEventsTable
+].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
+
+let resolvedEventsTable: string | null = null;
+
+const resolveEventsTable = async (): Promise<string> => {
+  if (resolvedEventsTable) return resolvedEventsTable;
+
+  let lastError: unknown;
+
+  for (const candidate of eventTableCandidates) {
+    try {
+      await selectRows<CalendarEvent>(candidate, [], 1);
+      resolvedEventsTable = candidate;
+      return candidate;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        lastError = error;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw new Error(
+      `No se encontró ninguna tabla de eventos disponible (${eventTableCandidates.join(", ")}). ${lastError.message}`
+    );
+  }
+
+  throw new Error(
+    `No se encontró ninguna tabla de eventos disponible (${eventTableCandidates.join(", ")}).`
+  );
+};
+
 const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
+  const backendImporteRaw = event.importe ?? event.import;
   const backendImporte =
-    typeof event.importe === "number"
-      ? event.importe
-      : typeof event.import === "number"
-        ? event.import
-        : 0;
+    typeof backendImporteRaw === "number"
+      ? backendImporteRaw
+      : Number.parseFloat(asText(backendImporteRaw, "0")) || 0;
+
+  const durationValue =
+    typeof event.duration === "number"
+      ? event.duration
+      : Number.parseFloat(asText(event.duration, "0")) || 0;
 
   return {
     ...event,
@@ -54,6 +97,7 @@ const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
     fecha: asText(event.fecha),
     horaInicio: asText(event.horaInicio),
     horaFin: asText(event.horaFin),
+    duration: durationValue,
     notas: asText(event.notas),
     establecimiento: asText(event.establecimiento),
     certificacion: asText(event.certificacion),
@@ -66,7 +110,8 @@ const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
 export const fetchEventsForUser = async (
   username: string
 ): Promise<CalendarEvent[]> => {
-  const data = await selectRows<CalendarEvent>(supabaseConfig.eventsTable, [
+  const eventsTable = await resolveEventsTable();
+  const data = await selectRows<CalendarEvent>(eventsTable, [
     filters.eq("user", username)
   ]);
 
@@ -74,7 +119,8 @@ export const fetchEventsForUser = async (
 };
 
 export const fetchAllEvents = async (): Promise<CalendarEvent[]> => {
-  const data = await selectRows<CalendarEvent>(supabaseConfig.eventsTable);
+  const eventsTable = await resolveEventsTable();
+  const data = await selectRows<CalendarEvent>(eventsTable);
   return data.map((row) => normalizeEvent(mapSupabaseDocument(row) as CalendarEvent));
 };
 
@@ -85,7 +131,7 @@ type CreateEventsInput = {
   fecha: string;
   horaInicio: string;
   horaFin: string;
-  duration: number;
+  duration: number | string;
   notas?: string;
   establecimiento?: string;
   certificacion?: string;
@@ -118,16 +164,17 @@ export const createEventsForAttendees = async ({
     fecha,
     horaInicio,
     horaFin,
-    duration,
+    duration: String(duration),
     notas: notas ?? "",
     establecimiento: establecimiento ?? "",
     certificacion: certificacion ?? "",
     promocion: promocion ?? "",
     menu: menu ?? "",
-    import: typeof importe === "number" ? importe : 0
+    import: typeof importe === "number" ? String(importe) : "0"
   }));
 
-  const data = await insertRows<CalendarEvent>(supabaseConfig.eventsTable, rows);
+  const eventsTable = await resolveEventsTable();
+  const data = await insertRows<CalendarEvent>(eventsTable, rows);
   const createdEvents = data.map((row) => mapSupabaseDocument(row) as CalendarEvent);
 
   const users = await fetchUsers();
@@ -152,17 +199,21 @@ export const updateEvent = async (
   documentId: string,
   data: Partial<CalendarEvent>
 ): Promise<CalendarEvent> => {
-  const payload: Partial<CalendarEvent> = {
+  const payload: Record<string, unknown> = {
     ...data
   };
 
-  if (typeof data.importe === "number") {
-    payload.import = data.importe;
+  if (typeof data.importe !== "undefined") {
+    payload.import = String(data.importe ?? 0);
     delete payload.importe;
   }
 
+  if (typeof data.duration !== "undefined") {
+    payload.duration = String(data.duration ?? 0);
+  }
+
   const updated = await updateRows<CalendarEvent>(
-    supabaseConfig.eventsTable,
+    await resolveEventsTable(),
     payload,
     [filters.eq("$id", documentId)]
   );
@@ -172,7 +223,7 @@ export const updateEvent = async (
 };
 
 export const deleteEvent = async (documentId: string): Promise<void> => {
-  await deleteRows(supabaseConfig.eventsTable, [filters.eq("$id", documentId)]);
+  await deleteRows(await resolveEventsTable(), [filters.eq("$id", documentId)]);
 };
 
 export type EstablishmentStatus = "sugerido" | "aceptado";
