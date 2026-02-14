@@ -144,12 +144,22 @@ export const selectRows = async <T>(
   });
 };
 
-export const insertRows = async <T>(table: string, payload: object | object[]): Promise<T[]> => {
+type InsertOptions = {
+  withDocumentId?: boolean;
+};
+
+export const insertRows = async <T>(
+  table: string,
+  payload: object | object[],
+  options: InsertOptions = {}
+): Promise<T[]> => {
   ensureSupabaseConfig();
   const url = buildUrl(table, []);
-  const normalizedPayload = Array.isArray(payload)
-    ? payload.map((row) => withSupabaseDocumentId(row as SupabaseInsertPayload))
-    : withSupabaseDocumentId(payload as SupabaseInsertPayload);
+  const normalizedPayload = options.withDocumentId === false
+    ? payload
+    : Array.isArray(payload)
+      ? payload.map((row) => withSupabaseDocumentId(row as SupabaseInsertPayload))
+      : withSupabaseDocumentId(payload as SupabaseInsertPayload);
 
   return requestJson<T[]>(url, {
     method: "POST",

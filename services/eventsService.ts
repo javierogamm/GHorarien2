@@ -359,7 +359,9 @@ type CreateReviewInput = {
 export const createReview = async (
   payload: CreateReviewInput
 ): Promise<EventReviewRecord> => {
-  const data = await insertRows<EventReviewRecord>("reviews", payload);
+  const data = await insertRows<EventReviewRecord>("reviews", payload, {
+    withDocumentId: false
+  });
   if (!data[0]) throw new Error("No se pudo crear la review.");
   return normalizeReview(mapSupabaseDocument(data[0]) as EventReviewRecord);
 };
@@ -369,7 +371,7 @@ export const updateReview = async (
   data: Partial<EventReviewRecord>
 ): Promise<EventReviewRecord> => {
   const updated = await updateRows<EventReviewRecord>("reviews", data, [
-    filters.eq("$id", documentId)
+    filters.eq("id", documentId)
   ]);
 
   if (!updated[0]) throw new Error("No se pudo actualizar la review.");

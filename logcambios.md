@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.70
+- Se corrige el guardado de reviews en Supabase evitando enviar automáticamente el campo `"$id"` al crear registros en la tabla `reviews`, lo que elimina el error `PGRST204` al guardar nuevas reviews.
+- Se corrige la edición de reviews para filtrar por la columna real `id` en Supabase (en lugar de `"$id"`), asegurando que las actualizaciones funcionen en esquemas SQL estándar.
+- Se añade una opción configurable en el cliente de Supabase (`withDocumentId`) para controlar cuándo se inyecta un identificador legacy en inserciones y mantener compatibilidad con tablas antiguas.
+- Se consolida la versión de la app en `0.2.70`.
+
 ## v0.2.69
 - Se añade soporte completo de **REVIEWS de eventos** con nueva integración sobre la tabla `reviews` de Supabase (alta, edición y lectura), incluyendo campos `establecimiento`, `user`, `evento_nombre`, `fechaevento`, `notas` y `stars` (1-10).
 - Se añade `reviews.sql` con el DDL de creación de la tabla `public.reviews` para facilitar la consolidación de la estructura en base de datos.
