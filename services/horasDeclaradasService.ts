@@ -103,7 +103,7 @@ export const updateHorasDeclaradas = async (
       motivo,
       fechaHorasDeclaradas
     },
-    [filters.eq("id", documentId)]
+    [filters.eq("$id", documentId)]
   );
 
   if (!data[0]) throw new Error("No se pudo actualizar la declaración de horas.");
@@ -111,5 +111,5 @@ export const updateHorasDeclaradas = async (
 };
 
 export const deleteHorasDeclaradas = async (documentId: string): Promise<void> => {
-  await deleteRows(supabaseConfig.horasDeclaradasTable, [filters.eq("id", documentId)]);
+  await deleteRows(supabaseConfig.horasDeclaradasTable, [filters.eq("$id", documentId)]);
 };

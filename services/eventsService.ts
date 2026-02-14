@@ -147,7 +147,7 @@ export const updateEvent = async (
   const updated = await updateRows<CalendarEvent>(
     supabaseConfig.eventsTable,
     payload,
-    [filters.eq("id", documentId)]
+    [filters.eq("$id", documentId)]
   );
 
   if (!updated[0]) throw new Error("No se pudo actualizar el evento.");
@@ -155,7 +155,7 @@ export const updateEvent = async (
 };
 
 export const deleteEvent = async (documentId: string): Promise<void> => {
-  await deleteRows(supabaseConfig.eventsTable, [filters.eq("id", documentId)]);
+  await deleteRows(supabaseConfig.eventsTable, [filters.eq("$id", documentId)]);
 };
 
 export type EstablishmentStatus = "sugerido" | "aceptado";
@@ -201,7 +201,7 @@ export const updateEstablishment = async (
   const updated = await updateRows<EstablishmentRecord>(
     supabaseConfig.establishmentTable,
     data,
-    [filters.eq("id", documentId)]
+    [filters.eq("$id", documentId)]
   );
 
   if (!updated[0]) throw new Error("No se pudo actualizar el establecimiento.");
@@ -209,5 +209,5 @@ export const updateEstablishment = async (
 };
 
 export const deleteEstablishment = async (documentId: string): Promise<void> => {
-  await deleteRows(supabaseConfig.establishmentTable, [filters.eq("id", documentId)]);
+  await deleteRows(supabaseConfig.establishmentTable, [filters.eq("$id", documentId)]);
 };
