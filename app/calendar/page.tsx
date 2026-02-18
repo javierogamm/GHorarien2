@@ -70,7 +70,7 @@ import {
   updateUserHorasObtenidas,
   updateUserPassword
 } from "../../services/usersService";
-import { parseDateWithoutTime } from "../../utils/calendarDates";
+import { getMinutesFromDateTimeValue, parseDateWithoutTime } from "../../utils/calendarDates";
 import { buildEventGroupKey } from "../../utils/eventGrouping";
 import type { CalendarEventDisplay } from "../../components/calendarTypes";
 
@@ -126,6 +126,8 @@ const canManageImportesByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
 const canManageRestaurantsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
+const canCreateReviewsByRole = (role?: string | null) =>
+  role === "Admin" || role === "Boss" || role === "Eventmaster" || role === "User";
 const normalizeUserRole = (role?: unknown) => {
   const fallbackRole =
     typeof role === "string"
@@ -3461,13 +3463,16 @@ export default function CalendarPage() {
     return Array.from(grouped.values())
       .filter((group) => Boolean(targetUser) && group.attendees.includes(targetUser))
       .sort((a, b) => {
-        const leftDate = new Date(
-          a.event.horaInicio ?? a.event.fecha ?? ""
-        ).getTime();
-        const rightDate = new Date(
-          b.event.horaInicio ?? b.event.fecha ?? ""
-        ).getTime();
-        if (leftDate !== rightDate) return leftDate - rightDate;
+        const leftDay = parseDateWithoutTime(a.event.fecha)?.getTime() ?? Number.POSITIVE_INFINITY;
+        const rightDay = parseDateWithoutTime(b.event.fecha)?.getTime() ?? Number.POSITIVE_INFINITY;
+        if (leftDay !== rightDay) return leftDay - rightDay;
+
+        const leftStartMinutes = getMinutesFromDateTimeValue(a.event.horaInicio);
+        const rightStartMinutes = getMinutesFromDateTimeValue(b.event.horaInicio);
+        if (leftStartMinutes !== rightStartMinutes) {
+          return leftStartMinutes - rightStartMinutes;
+        }
+
         return (a.event.nombre ?? "").localeCompare(b.event.nombre ?? "");
       });
   }, [allEvents, targetUser]);
@@ -5262,6 +5267,7 @@ export default function CalendarPage() {
                                 targetUser
                               );
                               const canReview =
+                                canCreateReviewsByRole(normalizedUserRole) &&
                                 hasAttended &&
                                 isPastEventDate(group.event.fecha);
                               const currentReview = targetUser
