@@ -1,6 +1,6 @@
 import { EVENT_CATEGORIES, EVENT_CATEGORY_META } from "../constants/eventCategories";
 import type { CalendarEvent } from "../services/eventsService";
-import { parseDateWithoutTime } from "../utils/calendarDates";
+import { getMinutesFromDateTimeValue, parseDateWithoutTime } from "../utils/calendarDates";
 import { buildEventGroupKey } from "../utils/eventGrouping";
 import { DayCell } from "./DayCell";
 import type { CalendarEventDisplay } from "./calendarTypes";
@@ -128,15 +128,6 @@ const isSameDay = (left: Date, right: Date) => {
   );
 };
 
-const getMinutesFromTime = (time?: string | null) => {
-  if (!time) return Number.POSITIVE_INFINITY;
-  const [hours, minutes] = time.split(":").map(Number);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return Number.POSITIVE_INFINITY;
-  }
-  return hours * 60 + minutes;
-};
-
 const formatEventTime = (time?: string | null) => {
   if (!time) return "—";
   const match = time.match(/(\d{1,2}):(\d{2})/);
@@ -203,7 +194,7 @@ const getEventsForDay = (
 
   return Array.from(grouped.values()).sort((a, b) => {
     const timeDiff =
-      getMinutesFromTime(a.horaInicio) - getMinutesFromTime(b.horaInicio);
+      getMinutesFromDateTimeValue(a.horaInicio) - getMinutesFromDateTimeValue(b.horaInicio);
     if (timeDiff !== 0) return timeDiff;
     return (a.nombre ?? "").localeCompare(b.nombre ?? "");
   });

@@ -1,5 +1,11 @@
 # Log de cambios
 
+## v0.2.74
+- Se habilita explícitamente la creación/edición de **reviews** para usuarios con rol **User**, equiparándolos al resto de roles operativos.
+- Se corrige el criterio de ordenación vertical en calendario para eventos del mismo día, ordenando por **hora de inicio** real de menor a mayor incluso cuando el campo llega en formato fecha-hora.
+- Se alinea el orden en **Mis eventos** (vista acordeón) para que, dentro de cada día, los eventos se muestren también por hora de inicio de antes a después.
+- Se consolida la versión de la app en `0.2.74`.
+
 ## v0.2.73
 - Se reactiva el botón de **review** en **Mis eventos** para que aparezca cuando el evento ya ha pasado y el usuario seleccionado figura como asistente.
 - Se mantiene el flujo de **añadir** y **editar** review sobre el mismo evento para el mismo usuario, sin restringirlo al tipo de establecimiento.
