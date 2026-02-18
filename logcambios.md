@@ -1,3 +1,8 @@
+## v0.2.75
+- Corregida la edición de eventos para evitar desplazamientos de hora no deseados al cargar `horaInicio` y `fecha` en el formulario.
+- Se prioriza la extracción directa de fecha/hora desde el valor almacenado (`YYYY-MM-DD` y `HH:mm`) antes de convertir con `Date`, evitando sumar una hora por desfase de zona horaria.
+- Se consolida la versión de la app en `0.2.75`.
+
 # Log de cambios
 
 ## v0.2.74

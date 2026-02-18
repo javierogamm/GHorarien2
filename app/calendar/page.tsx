@@ -1613,6 +1613,10 @@ export default function CalendarPage() {
 
   const formatDateInput = (value?: string) => {
     if (!value) return "";
+    const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (dateOnlyMatch) {
+      return `${dateOnlyMatch[1]}-${dateOnlyMatch[2]}-${dateOnlyMatch[3]}`;
+    }
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return "";
     const pad = (item: number) => String(item).padStart(2, "0");
@@ -1623,6 +1627,14 @@ export default function CalendarPage() {
 
   const formatTimeInput = (value?: string) => {
     if (!value) return "";
+    const timeMatch = value.match(/T(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      return `${timeMatch[1]}:${timeMatch[2]}`;
+    }
+    const plainTimeMatch = value.match(/^(\d{2}):(\d{2})/);
+    if (plainTimeMatch) {
+      return `${plainTimeMatch[1]}:${plainTimeMatch[2]}`;
+    }
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return "";
     const pad = (item: number) => String(item).padStart(2, "0");
