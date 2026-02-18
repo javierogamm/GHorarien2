@@ -2398,6 +2398,10 @@ export default function CalendarPage() {
       setBulkAttendees((prev) => prev.filter((item) => item !== value));
       return;
     }
+
+    const confirmedRemoval = window.confirm("¿seguro que deseas eliminar usuario del evento?");
+    if (!confirmedRemoval) return;
+
     setEditForm((prev) => ({
       ...prev,
       attendees: prev.attendees.filter((item) => item !== value)

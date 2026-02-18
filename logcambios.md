@@ -1,3 +1,7 @@
+## v0.2.76
+- En el formulario de edición de eventos, al quitar un asistente ahora se muestra confirmación previa con el mensaje: "¿seguro que deseas eliminar usuario del evento?".
+- Se consolida la versión de la app en `0.2.76`.
+
 ## v0.2.75
 - Corregida la edición de eventos para evitar desplazamientos de hora no deseados al cargar `horaInicio` y `fecha` en el formulario.
 - Se prioriza la extracción directa de fecha/hora desde el valor almacenado (`YYYY-MM-DD` y `HH:mm`) antes de convertir con `Date`, evitando sumar una hora por desfase de zona horaria.
