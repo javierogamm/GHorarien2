@@ -1,3 +1,15 @@
+## v0.2.78
+- Se corrige el fallo de compilación en `app/calendar/page.tsx` durante `npm run build`: el callback de recálculo ADMIN ya no depende de `getErrorMessage` antes de su declaración.
+- Se ajusta el manejo de error del recálculo ADMIN con fallback local para evitar errores de orden de inicialización en build.
+- Se consolida la versión de la app en `0.2.78`.
+
+## v0.2.77
+- Se migra el sistema de cálculo de horas obtenidas/declaradas a **minutos**, manteniendo equivalencias: evento asistido `3:00h` y solo comida `2:00h`.
+- Se actualiza la visualización de tiempos en el módulo de cálculo y reportes al formato `H:MMh` (por ejemplo, `2:15h`, `2:45h`).
+- El modal de **Declarar horas** ahora permite seleccionar inicio/fin en intervalos de 15 minutos y guarda la duración declarada en minutos.
+- Se añade botón exclusivo para **ADMIN**: **"Recalcular horas (ADMIN)"**, que reconstruye `horasobtenidas` en minutos recorriendo eventos/asistentes y preservando las declaraciones de "solo comida".
+- Se consolida la versión de la app en `0.2.77`.
+
 ## v0.2.76
 - En el formulario de edición de eventos, al quitar un asistente ahora se muestra confirmación previa con el mensaje: "¿seguro que deseas eliminar usuario del evento?".
 - Se consolida la versión de la app en `0.2.76`.
