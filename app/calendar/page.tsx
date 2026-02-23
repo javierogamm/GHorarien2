@@ -1152,13 +1152,17 @@ export default function CalendarPage() {
       });
       triggerHoursRecalculation();
     } catch (error) {
+      const adminErrorMessage =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : "No se pudo recalcular la tabla horasobtenidas.";
       setAdminRecalculateStatus({
         loading: false,
-        error: getErrorMessage(error, "No se pudo recalcular la tabla horasobtenidas."),
+        error: adminErrorMessage,
         success: ""
       });
     }
-  }, [allEvents, getErrorMessage, normalizedUserRole, triggerHoursRecalculation, users]);
+  }, [allEvents, normalizedUserRole, triggerHoursRecalculation, users]);
 
   const clearDeclareMessages = useCallback(() => {
     setDeclareStatus((prev) =>
