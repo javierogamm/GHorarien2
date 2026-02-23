@@ -51,14 +51,18 @@ import {
   fetchAllHorasDeclaradas,
   fetchHorasDeclaradasForUser,
   type HorasDeclaradasRecord,
-  toHorasDeclaradasNumber,
+  toHorasDeclaradasMinutes,
   updateHorasDeclaradas
 } from "../../services/horasDeclaradasService";
 import {
+  MINUTES_PER_EVENT,
+  MINUTES_PER_SOLO_COMIDA,
   createHorasObtenidasForSoloComida,
   deleteHorasObtenidasForAttendees,
   deleteHorasObtenidasForSoloComida,
+  fetchAllHorasObtenidas,
   fetchHorasObtenidasForUser,
+  replaceAllHorasObtenidas,
   type HorasObtenidasRecord
 } from "../../services/horasObtenidasService";
 import {
@@ -90,17 +94,16 @@ const MONTH_NAMES = [
   "Noviembre",
   "Diciembre"
 ];
-const HOURS_PER_EVENT = 3;
-const SOLO_COMIDA_HOURS = 2;
+const HOURS_PER_EVENT = MINUTES_PER_EVENT;
+const SOLO_COMIDA_HOURS = MINUTES_PER_SOLO_COMIDA;
 const MAX_DECLARABLE_HOURS = 7;
 const MAX_REASON_LENGTH = 200;
 const DECLARE_RANGE_START_MINUTES = 7 * 60 + 30;
 const DECLARE_RANGE_END_MINUTES = 16 * 60 + 30;
-const DECLARE_START_STEP_MINUTES = 30;
+const DECLARE_START_STEP_MINUTES = 15;
 const DECLARE_END_STEP_MINUTES = DECLARE_START_STEP_MINUTES;
-const DECLARE_MIN_DURATION_MINUTES = 60;
+const DECLARE_MIN_DURATION_MINUTES = 15;
 const DECLARE_MAX_DURATION_MINUTES = MAX_DECLARABLE_HOURS * 60;
-const DECLARE_MIN_DURATION_HOURS = DECLARE_MIN_DURATION_MINUTES / 60;
 const DECLARE_START_MAX_MINUTES = DECLARE_RANGE_END_MINUTES - DECLARE_MIN_DURATION_MINUTES;
 const DEFAULT_CERTIFICATION: CertificationOption = "OTROS";
 const DEFAULT_ESTABLISHMENT = "Rte. Goya (Hotel Diagonal Plaza)";
@@ -284,71 +287,82 @@ const clampDeclareStartMinutes = (minutes: number) =>
     DECLARE_START_MAX_MINUTES
   );
 
-const getDeclareMaxDurationHours = (startMinutes: number) => {
+const getDeclareMaxDurationMinutes = (startMinutes: number) => {
   const maxCandidate = Math.min(
     DECLARE_RANGE_END_MINUTES,
     startMinutes + DECLARE_MAX_DURATION_MINUTES
   );
-  const availableHours = Math.floor((maxCandidate - startMinutes) / 60);
-  return Math.max(DECLARE_MIN_DURATION_HOURS, availableHours);
+  const availableMinutes = maxCandidate - startMinutes;
+  const roundedToStep =
+    Math.floor(availableMinutes / DECLARE_END_STEP_MINUTES) * DECLARE_END_STEP_MINUTES;
+  return Math.max(DECLARE_MIN_DURATION_MINUTES, roundedToStep);
 };
 
 const getDeclareEndBounds = (startMinutes: number) => {
-  const maxDurationHours = getDeclareMaxDurationHours(startMinutes);
+  const maxDurationMinutes = getDeclareMaxDurationMinutes(startMinutes);
   const minEndMinutes = startMinutes + DECLARE_MIN_DURATION_MINUTES;
-  const maxEndMinutes = startMinutes + maxDurationHours * 60;
+  const maxEndMinutes = startMinutes + maxDurationMinutes;
   return {
     minEndMinutes,
     maxEndMinutes,
-    maxDurationHours
+    maxDurationMinutes
   };
 };
 
 const sanitizeDeclareEndMinutes = (
   startMinutes: number,
   endMinutes: number,
-  preferredDurationHours?: number
+  preferredDurationMinutes?: number
 ) => {
-  const { minEndMinutes, maxEndMinutes, maxDurationHours } = getDeclareEndBounds(startMinutes);
-  const requestedDurationHours =
-    preferredDurationHours ?? Math.round((endMinutes - startMinutes) / 60);
-  const normalizedDurationHours = Math.round(requestedDurationHours);
-  const clampedDurationHours = clampMinutes(
-    normalizedDurationHours,
-    DECLARE_MIN_DURATION_HOURS,
-    maxDurationHours
+  const { minEndMinutes, maxEndMinutes, maxDurationMinutes } = getDeclareEndBounds(startMinutes);
+  const requestedDurationMinutes =
+    preferredDurationMinutes ?? endMinutes - startMinutes;
+  const normalizedDurationMinutes =
+    Math.round(requestedDurationMinutes / DECLARE_END_STEP_MINUTES) * DECLARE_END_STEP_MINUTES;
+  const clampedDurationMinutes = clampMinutes(
+    normalizedDurationMinutes,
+    DECLARE_MIN_DURATION_MINUTES,
+    maxDurationMinutes
   );
-  const alignedEndMinutes = startMinutes + clampedDurationHours * 60;
+  const alignedEndMinutes = startMinutes + clampedDurationMinutes;
   return clampMinutes(alignedEndMinutes, minEndMinutes, maxEndMinutes);
 };
 
-const deriveDeclareEndMinutes = (startMinutes: number, preferredDurationHours?: number) => {
-  const { maxDurationHours } = getDeclareEndBounds(startMinutes);
-  const targetDurationHours = preferredDurationHours ?? maxDurationHours;
+const deriveDeclareEndMinutes = (startMinutes: number, preferredDurationMinutes?: number) => {
+  const { maxDurationMinutes } = getDeclareEndBounds(startMinutes);
+  const targetDurationMinutes = preferredDurationMinutes ?? maxDurationMinutes;
   return sanitizeDeclareEndMinutes(
     startMinutes,
-    startMinutes + targetDurationHours * 60,
-    targetDurationHours
+    startMinutes + targetDurationMinutes,
+    targetDurationMinutes
   );
 };
 
 const formatDeclareRange = (startMinutes: number, endMinutes: number) =>
   `${minutesToTimeString(startMinutes)}-${minutesToTimeString(endMinutes)}`;
 
+const formatMinutesValue = (minutesValue: number) => {
+  const safeMinutes = Math.max(0, Math.round(minutesValue));
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+  return `${hours}:${String(minutes).padStart(2, "0")}`;
+};
+
 const parseDeclareRangeMinutes = (
   range: string | undefined,
-  fallbackHours: number | undefined
+  fallbackMinutes: number | undefined
 ) => {
-  const normalizedFallbackHours = Math.max(
-    DECLARE_MIN_DURATION_HOURS,
-    Math.round(fallbackHours ?? DECLARE_MIN_DURATION_HOURS)
+  const normalizedFallbackMinutes = Math.max(
+    DECLARE_MIN_DURATION_MINUTES,
+    Math.round((fallbackMinutes ?? DECLARE_MIN_DURATION_MINUTES) / DECLARE_END_STEP_MINUTES) *
+      DECLARE_END_STEP_MINUTES
   );
   const fallbackStartMinutes = DECLARE_RANGE_START_MINUTES;
 
   if (!range) {
     return {
       startMinutes: fallbackStartMinutes,
-      endMinutes: deriveDeclareEndMinutes(fallbackStartMinutes, normalizedFallbackHours)
+      endMinutes: deriveDeclareEndMinutes(fallbackStartMinutes, normalizedFallbackMinutes)
     };
   }
 
@@ -356,7 +370,7 @@ const parseDeclareRangeMinutes = (
   if (!match) {
     return {
       startMinutes: fallbackStartMinutes,
-      endMinutes: deriveDeclareEndMinutes(fallbackStartMinutes, normalizedFallbackHours)
+      endMinutes: deriveDeclareEndMinutes(fallbackStartMinutes, normalizedFallbackMinutes)
     };
   }
 
@@ -365,16 +379,16 @@ const parseDeclareRangeMinutes = (
     Number(startHours) * 60 + Number(startMinutesPart)
   );
   const parsedEndMinutesRaw = Number(endHours) * 60 + Number(endMinutesPart);
-  const parsedDurationHours = Math.round((parsedEndMinutesRaw - parsedStartMinutes) / 60);
-  const preferredDurationHours =
-    parsedDurationHours > 0 ? parsedDurationHours : normalizedFallbackHours;
+  const parsedDurationMinutes = parsedEndMinutesRaw - parsedStartMinutes;
+  const preferredDurationMinutes =
+    parsedDurationMinutes > 0 ? parsedDurationMinutes : normalizedFallbackMinutes;
 
   return {
     startMinutes: parsedStartMinutes,
     endMinutes: sanitizeDeclareEndMinutes(
       parsedStartMinutes,
       parsedEndMinutesRaw,
-      preferredDurationHours
+      preferredDurationMinutes
     )
   };
 };
@@ -616,6 +630,11 @@ export default function CalendarPage() {
     loading: false,
     error: "",
     lastUpdated: ""
+  });
+  const [adminRecalculateStatus, setAdminRecalculateStatus] = useState({
+    loading: false,
+    error: "",
+    success: ""
   });
   const [declaredHoursRecords, setDeclaredHoursRecords] = useState<HorasDeclaradasRecord[]>(
     []
@@ -1089,6 +1108,58 @@ export default function CalendarPage() {
     setHoursRefreshToken((prev) => prev + 1);
   }, []);
 
+  const handleAdminHorasRecalculation = useCallback(async () => {
+    if (normalizedUserRole !== "Admin") return;
+
+    setAdminRecalculateStatus({ loading: true, error: "", success: "" });
+    try {
+      const allRows = await fetchAllHorasObtenidas();
+      const validUsers = new Set(
+        users
+          .filter((user) => normalizeUserRoleValue(user.role) !== "Otros")
+          .map((user) => user.user?.trim())
+          .filter((user): user is string => Boolean(user))
+      );
+
+      const soloComidaRows = allRows.filter((row) => {
+        if (!validUsers.has(row.user)) return false;
+        return row.numeroHoras === 2 || row.numeroHoras === MINUTES_PER_SOLO_COMIDA;
+      });
+
+      const generatedRows = allEvents
+        .filter((event) => event.eventType !== "Comida")
+        .map((event) => ({
+          user: event.user?.trim() ?? "",
+          numeroHoras: MINUTES_PER_EVENT,
+          causa: event.nombre?.trim() || "Evento",
+          fechaObtencion: event.fecha
+        }))
+        .filter((row) => row.user && validUsers.has(row.user));
+
+      const normalizedSoloComidaRows = soloComidaRows.map((row) => ({
+        user: row.user,
+        numeroHoras: MINUTES_PER_SOLO_COMIDA,
+        causa: row.causa,
+        fechaObtencion: row.fechaObtencion
+      }));
+
+      await replaceAllHorasObtenidas([...generatedRows, ...normalizedSoloComidaRows]);
+
+      setAdminRecalculateStatus({
+        loading: false,
+        error: "",
+        success: "Tabla horasobtenidas recalculada en minutos correctamente."
+      });
+      triggerHoursRecalculation();
+    } catch (error) {
+      setAdminRecalculateStatus({
+        loading: false,
+        error: getErrorMessage(error, "No se pudo recalcular la tabla horasobtenidas."),
+        success: ""
+      });
+    }
+  }, [allEvents, getErrorMessage, normalizedUserRole, triggerHoursRecalculation, users]);
+
   const clearDeclareMessages = useCallback(() => {
     setDeclareStatus((prev) =>
       prev.error || prev.success ? { ...prev, error: "", success: "" } : prev
@@ -1119,7 +1190,7 @@ export default function CalendarPage() {
       parsedRecordDate && !Number.isNaN(parsedRecordDate.getTime())
         ? parsedRecordDate
         : new Date(today);
-    const recordHours = toHorasDeclaradasNumber(record.horasDeclaradas);
+    const recordHours = toHorasDeclaradasMinutes(record.horasDeclaradas);
     const { startMinutes, endMinutes } = parseDeclareRangeMinutes(
       record.horasDeclaradasRango,
       recordHours
@@ -1160,11 +1231,11 @@ export default function CalendarPage() {
 
   const handleDeclareStartChange = (minutes: number) => {
     const nextStartMinutes = clampDeclareStartMinutes(minutes);
-    const preferredDurationHours = Math.max(
-      DECLARE_MIN_DURATION_HOURS,
-      Math.round((declareEndMinutes - declareStartMinutes) / 60)
+    const preferredDurationMinutes = Math.max(
+      DECLARE_MIN_DURATION_MINUTES,
+      declareEndMinutes - declareStartMinutes
     );
-    const nextEndMinutes = deriveDeclareEndMinutes(nextStartMinutes, preferredDurationHours);
+    const nextEndMinutes = deriveDeclareEndMinutes(nextStartMinutes, preferredDurationMinutes);
     setDeclareStartMinutes(nextStartMinutes);
     setDeclareEndMinutes(nextEndMinutes);
     clearDeclareMessages();
@@ -1212,20 +1283,20 @@ export default function CalendarPage() {
     }
 
     const sanitizedDeclareStartMinutes = clampDeclareStartMinutes(declareStartMinutes);
-    const preferredDurationHours = Math.max(
-      DECLARE_MIN_DURATION_HOURS,
-      Math.round((declareEndMinutes - declareStartMinutes) / 60)
+    const preferredDurationMinutes = Math.max(
+      DECLARE_MIN_DURATION_MINUTES,
+      declareEndMinutes - declareStartMinutes
     );
     const sanitizedDeclareEndMinutes = deriveDeclareEndMinutes(
       sanitizedDeclareStartMinutes,
-      preferredDurationHours
+      preferredDurationMinutes
     );
     const declaredDurationMinutes = sanitizedDeclareEndMinutes - sanitizedDeclareStartMinutes;
 
     if (declaredDurationMinutes < DECLARE_MIN_DURATION_MINUTES) {
       setDeclareStatus({
         loading: false,
-        error: "Selecciona al menos 1 hora dentro del rango permitido.",
+        error: "Selecciona al menos 15 minutos dentro del rango permitido.",
         success: ""
       });
       return;
@@ -1234,7 +1305,7 @@ export default function CalendarPage() {
     if (declaredDurationMinutes > DECLARE_MAX_DURATION_MINUTES) {
       setDeclareStatus({
         loading: false,
-        error: "El rango no puede superar las 7 horas.",
+        error: "El rango no puede superar 7:00h.",
         success: ""
       });
       return;
@@ -1242,7 +1313,7 @@ export default function CalendarPage() {
 
     setDeclareStartMinutes(sanitizedDeclareStartMinutes);
     setDeclareEndMinutes(sanitizedDeclareEndMinutes);
-    const sanitizedDeclareHoursValue = declaredDurationMinutes / 60;
+    const sanitizedDeclareHoursValue = declaredDurationMinutes;
     const horasDeclaradasRango = formatDeclareRange(
       sanitizedDeclareStartMinutes,
       sanitizedDeclareEndMinutes
@@ -1599,12 +1670,6 @@ export default function CalendarPage() {
     });
   };
 
-  const formatHoursValue = (value: number) =>
-    value.toLocaleString("es-ES", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    });
-
   const formatDateFromDate = (date?: Date | null) => {
     if (!date) return "";
     const pad = (item: number) => String(item).padStart(2, "0");
@@ -1826,7 +1891,7 @@ export default function CalendarPage() {
   const { minEndMinutes: declareMinEndMinutes, maxEndMinutes: declareMaxEndMinutes } =
     getDeclareEndBounds(declareStartMinutes);
   const declareDurationMinutes = declareEndMinutes - declareStartMinutes;
-  const declareHoursValue = declareDurationMinutes / 60;
+  const declareHoursValue = declareDurationMinutes;
   const declareRangeLabel = formatDeclareRange(declareStartMinutes, declareEndMinutes);
   const declareWindowLabel = `${minutesToTimeString(DECLARE_RANGE_START_MINUTES)}-${minutesToTimeString(
     DECLARE_RANGE_END_MINUTES
@@ -1854,10 +1919,10 @@ export default function CalendarPage() {
   ] as const;
   const hoursChartScaleSteps = [0, 0.25, 0.5, 0.75, 1] as const;
   const declaredHoursRows = declaredHoursRecords.map((record) => {
-    const hoursValue = toHorasDeclaradasNumber(record.horasDeclaradas);
+    const hoursValue = toHorasDeclaradasMinutes(record.horasDeclaradas);
     return {
       id: record.$id,
-      hoursLabel: formatHoursValue(hoursValue),
+      hoursLabel: formatMinutesValue(hoursValue),
       rangeLabel: record.horasDeclaradasRango ?? "",
       dayLabel: formatDeclaredDay(record.fechaHorasDeclaradas),
       reasonLabel: record.motivo?.trim() || "—",
@@ -2157,7 +2222,7 @@ export default function CalendarPage() {
     reportDeclaredHoursRecords.forEach((record) => {
       const userLabel = record.user?.trim();
       if (!userLabel || !validUsernames.has(userLabel)) return;
-      const hoursValue = toHorasDeclaradasNumber(record.horasDeclaradas);
+      const hoursValue = toHorasDeclaradasMinutes(record.horasDeclaradas);
       map.set(userLabel, (map.get(userLabel) ?? 0) + hoursValue);
     });
     return map;
@@ -2233,11 +2298,11 @@ export default function CalendarPage() {
         return reportActiveUserSet.has(userLabel);
       })
       .map((record) => {
-        const hoursValue = toHorasDeclaradasNumber(record.horasDeclaradas);
+        const hoursValue = toHorasDeclaradasMinutes(record.horasDeclaradas);
         return {
           id: record.$id,
           userLabel: record.user?.trim() || "Sin usuario",
-          hoursLabel: formatHoursValue(hoursValue),
+          hoursLabel: formatMinutesValue(hoursValue),
           rangeLabel: record.horasDeclaradasRango ?? "",
           dayLabel: formatDeclaredDay(record.fechaHorasDeclaradas),
           reasonLabel: record.motivo?.trim() || "—",
@@ -3642,10 +3707,17 @@ export default function CalendarPage() {
     const loadSoloComida = async () => {
       setSoloComidaStatus({ loading: true, error: "" });
       try {
-        const records = await fetchHorasObtenidasForUser({
-          user: targetUser,
-          numeroHoras: SOLO_COMIDA_HOURS
-        });
+        const [recordsInMinutes, legacyRecords] = await Promise.all([
+          fetchHorasObtenidasForUser({
+            user: targetUser,
+            numeroHoras: SOLO_COMIDA_HOURS
+          }),
+          fetchHorasObtenidasForUser({
+            user: targetUser,
+            numeroHoras: 2
+          })
+        ]);
+        const records = [...recordsInMinutes, ...legacyRecords];
         if (cancelled) return;
         setSoloComidaRecords(records);
         setSoloComidaStatus({ loading: false, error: "" });
@@ -3771,7 +3843,7 @@ export default function CalendarPage() {
           );
         });
         const declaredHours = sortedDeclarations.reduce(
-          (total, document) => total + toHorasDeclaradasNumber(document.horasDeclaradas),
+          (total, document) => total + toHorasDeclaradasMinutes(document.horasDeclaradas),
           0
         );
         const remainingHours = obtainedHours - declaredHours;
@@ -3992,8 +4064,7 @@ export default function CalendarPage() {
                   <span>Cálculo de horas</span>
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Recuento automático: cada evento asistido suma {HOURS_PER_EVENT}{" "}
-                  horas y se guarda en el perfil del usuario seleccionado. Los eventos
+                  Recuento automático: cada evento asistido suma {formatMinutesValue(HOURS_PER_EVENT)} y se guarda en el perfil del usuario seleccionado. Los eventos
                   de tipo Comida no generan horas extra salvo si activas "Solo
                   comida".
                 </p>
@@ -4020,8 +4091,25 @@ export default function CalendarPage() {
                   }`}
                 >
                   <HourglassModuleIcon title="" className="h-4 w-4" />
-                  {hoursStatus.loading ? "Recalculando..." : "Recalcular"}
+                  {hoursStatus.loading ? "Recalculando..." : "Recalcular vista"}
                 </button>
+                {normalizedUserRole === "Admin" ? (
+                  <button
+                    type="button"
+                    onClick={handleAdminHorasRecalculation}
+                    disabled={adminRecalculateStatus.loading}
+                    className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold text-white shadow-sm transition ${
+                      adminRecalculateStatus.loading
+                        ? "cursor-not-allowed border-slate-200 bg-slate-300"
+                        : "border-rose-200 bg-rose-500 hover:-translate-y-0.5 hover:bg-rose-600"
+                    }`}
+                  >
+                    <HourglassModuleIcon title="" className="h-4 w-4" />
+                    {adminRecalculateStatus.loading
+                      ? "Recalculando tabla..."
+                      : "Recalcular horas (ADMIN)"}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={openDeclareHoursModal}
@@ -4072,17 +4160,28 @@ export default function CalendarPage() {
               </p>
             ) : null}
 
+            {adminRecalculateStatus.error ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {adminRecalculateStatus.error}
+              </div>
+            ) : null}
+
+            {adminRecalculateStatus.success ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {adminRecalculateStatus.success}
+              </div>
+            ) : null}
+
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               <article className="flex flex-col gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-emerald-600">
                   Horas obtenidas
                 </p>
                 <p className="text-3xl font-semibold text-emerald-700">
-                  {formatHoursValue(hoursSummary.obtained)}
+                  {formatMinutesValue(hoursSummary.obtained)}
                 </p>
                 <p className="text-xs text-emerald-600/80">
-                  {myHoursEligibleEvents.length} eventos (sin Comida) × {HOURS_PER_EVENT}{" "}
-                  horas
+                  {myHoursEligibleEvents.length} eventos (sin Comida) × {formatMinutesValue(HOURS_PER_EVENT)}
                 </p>
               </article>
               <article className="flex flex-col gap-2 rounded-2xl border border-sky-100 bg-sky-50/70 p-5">
@@ -4090,7 +4189,7 @@ export default function CalendarPage() {
                   Horas declaradas
                 </p>
                 <p className="text-3xl font-semibold text-sky-700">
-                  {formatHoursValue(hoursSummary.declared)}
+                  {formatMinutesValue(hoursSummary.declared)}
                 </p>
                 <p className="text-xs text-sky-600/80">
                   Suma de los registros en horasDeclaradas
@@ -4105,7 +4204,7 @@ export default function CalendarPage() {
                     hoursSummary.remaining < 0 ? "text-rose-600" : "text-indigo-700"
                   }`}
                 >
-                  {formatHoursValue(hoursSummary.remaining)}
+                  {formatMinutesValue(hoursSummary.remaining)}
                 </p>
                 <p className="text-xs text-indigo-600/80">
                   Horas obtenidas − horas declaradas
@@ -4137,7 +4236,7 @@ export default function CalendarPage() {
                         >
                           <div className="h-px flex-1 border-t border-dashed border-slate-200/80" />
                           <span className="w-16 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                            {formatHoursValue(scaleValue)}h
+                            {formatMinutesValue(scaleValue)}
                           </span>
                         </div>
                       );
@@ -4166,7 +4265,7 @@ export default function CalendarPage() {
                                   <span
                                     className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${bar.surface}`}
                                   >
-                                    {formatHoursValue(bar.value)} h
+                                    {formatMinutesValue(bar.value)}
                                   </span>
                                 </div>
                               </div>
@@ -4179,7 +4278,7 @@ export default function CalendarPage() {
                               {bar.label}
                             </p>
                             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                              {formatHoursValue(bar.value)} h
+                              {formatMinutesValue(bar.value)}
                             </p>
                           </div>
                         </div>
@@ -4223,7 +4322,7 @@ export default function CalendarPage() {
                         <thead className="bg-slate-50/80 text-xs uppercase tracking-wide text-slate-500">
                           <tr>
                             <th className="px-4 py-3 text-left font-semibold">Día</th>
-                            <th className="px-4 py-3 text-left font-semibold">Nº de horas</th>
+                            <th className="px-4 py-3 text-left font-semibold">Duración</th>
                             <th className="px-4 py-3 text-left font-semibold">Motivo</th>
                             <th className="px-4 py-3 text-left font-semibold">
                               Fecha del último cambio
@@ -4239,7 +4338,7 @@ export default function CalendarPage() {
                               </td>
                               <td className="px-4 py-4 text-slate-700">
                                 <div className="flex flex-col">
-                                  <span className="font-semibold">{row.hoursLabel} h</span>
+                                  <span className="font-semibold">{row.hoursLabel}</span>
                                   {row.rangeLabel ? (
                                     <span className="text-xs text-slate-400">
                                       {row.rangeLabel}
@@ -4369,7 +4468,7 @@ export default function CalendarPage() {
                       Horas obtenidas
                     </p>
                     <p className="text-3xl font-semibold text-emerald-700">
-                      {formatHoursValue(reportSummaryTotals.obtained)}
+                      {formatMinutesValue(reportSummaryTotals.obtained)}
                     </p>
                     <p className="text-xs text-emerald-600/80">
                       {reportActiveUsers.length} usuarios activos en el filtro
@@ -4380,7 +4479,7 @@ export default function CalendarPage() {
                       Horas declaradas
                     </p>
                     <p className="text-3xl font-semibold text-sky-700">
-                      {formatHoursValue(reportSummaryTotals.declared)}
+                      {formatMinutesValue(reportSummaryTotals.declared)}
                     </p>
                     <p className="text-xs text-sky-600/80">
                       Sumatorio de declaraciones registradas
@@ -4397,7 +4496,7 @@ export default function CalendarPage() {
                           : "text-indigo-700"
                       }`}
                     >
-                      {formatHoursValue(reportSummaryTotals.remaining)}
+                      {formatMinutesValue(reportSummaryTotals.remaining)}
                     </p>
                     <p className="text-xs text-indigo-600/80">
                       Horas obtenidas − horas declaradas
@@ -4436,7 +4535,7 @@ export default function CalendarPage() {
                             >
                               <div className="h-px flex-1 border-t border-dashed border-slate-200/80" />
                               <span className="w-16 text-right text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                {formatHoursValue(scaleValue)}h
+                                {formatMinutesValue(scaleValue)}
                               </span>
                             </div>
                           );
@@ -4497,7 +4596,7 @@ export default function CalendarPage() {
                                                 <span
                                                   className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${bar.surface}`}
                                                 >
-                                                  {formatHoursValue(bar.value)} h
+                                                  {formatMinutesValue(bar.value)}
                                                 </span>
                                               </div>
                                             </div>
@@ -4523,8 +4622,8 @@ export default function CalendarPage() {
                                     </p>
                                   </div>
                                   <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                    {formatHoursValue(summary.obtained)} h ·{" "}
-                                    {formatHoursValue(summary.declared)} h
+                                    {formatMinutesValue(summary.obtained)} ·{" "}
+                                    {formatMinutesValue(summary.declared)}
                                   </p>
                                 </div>
                               </div>
@@ -4559,7 +4658,7 @@ export default function CalendarPage() {
                                         <span
                                           className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold shadow-sm ${bar.surface}`}
                                         >
-                                          {formatHoursValue(bar.value)} h
+                                          {formatMinutesValue(bar.value)}
                                         </span>
                                       </div>
                                     </div>
@@ -4572,7 +4671,7 @@ export default function CalendarPage() {
                                     {bar.label}
                                   </p>
                                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                    {formatHoursValue(bar.value)} h
+                                    {formatMinutesValue(bar.value)}
                                   </p>
                                 </div>
                               </div>
@@ -4616,7 +4715,7 @@ export default function CalendarPage() {
                                 </th>
                                 <th className="px-4 py-3 text-left font-semibold">Día</th>
                                 <th className="px-4 py-3 text-left font-semibold">
-                                  Nº de horas
+                                  Duración
                                 </th>
                                 <th className="px-4 py-3 text-left font-semibold">
                                   Motivo
@@ -4638,7 +4737,7 @@ export default function CalendarPage() {
                                   <td className="px-4 py-4 text-slate-700">
                                     <div className="flex flex-col">
                                       <span className="font-semibold">
-                                        {row.hoursLabel} h
+                                        {row.hoursLabel}
                                       </span>
                                       {row.rangeLabel ? (
                                         <span className="text-xs text-slate-400">
@@ -5387,8 +5486,8 @@ export default function CalendarPage() {
                                         </button>
                                         <span className="text-[11px] text-slate-500">
                                           {isSoloComidaActive
-                                            ? "2 horas registradas."
-                                            : "Suma 2 horas si lo activas."}
+                                            ? "2:00h registradas."
+                                            : "Suma 2:00h si lo activas."}
                                         </span>
                                       </div>
                                     ) : null}
@@ -5969,8 +6068,8 @@ export default function CalendarPage() {
               </h3>
               <p className="mt-1 text-sm text-slate-500">
                 {soloComidaModalActive
-                  ? "Eliminarás el registro de 2 horas asociado a este evento."
-                  : "Se generará un registro de 2 horas para este evento de comida."}
+                  ? "Eliminarás el registro de 2:00h asociado a este evento."
+                  : "Se generará un registro de 2:00h para este evento de comida."}
               </p>
             </div>
             <button
@@ -6168,7 +6267,7 @@ export default function CalendarPage() {
               <p className="mt-1 text-sm text-slate-500">
                 {editingDeclaredRecord
                   ? "Actualiza el rango horario y el motivo de la declaración."
-                  : `Selecciona inicio (cada 30 min) y fin en horas enteras desde el inicio dentro de la ventana diaria, con un máximo de ${MAX_DECLARABLE_HOURS} h.`}
+                  : `Selecciona inicio y fin en tramos de 15 minutos dentro de la ventana diaria, con un máximo de 7:00h.`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -6199,7 +6298,7 @@ export default function CalendarPage() {
                     Horas declaradas
                   </p>
                   <p className="mt-1 text-3xl font-semibold text-indigo-700">
-                    {formatHoursValue(declareHoursValue)} h
+                    {formatMinutesValue(declareHoursValue)}
                   </p>
                   <p className="mt-1 text-xs font-semibold text-indigo-500">
                     Rango: {declareRangeLabel}
@@ -6254,12 +6353,12 @@ export default function CalendarPage() {
                   <span>Fin máximo {declareMaxEndLabel}</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                  <span>Inicio cada 30 min</span>
-                  <span>Fin en horas enteras desde inicio</span>
+                  <span>Inicio/fin cada 15 min</span>
+                  <span>Fin en tramos de 15 minutos</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                   <span>Ventana {declareWindowLabel}</span>
-                  <span>Máximo {MAX_DECLARABLE_HOURS} h</span>
+                  <span>Máximo 7:00h</span>
                 </div>
               </div>
             </section>

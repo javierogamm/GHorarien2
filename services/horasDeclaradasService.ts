@@ -60,6 +60,17 @@ export const toHorasDeclaradasNumber = (value: number | string | null | undefine
   return 0;
 };
 
+export const toHorasDeclaradasMinutes = (value: number | string | null | undefined) => {
+  const numericValue = toHorasDeclaradasNumber(value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return 0;
+
+  if (numericValue <= 24) {
+    return Math.round(numericValue * 60);
+  }
+
+  return Math.round(numericValue);
+};
+
 export const fetchHorasDeclaradasForUser = async (
   username: string
 ): Promise<HorasDeclaradasRecord[]> => {
@@ -82,7 +93,7 @@ export const fetchAllHorasDeclaradas = async (): Promise<HorasDeclaradasRecord[]
 export const sumHorasDeclaradasForUser = async (username: string): Promise<number> => {
   const documents = await fetchHorasDeclaradasForUser(username);
   return documents.reduce(
-    (total, document) => total + toHorasDeclaradasNumber(document.horasDeclaradas),
+    (total, document) => total + toHorasDeclaradasMinutes(document.horasDeclaradas),
     0
   );
 };

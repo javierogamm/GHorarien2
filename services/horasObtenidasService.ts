@@ -38,8 +38,8 @@ const normalizeHorasObtenidasRecord = (
   fechaObtencion: asText(row.fechaObtencion)
 });
 
-const HOURS_PER_EVENT = 3;
-const HOURS_PER_SOLO_COMIDA = 2;
+export const MINUTES_PER_EVENT = 3 * 60;
+export const MINUTES_PER_SOLO_COMIDA = 2 * 60;
 const isHoursGeneratingEvent = (eventType: EventCategory) => eventType !== "Comida";
 
 type CreateHorasObtenidasInput = {
@@ -87,7 +87,7 @@ export const createHorasObtenidasForAttendees = async ({
 
   const rows = attendees.map((attendee) => ({
     user: attendee,
-    numeroHoras: HOURS_PER_EVENT,
+    numeroHoras: MINUTES_PER_EVENT,
     causa,
     fechaObtencion
   }));
@@ -112,7 +112,7 @@ export const deleteHorasObtenidasForAttendees = async ({
     filters.in("user", attendees),
     filters.eq("causa", causa),
     filters.eq("fechaObtencion", fechaObtencion),
-    filters.eq("numeroHoras", HOURS_PER_EVENT)
+    filters.eq("numeroHoras", MINUTES_PER_EVENT)
   ]);
 };
 
@@ -123,7 +123,7 @@ export const createHorasObtenidasForSoloComida = async ({
 }: CreateHorasObtenidasSoloComidaInput): Promise<HorasObtenidasRecord> => {
   const data = await insertRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, {
     user,
-    numeroHoras: HOURS_PER_SOLO_COMIDA,
+    numeroHoras: MINUTES_PER_SOLO_COMIDA,
     causa,
     fechaObtencion
   });
@@ -141,8 +141,15 @@ export const deleteHorasObtenidasForSoloComida = async ({
     filters.eq("user", user),
     filters.eq("causa", causa),
     filters.eq("fechaObtencion", fechaObtencion),
-    filters.eq("numeroHoras", HOURS_PER_SOLO_COMIDA)
+    filters.eq("numeroHoras", MINUTES_PER_SOLO_COMIDA)
   ]);
+};
+
+export const fetchAllHorasObtenidas = async (): Promise<HorasObtenidasRecord[]> => {
+  const data = await selectRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable);
+  return data.map((row) =>
+    normalizeHorasObtenidasRecord(mapSupabaseDocument(row) as HorasObtenidasRecord)
+  );
 };
 
 export const fetchHorasObtenidasForUser = async ({
@@ -159,6 +166,18 @@ export const fetchHorasObtenidasForUser = async ({
   }
 
   const data = await selectRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, queryFilters);
+  return data.map((row) =>
+    normalizeHorasObtenidasRecord(mapSupabaseDocument(row) as HorasObtenidasRecord)
+  );
+};
+
+export const replaceAllHorasObtenidas = async (
+  rows: Array<Pick<HorasObtenidasRecord, "user" | "numeroHoras" | "causa" | "fechaObtencion">>
+): Promise<HorasObtenidasRecord[]> => {
+  await deleteRows(supabaseConfig.horasObtenidasTable, []);
+  if (rows.length === 0) return [];
+
+  const data = await insertRows<HorasObtenidasRecord>(supabaseConfig.horasObtenidasTable, rows);
   return data.map((row) =>
     normalizeHorasObtenidasRecord(mapSupabaseDocument(row) as HorasObtenidasRecord)
   );
