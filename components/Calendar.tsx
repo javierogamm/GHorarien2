@@ -573,8 +573,22 @@ export const Calendar = ({
                             <div className="flex flex-wrap items-center gap-3 pl-2 text-xs font-medium text-slate-600">
                               <span>{formatEventTime(event.horaInicio)}</span>
                             </div>
-                            <span className="pointer-events-none absolute bottom-2 right-3 text-2xl font-bold leading-none text-slate-800">
-                              {event.attendeeCount}
+                            <span className="absolute bottom-2 right-3">
+                              <span className="group relative inline-flex">
+                                <span className="pointer-events-none text-2xl font-bold leading-none text-slate-800">
+                                  {event.attendeeCount}
+                                </span>
+                                {event.attendees.length > 0 ? (
+                                  <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden min-w-[200px] rounded-xl border border-slate-200 bg-white/95 p-2 text-left text-[11px] font-medium text-slate-700 shadow-lg group-hover:block">
+                                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                      Asistentes
+                                    </span>
+                                    <span className="block max-h-28 overflow-y-auto pr-1">
+                                      {event.attendees.join(", ")}
+                                    </span>
+                                  </span>
+                                ) : null}
+                              </span>
                             </span>
                           </button>
                         );
