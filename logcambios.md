@@ -1,3 +1,8 @@
+## v0.2.80
+- Se corrige el error de compilación en deploy con `typedRoutes` de Next.js: el `router.replace` del calendario ahora tipa explícitamente la ruta para evitar el fallo `string is not assignable to RouteImpl<string>`.
+- Se mantiene la sincronización de URL en vistas mensual/semanal sin cambiar el comportamiento funcional del calendario.
+- Se consolida la versión de la app en `0.2.80`.
+
 ## v0.2.79
 - Se añade un modal emergente al hacer hover sobre el número de asistentes en las tarjetas de eventos de las vistas mensual y semanal, mostrando el listado de asistentes del evento agrupado.
 - Se incorpora sincronización del calendario con la URL: la vista mensual genera enlaces con `view=monthly&month=MM&year=YYYY` y la vista semanal con `view=weekly&week=YYYY-MM-DD`.

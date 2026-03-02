@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type FormEvent,
@@ -1065,7 +1066,7 @@ export default function CalendarPage() {
 
     const queryString = params.toString();
     const nextUrl = queryString ? `${pathname}?${queryString}` : pathname;
-    router.replace(nextUrl, { scroll: false });
+    router.replace(nextUrl as Route, { scroll: false });
   }, [
     calendarStateHydrated,
     calendarView,
