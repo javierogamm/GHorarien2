@@ -1,3 +1,20 @@
+## v0.2.81
+- Se corrige el error de prerender en Vercel (`useSearchParams() should be wrapped in a suspense boundary`) eliminando `useSearchParams` de la página de calendario.
+- La lectura/escritura de parámetros de URL del calendario pasa a usar `window.location.search` dentro de `useEffect`, manteniendo el deep-linking mensual/semanal sin requerir `Suspense`.
+- Se mantiene la corrección de tipado con `Route` en `router.replace` para compatibilidad con `typedRoutes`.
+- Se consolida la versión de la app en `0.2.81`.
+
+## v0.2.80
+- Se corrige el error de compilación en deploy con `typedRoutes` de Next.js: el `router.replace` del calendario ahora tipa explícitamente la ruta para evitar el fallo `string is not assignable to RouteImpl<string>`.
+- Se mantiene la sincronización de URL en vistas mensual/semanal sin cambiar el comportamiento funcional del calendario.
+- Se consolida la versión de la app en `0.2.80`.
+
+## v0.2.79
+- Se añade un modal emergente al hacer hover sobre el número de asistentes en las tarjetas de eventos de las vistas mensual y semanal, mostrando el listado de asistentes del evento agrupado.
+- Se incorpora sincronización del calendario con la URL: la vista mensual genera enlaces con `view=monthly&month=MM&year=YYYY` y la vista semanal con `view=weekly&week=YYYY-MM-DD`.
+- Al abrir una URL con parámetros de calendario válidos, la app hidrata automáticamente la vista/mes/año/semana correspondiente para permitir enlace directo a periodos concretos.
+- Se consolida la versión de la app en `0.2.79`.
+
 ## v0.2.78
 - Se corrige el fallo de compilación en `app/calendar/page.tsx` durante `npm run build`: el callback de recálculo ADMIN ya no depende de `getErrorMessage` antes de su declaración.
 - Se ajusta el manejo de error del recálculo ADMIN con fallback local para evitar errores de orden de inicialización en build.

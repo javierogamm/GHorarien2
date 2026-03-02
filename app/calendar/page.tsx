@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import type { Route } from "next";
+import { usePathname, useRouter } from "next/navigation";
 import {
   type FormEvent,
   type MouseEvent,
@@ -405,6 +406,25 @@ const formatDateKey = (date: Date) => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
 
+const parseDateKey = (value: string) => {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10) - 1;
+  const day = Number.parseInt(match[3], 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  const parsed = new Date(year, month, day);
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month ||
+    parsed.getDate() !== day
+  ) {
+    return null;
+  }
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
 const isSameMonthAndYear = (date: Date, month: number, year: number) =>
   date.getFullYear() === year && date.getMonth() === month;
 
@@ -523,6 +543,7 @@ const formatImporte = (value?: number | null) => {
 
 export default function CalendarPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const today = useMemo(() => new Date(), []);
   const [username, setUsername] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -606,6 +627,7 @@ export default function CalendarPage() {
   const [calendarView, setCalendarView] = useState<"monthly" | "weekly">(
     "weekly"
   );
+  const [calendarStateHydrated, setCalendarStateHydrated] = useState(false);
   const [workweekOnly, setWorkweekOnly] = useState(true);
   const [myEventsOnly, setMyEventsOnly] = useState(false);
   const [viewMyEventsEnabled, setViewMyEventsEnabled] = useState(false);
@@ -995,6 +1017,65 @@ export default function CalendarPage() {
       setSelectedDate(null);
     }
   }, [currentMonth, currentYear, selectedDate]);
+
+  useEffect(() => {
+    if (calendarStateHydrated) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get("view");
+    const nextView = viewParam === "monthly" || viewParam === "weekly" ? viewParam : null;
+
+    if (nextView) {
+      setCalendarView(nextView);
+    }
+
+    const monthParam = Number.parseInt(params.get("month") ?? "", 10);
+    if (Number.isFinite(monthParam) && monthParam >= 1 && monthParam <= 12) {
+      setCurrentMonth(monthParam - 1);
+    }
+
+    const yearParam = Number.parseInt(params.get("year") ?? "", 10);
+    if (Number.isFinite(yearParam) && yearParam >= 1970 && yearParam <= 2200) {
+      setCurrentYear(yearParam);
+    }
+
+    const weekParamRaw = params.get("week");
+    const parsedWeek = weekParamRaw ? parseDateKey(weekParamRaw) : null;
+    if (parsedWeek) {
+      setWeekAnchorDate(parsedWeek);
+    }
+
+    setCalendarStateHydrated(true);
+  }, [calendarStateHydrated]);
+
+  useEffect(() => {
+    if (!calendarStateHydrated) return;
+
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", calendarView);
+
+    if (calendarView === "monthly") {
+      params.set("month", String(currentMonth + 1));
+      params.set("year", String(currentYear));
+      params.delete("week");
+    } else {
+      params.set("week", formatDateKey(weekAnchorDate));
+      params.delete("month");
+      params.delete("year");
+    }
+
+    const queryString = params.toString();
+    const nextUrl = queryString ? `${pathname}?${queryString}` : pathname;
+    router.replace(nextUrl as Route, { scroll: false });
+  }, [
+    calendarStateHydrated,
+    calendarView,
+    currentMonth,
+    currentYear,
+    pathname,
+    router,
+    weekAnchorDate
+  ]);
 
   const handlePrevMonth = () => {
     if (calendarView === "weekly") {

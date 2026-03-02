@@ -62,8 +62,22 @@ export const EventItem = ({
           {event.nombre ? event.nombre : "Evento"}
         </span>
       </span>
-      <span className="pointer-events-none absolute bottom-1.5 right-2 text-lg font-bold leading-none text-slate-800">
-        {event.attendeeCount}
+      <span className="absolute bottom-1.5 right-2">
+        <span className="group relative inline-flex">
+          <span className="pointer-events-none text-lg font-bold leading-none text-slate-800">
+            {event.attendeeCount}
+          </span>
+          {event.attendees.length > 0 ? (
+            <span className="pointer-events-none absolute bottom-full right-0 z-20 mb-2 hidden min-w-[180px] rounded-xl border border-slate-200 bg-white/95 p-2 text-left text-[11px] font-medium text-slate-700 shadow-lg group-hover:block">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Asistentes
+              </span>
+              <span className="block max-h-28 overflow-y-auto pr-1">
+                {event.attendees.join(", ")}
+              </span>
+            </span>
+          ) : null}
+        </span>
       </span>
     </button>
   );
