@@ -1,3 +1,9 @@
+## v0.2.81
+- Se corrige el error de prerender en Vercel (`useSearchParams() should be wrapped in a suspense boundary`) eliminando `useSearchParams` de la página de calendario.
+- La lectura/escritura de parámetros de URL del calendario pasa a usar `window.location.search` dentro de `useEffect`, manteniendo el deep-linking mensual/semanal sin requerir `Suspense`.
+- Se mantiene la corrección de tipado con `Route` en `router.replace` para compatibilidad con `typedRoutes`.
+- Se consolida la versión de la app en `0.2.81`.
+
 ## v0.2.80
 - Se corrige el error de compilación en deploy con `typedRoutes` de Next.js: el `router.replace` del calendario ahora tipa explícitamente la ruta para evitar el fallo `string is not assignable to RouteImpl<string>`.
 - Se mantiene la sincronización de URL en vistas mensual/semanal sin cambiar el comportamiento funcional del calendario.

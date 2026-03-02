@@ -1,7 +1,7 @@
 "use client";
 
 import type { Route } from "next";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   type FormEvent,
   type MouseEvent,
@@ -544,7 +544,6 @@ const formatImporte = (value?: number | null) => {
 export default function CalendarPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const today = useMemo(() => new Date(), []);
   const [username, setUsername] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -1022,36 +1021,37 @@ export default function CalendarPage() {
   useEffect(() => {
     if (calendarStateHydrated) return;
 
-    const viewParam = searchParams.get("view");
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get("view");
     const nextView = viewParam === "monthly" || viewParam === "weekly" ? viewParam : null;
 
     if (nextView) {
       setCalendarView(nextView);
     }
 
-    const monthParam = Number.parseInt(searchParams.get("month") ?? "", 10);
+    const monthParam = Number.parseInt(params.get("month") ?? "", 10);
     if (Number.isFinite(monthParam) && monthParam >= 1 && monthParam <= 12) {
       setCurrentMonth(monthParam - 1);
     }
 
-    const yearParam = Number.parseInt(searchParams.get("year") ?? "", 10);
+    const yearParam = Number.parseInt(params.get("year") ?? "", 10);
     if (Number.isFinite(yearParam) && yearParam >= 1970 && yearParam <= 2200) {
       setCurrentYear(yearParam);
     }
 
-    const weekParamRaw = searchParams.get("week");
+    const weekParamRaw = params.get("week");
     const parsedWeek = weekParamRaw ? parseDateKey(weekParamRaw) : null;
     if (parsedWeek) {
       setWeekAnchorDate(parsedWeek);
     }
 
     setCalendarStateHydrated(true);
-  }, [calendarStateHydrated, searchParams]);
+  }, [calendarStateHydrated]);
 
   useEffect(() => {
     if (!calendarStateHydrated) return;
 
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     params.set("view", calendarView);
 
     if (calendarView === "monthly") {
@@ -1074,7 +1074,6 @@ export default function CalendarPage() {
     currentYear,
     pathname,
     router,
-    searchParams,
     weekAnchorDate
   ]);
 
