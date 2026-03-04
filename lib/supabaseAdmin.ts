@@ -1,28 +1,39 @@
 import "server-only";
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl) {
-  throw new Error("Falta SUPABASE_URL en variables de entorno del servidor.");
-}
-
-if (!supabaseServiceRoleKey) {
-  throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno del servidor.");
-}
-
 type QueryResult<T> = {
   data: T[] | null;
   error: { message: string } | null;
 };
 
-const buildHeaders = () => ({
-  apikey: supabaseServiceRoleKey,
-  Authorization: `Bearer ${supabaseServiceRoleKey}`,
-  "Content-Type": "application/json"
-});
+const getSupabaseServerConfig = () => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const buildBaseUrl = (table: string) => new URL(`/rest/v1/${table}`, supabaseUrl);
+  if (!supabaseUrl) {
+    throw new Error("Falta SUPABASE_URL en variables de entorno del servidor.");
+  }
+
+  if (!supabaseServiceRoleKey) {
+    throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en variables de entorno del servidor.");
+  }
+
+  return { supabaseUrl, supabaseServiceRoleKey };
+};
+
+const buildHeaders = () => {
+  const { supabaseServiceRoleKey } = getSupabaseServerConfig();
+
+  return {
+    apikey: supabaseServiceRoleKey,
+    Authorization: `Bearer ${supabaseServiceRoleKey}`,
+    "Content-Type": "application/json"
+  };
+};
+
+const buildBaseUrl = (table: string) => {
+  const { supabaseUrl } = getSupabaseServerConfig();
+  return new URL(`/rest/v1/${table}`, supabaseUrl);
+};
 
 const mapError = async (response: Response) => {
   const message = await response.text();

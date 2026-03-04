@@ -1,3 +1,8 @@
+## v0.2.83
+- Se corrige `lib/supabaseAdmin.ts` para evitar error de build en Vercel: la validación de `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` ya no se ejecuta al importar el módulo, sino en tiempo de ejecución cuando la API realmente consulta Supabase.
+- Se mantiene el patrón de seguridad backend-only para `service_role`, sin exponer claves al cliente.
+- Se consolida la versión de la app en `0.2.83`.
+
 ## v0.2.82
 - Se añade una capa backend segura para Supabase con `lib/supabaseAdmin.ts`, usando únicamente `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en servidor.
 - Se crea la API Route `GET /api/documentos` con validación básica de sesión por cookie (`calendar_session_token`) y token esperado (`API_SESSION_TOKEN`) antes de consultar datos.
