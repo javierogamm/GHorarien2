@@ -1,3 +1,10 @@
+## v0.2.82
+- Se añade una capa backend segura para Supabase con `lib/supabaseAdmin.ts`, usando únicamente `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` en servidor.
+- Se crea la API Route `GET /api/documentos` con validación básica de sesión por cookie (`calendar_session_token`) y token esperado (`API_SESSION_TOKEN`) antes de consultar datos.
+- Se incorpora `services/documentosApi.ts` para que el frontend consuma `/api/documentos` con `fetch`, evitando el patrón de acceso directo `supabase.from()` en cliente.
+- Se actualiza `README.md` con flujo de seguridad sin RLS y ejemplo de frontend antes/después.
+- Se consolida la versión de la app en `0.2.82`.
+
 ## v0.2.81
 - Se corrige el error de prerender en Vercel (`useSearchParams() should be wrapped in a suspense boundary`) eliminando `useSearchParams` de la página de calendario.
 - La lectura/escritura de parámetros de URL del calendario pasa a usar `window.location.search` dentro de `useEffect`, manteniendo el deep-linking mensual/semanal sin requerir `Suspense`.

@@ -7,32 +7,45 @@ Aplicación web con Next.js + Supabase para gestionar eventos por usuario.
 Crea un archivo `.env.local` con:
 
 ```bash
-# Preferidas para frontend en Next.js
+# Frontend (solo públicas)
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 
-# También soportadas (la app las mapea automáticamente)
+# Backend seguro (nunca exponer al cliente)
 SUPABASE_URL=
-SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+API_SESSION_TOKEN=
 ```
 
-## Base de datos en Supabase
+> `SUPABASE_SERVICE_ROLE_KEY` debe existir **solo** en entorno de servidor (`.env.local`, Vercel env vars, etc.).
 
-La app usa estas tablas (nombres exactos):
+## Patrón de seguridad recomendado (sin RLS)
 
-- `users`
-- `tabla`
-- `horasobtenidas`
-- `horasdeclaradas`
-- `establecimiento`
+- El frontend **no** consulta Supabase directamente para datos sensibles.
+- El frontend llama a API Routes (`/api/...`).
+- Las API Routes validan sesión básica por cookie/token.
+- La API Route consulta Supabase con `SUPABASE_SERVICE_ROLE_KEY` desde backend.
+- La `service_role` nunca se exporta al navegador.
 
-> Importante: Mantén la **misma estructura de columnas** que ya usabas en Appwrite para conservar funcionalidad.
+## Ejemplo de refactor frontend
 
-## Deploy en Vercel
+### Antes (acceso directo desde frontend)
 
-1. Importa el repositorio en Vercel.
-2. Configura `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY` (o `SUPABASE_URL` y `SUPABASE_ANON_KEY`, que se mapean automáticamente) en todos los entornos.
-3. Despliega normalmente.
+```ts
+// ❌ Antes: directo a Supabase desde cliente
+const { data, error } = await supabase.from("documentos").select("*");
+```
+
+### Después (acceso vía API Route)
+
+```ts
+// ✅ Después: frontend consume backend seguro
+const response = await fetch("/api/documentos", {
+  method: "GET",
+  credentials: "include"
+});
+const payload = await response.json();
+```
 
 ## Desarrollo local
 
