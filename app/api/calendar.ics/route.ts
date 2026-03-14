@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 
 import { fetchAllEvents, type CalendarEvent } from "../../../services/eventsService";
+import { buildEventGroupKey } from "../../../utils/eventGrouping";
 
 const ICS_PROD_ID = "-//MyApp//Calendar//EN";
+
+type GroupedCalendarEvent = {
+  key: string;
+  baseEvent: CalendarEvent;
+  attendees: string[];
+  lastModified: Date;
+};
 
 /**
  * Escapa caracteres reservados de iCalendar para que SUMMARY y DESCRIPTION sean válidos.
@@ -48,29 +56,75 @@ const toEventDate = (fecha: string, hora: string, fallbackHour = "00:00:00"): Da
 };
 
 /**
+ * Crea un UID estable por evento agrupado para evitar un VEVENT por cada usuario.
+ */
+const toGroupedEventUid = (groupKey: string): string =>
+  `${groupKey
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "evento"}@myapp.com`;
+
+/**
+ * Agrupa eventos duplicados por asistentes en un único evento lógico.
+ */
+const groupEventsForIcs = (events: CalendarEvent[]): GroupedCalendarEvent[] => {
+  const grouped = new Map<string, GroupedCalendarEvent>();
+
+  events.forEach((event) => {
+    const key = buildEventGroupKey(event);
+    const existing = grouped.get(key);
+    const attendee = event.user?.trim();
+    const updatedAt = event.$updatedAt ? new Date(event.$updatedAt) : new Date();
+
+    if (!existing) {
+      grouped.set(key, {
+        key,
+        baseEvent: event,
+        attendees: attendee ? [attendee] : [],
+        lastModified: updatedAt
+      });
+      return;
+    }
+
+    if (attendee && !existing.attendees.includes(attendee)) {
+      existing.attendees.push(attendee);
+      existing.attendees.sort((left, right) => left.localeCompare(right));
+    }
+
+    if (updatedAt.getTime() > existing.lastModified.getTime()) {
+      existing.lastModified = updatedAt;
+    }
+  });
+
+  return Array.from(grouped.values());
+};
+
+/**
  * Genera bloque VEVENT con los campos requeridos para Outlook/ICS.
  */
-const buildEventBlock = (event: CalendarEvent): string => {
+const buildEventBlock = (groupedEvent: GroupedCalendarEvent): string => {
   const now = new Date();
-  const updatedAt = event.$updatedAt ? new Date(event.$updatedAt) : now;
+  const { baseEvent, attendees, key, lastModified } = groupedEvent;
 
-  const startDate = toEventDate(event.fecha, event.horaInicio, "00:00:00");
-  const endDate = toEventDate(event.fecha, event.horaFin, "23:59:59");
+  const startDate = toEventDate(baseEvent.fecha, baseEvent.horaInicio, "00:00:00");
+  const endDate = toEventDate(baseEvent.fecha, baseEvent.horaFin, "23:59:59");
 
-  const summary = escapeICalText(event.nombre?.trim() || "Evento");
+  const summary = escapeICalText(baseEvent.nombre?.trim() || "Evento");
   const descriptionParts = [
-    event.notas?.trim() ? `Notas: ${event.notas.trim()}` : "",
-    event.establecimiento?.trim() ? `Establecimiento: ${event.establecimiento.trim()}` : "",
-    event.user?.trim() ? `Usuario: ${event.user.trim()}` : ""
+    baseEvent.notas?.trim() ? `Notas: ${baseEvent.notas.trim()}` : "",
+    baseEvent.establecimiento?.trim()
+      ? `Establecimiento: ${baseEvent.establecimiento.trim()}`
+      : "",
+    attendees.length > 0 ? `Asistentes: ${attendees.join(", ")}` : "Asistentes: Sin asistentes"
   ].filter(Boolean);
 
   const description = escapeICalText(descriptionParts.join("\n") || "Sin descripción");
 
   return [
     "BEGIN:VEVENT",
-    `UID:${event.$id}@myapp.com`,
+    `UID:${toGroupedEventUid(key)}`,
     `DTSTAMP:${toICalUtcDateTime(now)}`,
-    `LAST-MODIFIED:${toICalUtcDateTime(updatedAt)}`,
+    `LAST-MODIFIED:${toICalUtcDateTime(lastModified)}`,
     `SUMMARY:${summary}`,
     `DESCRIPTION:${description}`,
     `DTSTART:${toICalUtcDateTime(startDate)}`,
@@ -87,6 +141,7 @@ export async function GET() {
   try {
     // Se obtienen los eventos existentes desde el servicio actual de datos.
     const events = await fetchAllEvents();
+    const groupedEvents = groupEventsForIcs(events);
 
     // Se arma el archivo ICS completo con cabecera VCALENDAR + todos los VEVENT.
     const icsBody = [
@@ -94,7 +149,7 @@ export async function GET() {
       "VERSION:2.0",
       `PRODID:${ICS_PROD_ID}`,
       "CALSCALE:GREGORIAN",
-      ...events.map((event) => buildEventBlock(event)),
+      ...groupedEvents.map((event) => buildEventBlock(event)),
       "END:VCALENDAR"
     ].join("\r\n");
 

@@ -5543,6 +5543,22 @@ export default function CalendarPage() {
                 <p className="mt-2 break-all rounded-lg border border-sky-100 bg-white px-3 py-2 font-mono text-xs text-sky-800">
                   {calendarIcsStatus.url}
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <a
+                    href={calendarIcsStatus.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
+                  >
+                    Abrir URL ICS
+                  </a>
+                  <a
+                    href={calendarIcsStatus.url.replace(/^https?:\/\//i, "webcal://")}
+                    className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                  >
+                    Suscribir (webcal://)
+                  </a>
+                </div>
               </div>
             ) : null}
 

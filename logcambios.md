@@ -1,3 +1,9 @@
+## v0.2.89
+- Se corrige la generación del feed ICS para que no cree un `VEVENT` por usuario: ahora agrupa eventos duplicados por asistentes en un único evento lógico y lista los usuarios en `DESCRIPTION` bajo el campo `Asistentes`.
+- Se añade agrupación estable en `app/api/calendar.ics/route.ts` usando `buildEventGroupKey`, con `UID` único por grupo y `LAST-MODIFIED` calculado por la fecha más reciente del conjunto.
+- En "Mis eventos" (Admin), la URL ICS mostrada ahora incluye acciones web directas: **Abrir URL ICS** y **Suscribir (webcal://)** para facilitar la suscripción desde la web.
+- Se consolida la versión de la app en `0.2.89`.
+
 ## v0.2.88
 - Se elimina por completo la lógica de token del calendario ICS: ya no se usan `NEXT_PUBLIC_CALENDAR_FEED_TOKEN`, `CALENDAR_FEED_TOKEN` ni validaciones por token para este módulo.
 - Se reemplazan los endpoints anteriores por un único endpoint público `GET /api/calendar.ics`, sin autenticación ni parámetros, que genera dinámicamente un archivo iCalendar válido.
