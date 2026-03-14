@@ -1,3 +1,9 @@
+## v0.2.86
+- Se corrige el flujo de **Calendario ICS** en "Mis eventos" para Admin eliminando la dependencia de `NEXT_PUBLIC_CALENDAR_FEED_TOKEN` en frontend, evitando el aviso de configuración en cliente.
+- Se añade la nueva API Route `GET /api/calendar/feed-url`, que construye en servidor la URL pública del feed usando `CALENDAR_FEED_TOKEN` y la devuelve al frontend.
+- Los botones **Calendario ICS** y **Descargar ICS** ahora consultan esa API para obtener la URL real antes de mostrar/copiar/descargar, manteniendo mensajes de estado claros.
+- Se consolida la versión de la app en `0.2.86`.
+
 ## v0.2.85
 - En la vista **Mis eventos**, para usuarios con rol **Admin**, se añaden dos acciones nuevas: **"Calendario ICS"** (muestra y facilita copiar la URL pública de suscripción para Outlook 365) y **"Descargar ICS"** (descarga el calendario en formato `.ics`).
 - Se añade soporte en frontend para construir la URL pública de calendario usando `NEXT_PUBLIC_CALENDAR_FEED_TOKEN`, mostrando mensajes de estado y errores de configuración cuando procede.

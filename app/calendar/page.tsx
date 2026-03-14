@@ -112,7 +112,6 @@ const DEFAULT_TALLER_ESTABLISHMENT_ID = 11;
 const MENU_MAX_ITEMS = 8;
 const MENU_PLACEHOLDER = "Gamba con foie;Escalopines;Dulce de leche";
 const MENU_HELP_TEXT = "Añade hasta 8 platos. Se guardan separados por punto y coma (;).";
-const CALENDAR_FEED_PUBLIC_TOKEN = process.env.NEXT_PUBLIC_CALENDAR_FEED_TOKEN?.trim() ?? "";
 const ESTABLISHMENT_STATUSES: EstablishmentStatus[] = ["sugerido", "aceptado"];
 const ESTABLISHMENT_STATUS_LABELS: Record<EstablishmentStatus, string> = {
   sugerido: "Sugerido",
@@ -659,7 +658,8 @@ export default function CalendarPage() {
     loading: false,
     error: "",
     success: "",
-    revealUrl: false
+    revealUrl: false,
+    url: ""
   });
   const [hoursRefreshToken, setHoursRefreshToken] = useState(0);
   const [hoursSummary, setHoursSummary] = useState({
@@ -2076,60 +2076,68 @@ export default function CalendarPage() {
     );
   };
 
-  const calendarIcsPath = CALENDAR_FEED_PUBLIC_TOKEN
-    ? `/api/calendar/${encodeURIComponent(CALENDAR_FEED_PUBLIC_TOKEN)}.ics`
-    : "";
-  const calendarIcsUrl =
-    calendarIcsPath && typeof window !== "undefined"
-      ? `${window.location.origin}${calendarIcsPath}`
-      : calendarIcsPath;
+  const getCalendarIcsUrl = useCallback(async () => {
+    const response = await fetch("/api/calendar/feed-url", { cache: "no-store" });
+
+    if (!response.ok) {
+      throw new Error(`No se pudo obtener la URL de calendario (HTTP ${response.status}).`);
+    }
+
+    const payload = (await response.json()) as {
+      ok?: boolean;
+      error?: string;
+      feedUrl?: string;
+    };
+
+    if (!payload.ok || !payload.feedUrl) {
+      throw new Error(payload.error || "No se pudo construir la URL de calendario ICS.");
+    }
+
+    return payload.feedUrl;
+  }, []);
 
   const handleShowCalendarIcsUrl = async () => {
-    if (!calendarIcsUrl) {
+    setCalendarIcsStatus((prev) => ({ ...prev, loading: true, error: "", success: "", revealUrl: false }));
+
+    try {
+      const calendarIcsUrl = await getCalendarIcsUrl();
+      let successMessage = "URL de calendario lista para sincronizar con Outlook 365.";
+
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(calendarIcsUrl);
+          successMessage = "URL copiada al portapapeles.";
+        } catch {
+          successMessage = "URL visible para copiar manualmente.";
+        }
+      }
+
       setCalendarIcsStatus({
         loading: false,
+        error: "",
+        success: successMessage,
+        revealUrl: true,
+        url: calendarIcsUrl
+      });
+    } catch (error) {
+      setCalendarIcsStatus((prev) => ({
+        ...prev,
+        loading: false,
         error:
-          "Configura NEXT_PUBLIC_CALENDAR_FEED_TOKEN para mostrar la URL de sincronización de Outlook.",
+          error instanceof Error
+            ? error.message
+            : "Error al obtener la URL de sincronización de Outlook.",
         success: "",
         revealUrl: false
-      });
-      return;
+      }));
     }
-
-    let successMessage = "URL de calendario lista para sincronizar con Outlook 365.";
-
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(calendarIcsUrl);
-        successMessage = "URL copiada al portapapeles.";
-      } catch {
-        successMessage = "URL visible para copiar manualmente.";
-      }
-    }
-
-    setCalendarIcsStatus({
-      loading: false,
-      error: "",
-      success: successMessage,
-      revealUrl: true
-    });
   };
 
   const handleDownloadCalendarIcs = async () => {
-    if (!calendarIcsUrl) {
-      setCalendarIcsStatus({
-        loading: false,
-        error:
-          "Configura NEXT_PUBLIC_CALENDAR_FEED_TOKEN para habilitar la descarga del calendario ICS.",
-        success: "",
-        revealUrl: false
-      });
-      return;
-    }
-
-    setCalendarIcsStatus({ loading: true, error: "", success: "", revealUrl: true });
+    setCalendarIcsStatus((prev) => ({ ...prev, loading: true, error: "", success: "", revealUrl: false }));
 
     try {
+      const calendarIcsUrl = await getCalendarIcsUrl();
       const response = await fetch(calendarIcsUrl, { cache: "no-store" });
       if (!response.ok) {
         throw new Error(`No se pudo descargar el calendario (HTTP ${response.status}).`);
@@ -2143,19 +2151,22 @@ export default function CalendarPage() {
         "text/calendar;charset=utf-8"
       );
 
-      setCalendarIcsStatus({
+      setCalendarIcsStatus((prev) => ({
+        ...prev,
         loading: false,
         error: "",
         success: "Archivo ICS descargado correctamente.",
-        revealUrl: true
-      });
+        revealUrl: true,
+        url: calendarIcsUrl
+      }));
     } catch (error) {
-      setCalendarIcsStatus({
+      setCalendarIcsStatus((prev) => ({
+        ...prev,
         loading: false,
         error: error instanceof Error ? error.message : "Error al descargar el calendario ICS.",
         success: "",
-        revealUrl: true
-      });
+        revealUrl: false
+      }));
     }
   };
 
@@ -5536,13 +5547,13 @@ export default function CalendarPage() {
               </div>
             ) : null}
 
-            {normalizedUserRole === "Admin" && calendarIcsStatus.revealUrl && calendarIcsUrl ? (
+            {normalizedUserRole === "Admin" && calendarIcsStatus.revealUrl ? (
               <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
                   URL pública de sincronización Outlook 365
                 </p>
                 <p className="mt-2 break-all rounded-lg border border-sky-100 bg-white px-3 py-2 font-mono text-xs text-sky-800">
-                  {calendarIcsUrl}
+                  {calendarIcsStatus.url}
                 </p>
               </div>
             ) : null}
