@@ -1,3 +1,9 @@
+## v0.2.85
+- En la vista **Mis eventos**, para usuarios con rol **Admin**, se añaden dos acciones nuevas: **"Calendario ICS"** (muestra y facilita copiar la URL pública de suscripción para Outlook 365) y **"Descargar ICS"** (descarga el calendario en formato `.ics`).
+- Se añade soporte en frontend para construir la URL pública de calendario usando `NEXT_PUBLIC_CALENDAR_FEED_TOKEN`, mostrando mensajes de estado y errores de configuración cuando procede.
+- Se incorpora utilidad de descarga de texto para guardar el contenido ICS como archivo local desde la interfaz.
+- Se consolida la versión de la app en `0.2.85`.
+
 ## v0.2.84
 - Se crea la API Route dinámica `GET /api/calendar/[token]` en `app/api/calendar/[token]/route.ts`, compatible con suscripción de Outlook 365 y soporte para URL con sufijo `.ics`.
 - El endpoint consulta los eventos existentes con `fetchAllEvents`, genera un feed iCalendar completo (`VCALENDAR` + `VEVENT`) y devuelve el contenido como string.
