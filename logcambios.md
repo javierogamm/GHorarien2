@@ -1,3 +1,43 @@
+## v0.2.89
+- Se corrige la generación del feed ICS para que no cree un `VEVENT` por usuario: ahora agrupa eventos duplicados por asistentes en un único evento lógico y lista los usuarios en `DESCRIPTION` bajo el campo `Asistentes`.
+- Se añade agrupación estable en `app/api/calendar.ics/route.ts` usando `buildEventGroupKey`, con `UID` único por grupo y `LAST-MODIFIED` calculado por la fecha más reciente del conjunto.
+- En "Mis eventos" (Admin), la URL ICS mostrada ahora incluye acciones web directas: **Abrir URL ICS** y **Suscribir (webcal://)** para facilitar la suscripción desde la web.
+- Se consolida la versión de la app en `0.2.89`.
+
+## v0.2.88
+- Se elimina por completo la lógica de token del calendario ICS: ya no se usan `NEXT_PUBLIC_CALENDAR_FEED_TOKEN`, `CALENDAR_FEED_TOKEN` ni validaciones por token para este módulo.
+- Se reemplazan los endpoints anteriores por un único endpoint público `GET /api/calendar.ics`, sin autenticación ni parámetros, que genera dinámicamente un archivo iCalendar válido.
+- Se actualiza el frontend de "Mis eventos" (Admin) para usar directamente la URL pública `${window.location.origin}/api/calendar.ics` en las acciones de mostrar/copiar y descargar ICS.
+- Se eliminan las rutas legacy `app/api/calendar/[token]/route.ts` y `app/api/calendar/feed-url/route.ts`.
+- Se consolida la versión de la app en `0.2.88`.
+
+## v0.2.87
+- Se corrige el error **"No se pudo obtener la URL de calendario (HTTP 500)"** añadiendo compatibilidad en backend para resolver el token de calendario con fallback: primero `CALENDAR_FEED_TOKEN` y, si no existe, `API_SESSION_TOKEN`.
+- La validación del endpoint público ICS (`/api/calendar/[token]`) ahora acepta ambos tokens válidos para mantener compatibilidad con despliegues previos.
+- La API `GET /api/calendar/feed-url` devuelve un mensaje de error más claro cuando faltan variables y construye la URL con el token resuelto en servidor.
+- En frontend, la obtención de URL ICS muestra el mensaje de error real devuelto por backend en lugar del genérico HTTP 500.
+- Se consolida la versión de la app en `0.2.87`.
+
+## v0.2.86
+- Se corrige el flujo de **Calendario ICS** en "Mis eventos" para Admin eliminando la dependencia de `NEXT_PUBLIC_CALENDAR_FEED_TOKEN` en frontend, evitando el aviso de configuración en cliente.
+- Se añade la nueva API Route `GET /api/calendar/feed-url`, que construye en servidor la URL pública del feed usando `CALENDAR_FEED_TOKEN` y la devuelve al frontend.
+- Los botones **Calendario ICS** y **Descargar ICS** ahora consultan esa API para obtener la URL real antes de mostrar/copiar/descargar, manteniendo mensajes de estado claros.
+- Se consolida la versión de la app en `0.2.86`.
+
+## v0.2.85
+- En la vista **Mis eventos**, para usuarios con rol **Admin**, se añaden dos acciones nuevas: **"Calendario ICS"** (muestra y facilita copiar la URL pública de suscripción para Outlook 365) y **"Descargar ICS"** (descarga el calendario en formato `.ics`).
+- Se añade soporte en frontend para construir la URL pública de calendario usando `NEXT_PUBLIC_CALENDAR_FEED_TOKEN`, mostrando mensajes de estado y errores de configuración cuando procede.
+- Se incorpora utilidad de descarga de texto para guardar el contenido ICS como archivo local desde la interfaz.
+- Se consolida la versión de la app en `0.2.85`.
+
+## v0.2.84
+- Se crea la API Route dinámica `GET /api/calendar/[token]` en `app/api/calendar/[token]/route.ts`, compatible con suscripción de Outlook 365 y soporte para URL con sufijo `.ics`.
+- El endpoint consulta los eventos existentes con `fetchAllEvents`, genera un feed iCalendar completo (`VCALENDAR` + `VEVENT`) y devuelve el contenido como string.
+- Cada `VEVENT` incluye los campos requeridos (`UID`, `DTSTAMP`, `LAST-MODIFIED`, `SUMMARY`, `DESCRIPTION`, `DTSTART`, `DTEND`) con formato de fecha UTC `YYYYMMDDTHHmmssZ`.
+- Se añaden cabeceras HTTP específicas para calendario: `Content-Type: text/calendar` y `Cache-Control: no-cache`.
+- Se incorporan comentarios en el código para documentar el propósito de cada bloque de lógica del endpoint.
+- Se consolida la versión de la app en `0.2.84`.
+
 ## v0.2.83
 - Se corrige `lib/supabaseAdmin.ts` para evitar error de build en Vercel: la validación de `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` ya no se ejecuta al importar el módulo, sino en tiempo de ejecución cuando la API realmente consulta Supabase.
 - Se mantiene el patrón de seguridad backend-only para `service_role`, sin exponer claves al cliente.

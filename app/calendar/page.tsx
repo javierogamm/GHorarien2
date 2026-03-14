@@ -529,6 +529,18 @@ const downloadCsvFile = (filename: string, headers: string[], rows: string[][]) 
   URL.revokeObjectURL(url);
 };
 
+const downloadTextFile = (filename: string, content: string, mimeType: string) => {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
+
 const parseImporteInput = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return { valid: true, value: 0 } as const;
@@ -642,6 +654,13 @@ export default function CalendarPage() {
   const [reportSelectedUsers, setReportSelectedUsers] = useState<string[]>([]);
   const [reportSplitByUser, setReportSplitByUser] = useState(false);
   const [viewUserOverride, setViewUserOverride] = useState<string | null>(null);
+  const [calendarIcsStatus, setCalendarIcsStatus] = useState({
+    loading: false,
+    error: "",
+    success: "",
+    revealUrl: false,
+    url: ""
+  });
   const [hoursRefreshToken, setHoursRefreshToken] = useState(0);
   const [hoursSummary, setHoursSummary] = useState({
     obtained: 0,
@@ -2055,6 +2074,88 @@ export default function CalendarPage() {
       headers,
       rows
     );
+  };
+
+  const getCalendarIcsUrl = useCallback(async () => {
+    if (typeof window === "undefined") {
+      throw new Error("No se pudo construir la URL del calendario en este entorno.");
+    }
+
+    return `${window.location.origin}/api/calendar.ics`;
+  }, []);
+
+  const handleShowCalendarIcsUrl = async () => {
+    setCalendarIcsStatus((prev) => ({ ...prev, loading: true, error: "", success: "", revealUrl: false }));
+
+    try {
+      const calendarIcsUrl = await getCalendarIcsUrl();
+      let successMessage = "URL de calendario lista para sincronizar con Outlook 365.";
+
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(calendarIcsUrl);
+          successMessage = "URL copiada al portapapeles.";
+        } catch {
+          successMessage = "URL visible para copiar manualmente.";
+        }
+      }
+
+      setCalendarIcsStatus({
+        loading: false,
+        error: "",
+        success: successMessage,
+        revealUrl: true,
+        url: calendarIcsUrl
+      });
+    } catch (error) {
+      setCalendarIcsStatus((prev) => ({
+        ...prev,
+        loading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error al obtener la URL de sincronización de Outlook.",
+        success: "",
+        revealUrl: false
+      }));
+    }
+  };
+
+  const handleDownloadCalendarIcs = async () => {
+    setCalendarIcsStatus((prev) => ({ ...prev, loading: true, error: "", success: "", revealUrl: false }));
+
+    try {
+      const calendarIcsUrl = await getCalendarIcsUrl();
+      const response = await fetch(calendarIcsUrl, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`No se pudo descargar el calendario (HTTP ${response.status}).`);
+      }
+
+      const icsContent = await response.text();
+      const userSlug = (targetUser || "usuario").trim().toLowerCase().replace(/\s+/g, "-");
+      downloadTextFile(
+        `calendario-outlook-${userSlug}-${formatDateTime(new Date())}.ics`,
+        icsContent,
+        "text/calendar;charset=utf-8"
+      );
+
+      setCalendarIcsStatus((prev) => ({
+        ...prev,
+        loading: false,
+        error: "",
+        success: "Archivo ICS descargado correctamente.",
+        revealUrl: true,
+        url: calendarIcsUrl
+      }));
+    } catch (error) {
+      setCalendarIcsStatus((prev) => ({
+        ...prev,
+        loading: false,
+        error: error instanceof Error ? error.message : "Error al descargar el calendario ICS.",
+        success: "",
+        revealUrl: false
+      }));
+    }
   };
 
   const handleExportControlTable = () => {
@@ -5358,6 +5459,31 @@ export default function CalendarPage() {
                   <TableModuleIcon title="" className="h-4 w-4" />
                   Exportar Excel
                 </button>
+                {normalizedUserRole === "Admin" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleShowCalendarIcsUrl}
+                      className="flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
+                    >
+                      <CalendarModuleIcon title="" className="h-4 w-4" />
+                      Calendario ICS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadCalendarIcs}
+                      disabled={calendarIcsStatus.loading}
+                      className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                        calendarIcsStatus.loading
+                          ? "cursor-wait border-indigo-100 bg-indigo-50 text-indigo-300"
+                          : "border-indigo-200 bg-indigo-500 text-white shadow-sm hover:-translate-y-0.5 hover:bg-indigo-600"
+                      }`}
+                    >
+                      <CalendarModuleIcon title="" className="h-4 w-4" />
+                      {calendarIcsStatus.loading ? "Descargando ICS..." : "Descargar ICS"}
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   onClick={handleHoursCalculationOpen}
@@ -5394,6 +5520,45 @@ export default function CalendarPage() {
             {reviewsStatus.error ? (
               <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
                 {reviewsStatus.error}
+              </div>
+            ) : null}
+
+            {normalizedUserRole === "Admin" && calendarIcsStatus.error ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {calendarIcsStatus.error}
+              </div>
+            ) : null}
+
+            {normalizedUserRole === "Admin" && calendarIcsStatus.success ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {calendarIcsStatus.success}
+              </div>
+            ) : null}
+
+            {normalizedUserRole === "Admin" && calendarIcsStatus.revealUrl ? (
+              <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sky-700">
+                  URL pública de sincronización Outlook 365
+                </p>
+                <p className="mt-2 break-all rounded-lg border border-sky-100 bg-white px-3 py-2 font-mono text-xs text-sky-800">
+                  {calendarIcsStatus.url}
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <a
+                    href={calendarIcsStatus.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
+                  >
+                    Abrir URL ICS
+                  </a>
+                  <a
+                    href={calendarIcsStatus.url.replace(/^https?:\/\//i, "webcal://")}
+                    className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                  >
+                    Suscribir (webcal://)
+                  </a>
+                </div>
               </div>
             ) : null}
 
