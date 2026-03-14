@@ -1,3 +1,11 @@
+## v0.2.84
+- Se crea la API Route dinámica `GET /api/calendar/[token]` en `app/api/calendar/[token]/route.ts`, compatible con suscripción de Outlook 365 y soporte para URL con sufijo `.ics`.
+- El endpoint consulta los eventos existentes con `fetchAllEvents`, genera un feed iCalendar completo (`VCALENDAR` + `VEVENT`) y devuelve el contenido como string.
+- Cada `VEVENT` incluye los campos requeridos (`UID`, `DTSTAMP`, `LAST-MODIFIED`, `SUMMARY`, `DESCRIPTION`, `DTSTART`, `DTEND`) con formato de fecha UTC `YYYYMMDDTHHmmssZ`.
+- Se añaden cabeceras HTTP específicas para calendario: `Content-Type: text/calendar` y `Cache-Control: no-cache`.
+- Se incorporan comentarios en el código para documentar el propósito de cada bloque de lógica del endpoint.
+- Se consolida la versión de la app en `0.2.84`.
+
 ## v0.2.83
 - Se corrige `lib/supabaseAdmin.ts` para evitar error de build en Vercel: la validación de `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` ya no se ejecuta al importar el módulo, sino en tiempo de ejecución cuando la API realmente consulta Supabase.
 - Se mantiene el patrón de seguridad backend-only para `service_role`, sin exponer claves al cliente.
