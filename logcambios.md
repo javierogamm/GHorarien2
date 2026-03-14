@@ -1,3 +1,10 @@
+## v0.2.87
+- Se corrige el error **"No se pudo obtener la URL de calendario (HTTP 500)"** añadiendo compatibilidad en backend para resolver el token de calendario con fallback: primero `CALENDAR_FEED_TOKEN` y, si no existe, `API_SESSION_TOKEN`.
+- La validación del endpoint público ICS (`/api/calendar/[token]`) ahora acepta ambos tokens válidos para mantener compatibilidad con despliegues previos.
+- La API `GET /api/calendar/feed-url` devuelve un mensaje de error más claro cuando faltan variables y construye la URL con el token resuelto en servidor.
+- En frontend, la obtención de URL ICS muestra el mensaje de error real devuelto por backend en lugar del genérico HTTP 500.
+- Se consolida la versión de la app en `0.2.87`.
+
 ## v0.2.86
 - Se corrige el flujo de **Calendario ICS** en "Mis eventos" para Admin eliminando la dependencia de `NEXT_PUBLIC_CALENDAR_FEED_TOKEN` en frontend, evitando el aviso de configuración en cliente.
 - Se añade la nueva API Route `GET /api/calendar/feed-url`, que construye en servidor la URL pública del feed usando `CALENDAR_FEED_TOKEN` y la devuelve al frontend.

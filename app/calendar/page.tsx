@@ -2079,15 +2079,15 @@ export default function CalendarPage() {
   const getCalendarIcsUrl = useCallback(async () => {
     const response = await fetch("/api/calendar/feed-url", { cache: "no-store" });
 
-    if (!response.ok) {
-      throw new Error(`No se pudo obtener la URL de calendario (HTTP ${response.status}).`);
-    }
-
     const payload = (await response.json()) as {
       ok?: boolean;
       error?: string;
       feedUrl?: string;
     };
+
+    if (!response.ok) {
+      throw new Error(payload.error || `No se pudo obtener la URL de calendario (HTTP ${response.status}).`);
+    }
 
     if (!payload.ok || !payload.feedUrl) {
       throw new Error(payload.error || "No se pudo construir la URL de calendario ICS.");

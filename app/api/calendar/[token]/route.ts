@@ -3,7 +3,21 @@ import { NextResponse } from "next/server";
 import { fetchAllEvents, type CalendarEvent } from "../../../../services/eventsService";
 
 const ICS_PROD_ID = "-//MyApp//Calendar//EN";
-const TOKEN_ENV_NAME = "CALENDAR_FEED_TOKEN";
+const CALENDAR_TOKEN_ENV_NAME = "CALENDAR_FEED_TOKEN";
+const FALLBACK_TOKEN_ENV_NAME = "API_SESSION_TOKEN";
+
+/**
+ * Resuelve los tokens válidos para el feed ICS.
+ * Mantiene compatibilidad con despliegues que todavía usan API_SESSION_TOKEN.
+ */
+const resolveValidCalendarTokens = (): string[] => {
+  const primaryToken = process.env[CALENDAR_TOKEN_ENV_NAME]?.trim();
+  const fallbackToken = process.env[FALLBACK_TOKEN_ENV_NAME]?.trim();
+
+  return [primaryToken, fallbackToken].filter(
+    (value, index, list): value is string => Boolean(value) && list.indexOf(value) === index
+  );
+};
 
 /**
  * Escapa caracteres reservados de iCalendar para que SUMMARY y DESCRIPTION sean válidos.
@@ -90,10 +104,10 @@ export async function GET(
 ) {
   try {
     const routeToken = context.params.token.replace(/\.ics$/i, "");
-    const expectedToken = process.env[TOKEN_ENV_NAME];
+    const validTokens = resolveValidCalendarTokens();
 
     // Validación del token público para evitar exponer eventos sin control.
-    if (!expectedToken || routeToken !== expectedToken) {
+    if (!routeToken || validTokens.length === 0 || !validTokens.includes(routeToken)) {
       return new NextResponse("No autorizado", { status: 401 });
     }
 
