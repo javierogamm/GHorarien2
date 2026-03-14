@@ -1,3 +1,10 @@
+## v0.2.88
+- Se elimina por completo la lógica de token del calendario ICS: ya no se usan `NEXT_PUBLIC_CALENDAR_FEED_TOKEN`, `CALENDAR_FEED_TOKEN` ni validaciones por token para este módulo.
+- Se reemplazan los endpoints anteriores por un único endpoint público `GET /api/calendar.ics`, sin autenticación ni parámetros, que genera dinámicamente un archivo iCalendar válido.
+- Se actualiza el frontend de "Mis eventos" (Admin) para usar directamente la URL pública `${window.location.origin}/api/calendar.ics` en las acciones de mostrar/copiar y descargar ICS.
+- Se eliminan las rutas legacy `app/api/calendar/[token]/route.ts` y `app/api/calendar/feed-url/route.ts`.
+- Se consolida la versión de la app en `0.2.88`.
+
 ## v0.2.87
 - Se corrige el error **"No se pudo obtener la URL de calendario (HTTP 500)"** añadiendo compatibilidad en backend para resolver el token de calendario con fallback: primero `CALENDAR_FEED_TOKEN` y, si no existe, `API_SESSION_TOKEN`.
 - La validación del endpoint público ICS (`/api/calendar/[token]`) ahora acepta ambos tokens válidos para mantener compatibilidad con despliegues previos.

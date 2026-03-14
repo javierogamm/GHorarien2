@@ -2077,23 +2077,11 @@ export default function CalendarPage() {
   };
 
   const getCalendarIcsUrl = useCallback(async () => {
-    const response = await fetch("/api/calendar/feed-url", { cache: "no-store" });
-
-    const payload = (await response.json()) as {
-      ok?: boolean;
-      error?: string;
-      feedUrl?: string;
-    };
-
-    if (!response.ok) {
-      throw new Error(payload.error || `No se pudo obtener la URL de calendario (HTTP ${response.status}).`);
+    if (typeof window === "undefined") {
+      throw new Error("No se pudo construir la URL del calendario en este entorno.");
     }
 
-    if (!payload.ok || !payload.feedUrl) {
-      throw new Error(payload.error || "No se pudo construir la URL de calendario ICS.");
-    }
-
-    return payload.feedUrl;
+    return `${window.location.origin}/api/calendar.ics`;
   }, []);
 
   const handleShowCalendarIcsUrl = async () => {

@@ -1,23 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { fetchAllEvents, type CalendarEvent } from "../../../../services/eventsService";
+import { fetchAllEvents, type CalendarEvent } from "../../../services/eventsService";
 
 const ICS_PROD_ID = "-//MyApp//Calendar//EN";
-const CALENDAR_TOKEN_ENV_NAME = "CALENDAR_FEED_TOKEN";
-const FALLBACK_TOKEN_ENV_NAME = "API_SESSION_TOKEN";
-
-/**
- * Resuelve los tokens válidos para el feed ICS.
- * Mantiene compatibilidad con despliegues que todavía usan API_SESSION_TOKEN.
- */
-const resolveValidCalendarTokens = (): string[] => {
-  const primaryToken = process.env[CALENDAR_TOKEN_ENV_NAME]?.trim();
-  const fallbackToken = process.env[FALLBACK_TOKEN_ENV_NAME]?.trim();
-
-  return [primaryToken, fallbackToken].filter(
-    (value, index, list): value is string => Boolean(value) && list.indexOf(value) === index
-  );
-};
 
 /**
  * Escapa caracteres reservados de iCalendar para que SUMMARY y DESCRIPTION sean válidos.
@@ -95,22 +80,11 @@ const buildEventBlock = (event: CalendarEvent): string => {
 };
 
 /**
- * Endpoint público: /api/calendar/[token] o /api/calendar/[token].ics
- * Devuelve un feed completo iCalendar para suscripción en Outlook 365.
+ * Endpoint público: /api/calendar.ics
+ * Devuelve un feed iCalendar completo sin autenticación ni parámetros.
  */
-export async function GET(
-  _request: Request,
-  context: { params: { token: string } }
-) {
+export async function GET() {
   try {
-    const routeToken = context.params.token.replace(/\.ics$/i, "");
-    const validTokens = resolveValidCalendarTokens();
-
-    // Validación del token público para evitar exponer eventos sin control.
-    if (!routeToken || validTokens.length === 0 || !validTokens.includes(routeToken)) {
-      return new NextResponse("No autorizado", { status: 401 });
-    }
-
     // Se obtienen los eventos existentes desde el servicio actual de datos.
     const events = await fetchAllEvents();
 
