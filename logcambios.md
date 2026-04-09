@@ -1,3 +1,9 @@
+## v0.2.91
+- Se adapta la persistencia de eventos para guardar el flag de cómputo de horas en la nueva columna de Supabase `computa_horas` al crear y editar eventos.
+- Se mantiene compatibilidad de lectura entre esquemas (`computaHoras` legacy y `computa_horas` nuevo), normalizando ambos hacia el mismo comportamiento en la app.
+- Se asegura la regla de negocio solicitada: para el cálculo de horas solo computan eventos con `computa_horas = TRUE`, y cuando el valor llega en `NULL` se interpreta como `TRUE`.
+- Se consolida la versión de la app en `0.2.91`.
+
 ## v0.2.90
 - Se añade el nuevo check **"Computa para cálculo de horas"** en la parte superior de los modales de creación, creación múltiple y configuración de eventos; este control solo es visible para usuarios con rol **Admin** y viene activado por defecto.
 - Si el check está desmarcado, el evento deja de computar para el cálculo de horas obtenidas en la UI y en el recálculo global de horas para Admin.
