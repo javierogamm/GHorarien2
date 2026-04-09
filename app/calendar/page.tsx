@@ -124,6 +124,10 @@ const EVENT_NAME_DATE_FORMATTER = new Intl.DateTimeFormat("es-ES", {
 });
 const isHoursGeneratingEvent = (eventType?: EventCategory | null) =>
   eventType !== "Comida";
+const shouldComputeEventHours = (event?: Pick<CalendarEvent, "eventType" | "computaHoras"> | null) => {
+  if (!event) return false;
+  return isHoursGeneratingEvent(event.eventType) && event.computaHoras !== false;
+};
 const canDeleteEventsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
 const canManageImportesByRole = (role?: string | null) =>
@@ -580,6 +584,7 @@ export default function CalendarPage() {
   const [eventMenuItems, setEventMenuItems] = useState<string[]>([]);
   const [eventMenuSlots, setEventMenuSlots] = useState(0);
   const [eventEstablishment, setEventEstablishment] = useState(DEFAULT_ESTABLISHMENT);
+  const [eventComputaHoras, setEventComputaHoras] = useState(true);
   const [attendees, setAttendees] = useState<string[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [bulkEventName, setBulkEventName] = useState("");
@@ -596,6 +601,7 @@ export default function CalendarPage() {
   const [bulkEventPromocion, setBulkEventPromocion] = useState("");
   const [bulkEventMenu, setBulkEventMenu] = useState("");
   const [bulkEventEstablishment, setBulkEventEstablishment] = useState(DEFAULT_ESTABLISHMENT);
+  const [bulkEventComputaHoras, setBulkEventComputaHoras] = useState(true);
   const [bulkAttendees, setBulkAttendees] = useState<string[]>([]);
   const [isBulkCreateModalOpen, setIsBulkCreateModalOpen] = useState(false);
   const [bulkMonth, setBulkMonth] = useState(today.getMonth());
@@ -757,6 +763,7 @@ export default function CalendarPage() {
     certificacion: CertificationOption;
     promocion: string;
     importe: string;
+    computaHoras: boolean;
   };
   type MyEventGroup = {
     event: CalendarEvent;
@@ -784,7 +791,8 @@ export default function CalendarPage() {
     establecimiento: DEFAULT_ESTABLISHMENT,
     certificacion: DEFAULT_CERTIFICATION,
     promocion: "",
-    importe: "0"
+    importe: "0",
+    computaHoras: true
   });
   const [editMenuItems, setEditMenuItems] = useState<string[]>([]);
   const [editMenuSlots, setEditMenuSlots] = useState(0);
@@ -986,7 +994,8 @@ export default function CalendarPage() {
         establecimiento: DEFAULT_ESTABLISHMENT,
         certificacion: DEFAULT_CERTIFICATION,
         promocion: "",
-        importe: "0"
+        importe: "0",
+        computaHoras: true
       });
       setEditMenuItems([]);
       setEditMenuSlots(0);
@@ -1018,7 +1027,8 @@ export default function CalendarPage() {
       establecimiento: selectedEvent.establecimiento ?? "",
       certificacion: normalizedCertification,
       promocion: selectedEvent.promocion ?? "",
-      importe: String(selectedEvent.importe ?? 0)
+      importe: String(selectedEvent.importe ?? 0),
+      computaHoras: selectedEvent.computaHoras !== false
     });
     setEditMenuItems(menuItems);
     setEditMenuSlots(menuItems.length);
@@ -1227,7 +1237,7 @@ export default function CalendarPage() {
       });
 
       const generatedRows = allEvents
-        .filter((event) => event.eventType !== "Comida")
+        .filter((event) => shouldComputeEventHours(event))
         .map((event) => ({
           user: event.user?.trim() ?? "",
           numeroHoras: MINUTES_PER_EVENT,
@@ -2371,7 +2381,7 @@ export default function CalendarPage() {
     const grouped = new Map<string, Set<string>>();
     allEvents.forEach((eventItem) => {
       if (!eventItem.fecha) return;
-      if (!isHoursGeneratingEvent(eventItem.eventType)) return;
+      if (!shouldComputeEventHours(eventItem)) return;
       const eventDate = parseDateWithoutTime(eventItem.fecha);
       if (!eventDate) return;
       const key = buildEventGroupKey(eventItem);
@@ -3168,7 +3178,8 @@ export default function CalendarPage() {
         certificacion: normalizeCertification(eventCertificacion) || DEFAULT_CERTIFICATION,
         promocion: eventPromocion.trim(),
         menu: serializeMenuItems(eventMenuItems),
-        importe: parsedImporte.value
+        importe: parsedImporte.value,
+        computaHoras: eventComputaHoras
       });
 
       setEventName("");
@@ -3181,6 +3192,7 @@ export default function CalendarPage() {
       setEventImporte("0");
       setEventMenuItems([]);
       setEventMenuSlots(0);
+      setEventComputaHoras(true);
       setFormStatus({
         loading: false,
         error: "",
@@ -3337,7 +3349,8 @@ export default function CalendarPage() {
             certificacion:
               normalizeCertification(bulkEventCertificacion) || DEFAULT_CERTIFICATION,
             promocion: bulkEventPromocion.trim(),
-            menu: normalizedBulkMenu
+            menu: normalizedBulkMenu,
+            computaHoras: bulkEventComputaHoras
           });
         })
       );
@@ -3352,6 +3365,7 @@ export default function CalendarPage() {
       setBulkEventPromocion("");
       setBulkEventMenu("");
       setBulkSelectedDateKeys([]);
+      setBulkEventComputaHoras(true);
       setBulkFormStatus({
         loading: false,
         error: "",
@@ -3388,6 +3402,7 @@ export default function CalendarPage() {
     setAttendees([]);
     setEventImporte("0");
     setEventEstablishment(defaultEstablishment);
+    setEventComputaHoras(true);
     setIsCreateModalOpen(true);
     setIsDayDetailModalOpen(false);
   };
@@ -3411,6 +3426,7 @@ export default function CalendarPage() {
     setBulkEventNameAuto("");
     setBulkEventNameDirty(false);
     setBulkEventEstablishment(defaultEstablishment);
+    setBulkEventComputaHoras(true);
     setIsBulkCreateModalOpen(true);
     setIsDayDetailModalOpen(false);
   };
@@ -3642,7 +3658,11 @@ export default function CalendarPage() {
         promocion: canEditDetails ? editForm.promocion.trim() : selectedEventPromotion,
         menu: canEditDetails ? serializeMenuItems(editMenuItems) : selectedEventMenu,
         importe:
-          canEditDetails && canManageImportes ? parsedEditImporte.value : selectedEventImporte
+          canEditDetails && canManageImportes ? parsedEditImporte.value : selectedEventImporte,
+        computaHoras:
+          normalizedUserRole === "Admin"
+            ? editForm.computaHoras
+            : selectedEvent.computaHoras !== false
       };
 
       const groupedEvents = allEvents.filter(
@@ -3927,7 +3947,7 @@ export default function CalendarPage() {
   }, [getErrorMessage, hoursCalculationEnabled, myEventsOnly, targetUser]);
 
   const myHoursEligibleEvents = useMemo(
-    () => myEvents.filter((group) => isHoursGeneratingEvent(group.event.eventType)),
+    () => myEvents.filter((group) => shouldComputeEventHours(group.event)),
     [myEvents]
   );
   const soloComidaKeys = useMemo(() => {
@@ -4251,7 +4271,7 @@ export default function CalendarPage() {
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   Recuento automático: cada evento asistido suma {formatMinutesValue(HOURS_PER_EVENT)} y se guarda en el perfil del usuario seleccionado. Los eventos
-                  de tipo Comida no generan horas extra salvo si activas "Solo
+                  sin check o de tipo Comida no generan horas extra salvo si activas "Solo
                   comida".
                 </p>
                 {targetUser ? (
@@ -4367,7 +4387,7 @@ export default function CalendarPage() {
                   {formatMinutesValue(hoursSummary.obtained)}
                 </p>
                 <p className="text-xs text-emerald-600/80">
-                  {myHoursEligibleEvents.length} eventos (sin Comida) × {formatMinutesValue(HOURS_PER_EVENT)}
+                  {myHoursEligibleEvents.length} eventos computables × {formatMinutesValue(HOURS_PER_EVENT)}
                 </p>
               </article>
               <article className="flex flex-col gap-2 rounded-2xl border border-sky-100 bg-sky-50/70 p-5">
@@ -4586,7 +4606,7 @@ export default function CalendarPage() {
                   Vista global con las horas obtenidas y declaradas de todos los usuarios.
                 </p>
                 <p className="mt-1 text-xs text-slate-400">
-                  Los eventos de tipo Comida no generan horas extra salvo si se
+                  Los eventos sin check o de tipo Comida no generan horas extra salvo si se
                   activa "Solo comida".
                 </p>
                 {reportSelectedUsers.length === 0 ? (
@@ -6938,6 +6958,19 @@ export default function CalendarPage() {
               </span>
             )}
           </div>
+          {normalizedUserRole === "Admin" ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
+              <label className="flex items-center gap-3 text-sm font-semibold text-emerald-800">
+                <input
+                  type="checkbox"
+                  checked={eventComputaHoras}
+                  onChange={(event) => setEventComputaHoras(event.target.checked)}
+                  className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Computa para cálculo de horas
+              </label>
+            </div>
+          ) : null}
           <form className="mt-6 flex flex-col gap-6" onSubmit={handleCreateEvent}>
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="flex flex-col gap-4">
@@ -7277,6 +7310,19 @@ export default function CalendarPage() {
             </button>
           </div>
 
+          {normalizedUserRole === "Admin" ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
+              <label className="flex items-center gap-3 text-sm font-semibold text-emerald-800">
+                <input
+                  type="checkbox"
+                  checked={bulkEventComputaHoras}
+                  onChange={(event) => setBulkEventComputaHoras(event.target.checked)}
+                  className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                Computa para cálculo de horas
+              </label>
+            </div>
+          ) : null}
           <form className="mt-6 flex flex-col gap-6" onSubmit={handleBulkCreateEvents}>
             <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="flex flex-col gap-4">
@@ -7683,6 +7729,21 @@ export default function CalendarPage() {
           </div>
           {selectedEvent ? (
             <form className="mt-4 flex flex-col gap-6" onSubmit={handleUpdateEvent}>
+              {normalizedUserRole === "Admin" ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
+                  <label className="flex items-center gap-3 text-sm font-semibold text-emerald-800">
+                    <input
+                      type="checkbox"
+                      checked={editForm.computaHoras}
+                      onChange={(event) =>
+                        setEditForm((prev) => ({ ...prev, computaHoras: event.target.checked }))
+                      }
+                      className="h-4 w-4 rounded border-emerald-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    Computa para cálculo de horas
+                  </label>
+                </div>
+              ) : null}
               <div className="grid gap-6 lg:grid-cols-2">
                 <div className="flex flex-col gap-4">
                   <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
