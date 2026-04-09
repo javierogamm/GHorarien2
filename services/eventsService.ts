@@ -33,6 +33,7 @@ export type CalendarEvent = SupabaseDocument & {
   menu?: string;
   importe?: number;
   import?: number | string;
+  computaHoras?: boolean | string | number;
 };
 
 const asText = (value: unknown, fallback = ""): string => {
@@ -49,6 +50,18 @@ const parsePromotion = (value: unknown): number | null => {
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const parseComputaHoras = (value: unknown): boolean => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+
+  const normalized = asText(value).trim().toLowerCase();
+  if (!normalized) return true;
+
+  if (["false", "0", "no", "off", "n"].includes(normalized)) return false;
+  if (["true", "1", "si", "sí", "on", "y", "s"].includes(normalized)) return true;
+
+  return true;
+};
 
 const eventTableCandidates = [
   "tabla",
@@ -117,7 +130,8 @@ const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
     certificacion: asText(event.certificacion),
     promocion: asText(event.promocion),
     menu: asText(event.menu),
-    importe: backendImporte
+    importe: backendImporte,
+    computaHoras: parseComputaHoras(event.computaHoras)
   };
 };
 
@@ -152,6 +166,7 @@ type CreateEventsInput = {
   promocion?: string;
   menu?: string;
   importe?: number;
+  computaHoras?: boolean;
 };
 
 export const createEventsForAttendees = async ({
@@ -167,7 +182,8 @@ export const createEventsForAttendees = async ({
   certificacion,
   promocion,
   menu,
-  importe
+  importe,
+  computaHoras = true
 }: CreateEventsInput): Promise<CalendarEvent[]> => {
   if (attendees.length === 0) return [];
 
@@ -184,7 +200,8 @@ export const createEventsForAttendees = async ({
     certificacion: certificacion ?? "",
     promocion: parsePromotion(promocion),
     menu: menu ?? "",
-    import: typeof importe === "number" ? String(importe) : "0"
+    import: typeof importe === "number" ? String(importe) : "0",
+    computaHoras
   }));
 
   const eventsTable = await resolveEventsTable();
@@ -199,12 +216,14 @@ export const createEventsForAttendees = async ({
   );
   const hoursEligibleAttendees = attendees.filter((attendee) => !excludedHoursUsers.has(attendee));
 
-  await createHorasObtenidasForAttendees({
-    attendees: hoursEligibleAttendees,
-    eventType,
-    causa: nombre,
-    fechaObtencion: fecha
-  });
+  if (computaHoras && eventType !== "Comida") {
+    await createHorasObtenidasForAttendees({
+      attendees: hoursEligibleAttendees,
+      eventType,
+      causa: nombre,
+      fechaObtencion: fecha
+    });
+  }
 
   return createdEvents.map(normalizeEvent);
 };
@@ -228,6 +247,10 @@ export const updateEvent = async (
 
   if (typeof data.promocion !== "undefined") {
     payload.promocion = parsePromotion(data.promocion);
+  }
+
+  if (typeof data.computaHoras !== "undefined") {
+    payload.computaHoras = Boolean(data.computaHoras);
   }
 
   const updated = await updateRows<CalendarEvent>(

@@ -1,3 +1,10 @@
+## v0.2.90
+- Se añade el nuevo check **"Computa para cálculo de horas"** en la parte superior de los modales de creación, creación múltiple y configuración de eventos; este control solo es visible para usuarios con rol **Admin** y viene activado por defecto.
+- Si el check está desmarcado, el evento deja de computar para el cálculo de horas obtenidas en la UI y en el recálculo global de horas para Admin.
+- Se amplía el modelo de eventos para persistir `computaHoras` en Supabase, normalizando valores legacy y aplicando `true` por defecto cuando el campo no existe.
+- Se ajusta la creación de registros en `horasobtenidas` para no generar horas automáticas cuando el evento no computa (o cuando es de tipo Comida).
+- Se consolida la versión de la app en `0.2.90`.
+
 ## v0.2.89
 - Se corrige la generación del feed ICS para que no cree un `VEVENT` por usuario: ahora agrupa eventos duplicados por asistentes en un único evento lógico y lista los usuarios en `DESCRIPTION` bajo el campo `Asistentes`.
 - Se añade agrupación estable en `app/api/calendar.ics/route.ts` usando `buildEventGroupKey`, con `UID` único por grupo y `LAST-MODIFIED` calculado por la fecha más reciente del conjunto.
