@@ -34,6 +34,7 @@ export type CalendarEvent = SupabaseDocument & {
   importe?: number;
   import?: number | string;
   computaHoras?: boolean | string | number;
+  computa_horas?: boolean | string | number | null;
 };
 
 const asText = (value: unknown, fallback = ""): string => {
@@ -131,7 +132,8 @@ const normalizeEvent = (event: CalendarEvent): CalendarEvent => {
     promocion: asText(event.promocion),
     menu: asText(event.menu),
     importe: backendImporte,
-    computaHoras: parseComputaHoras(event.computaHoras)
+    computaHoras: parseComputaHoras(event.computaHoras ?? event.computa_horas),
+    computa_horas: parseComputaHoras(event.computaHoras ?? event.computa_horas)
   };
 };
 
@@ -201,7 +203,7 @@ export const createEventsForAttendees = async ({
     promocion: parsePromotion(promocion),
     menu: menu ?? "",
     import: typeof importe === "number" ? String(importe) : "0",
-    computaHoras
+    computa_horas: computaHoras
   }));
 
   const eventsTable = await resolveEventsTable();
@@ -250,7 +252,8 @@ export const updateEvent = async (
   }
 
   if (typeof data.computaHoras !== "undefined") {
-    payload.computaHoras = Boolean(data.computaHoras);
+    payload.computa_horas = Boolean(data.computaHoras);
+    delete payload.computaHoras;
   }
 
   const updated = await updateRows<CalendarEvent>(
