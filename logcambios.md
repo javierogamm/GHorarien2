@@ -1,3 +1,9 @@
+## v0.2.92
+- Se mantiene la generación automática del nombre del evento exclusivamente en la creación (individual y múltiple), y se elimina su sobrescritura automática durante la edición.
+- En el modal de edición, el campo **Nombre** pasa a ser completamente manual: si Admin/Eventmaster lo cambia, se guarda exactamente el valor introducido.
+- La edición del nombre del evento queda restringida por rol a **Admin** y **Eventmaster**; el resto de perfiles lo ven en solo lectura.
+- Se consolida la versión de la app en `0.2.92`.
+
 ## v0.2.91
 - Se adapta la persistencia de eventos para guardar el flag de cómputo de horas en la nueva columna de Supabase `computa_horas` al crear y editar eventos.
 - Se mantiene compatibilidad de lectura entre esquemas (`computaHoras` legacy y `computa_horas` nuevo), normalizando ambos hacia el mismo comportamiento en la app.

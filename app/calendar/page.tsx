@@ -134,6 +134,8 @@ const canManageImportesByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
 const canManageRestaurantsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster";
+const canEditEventNameByRole = (role?: string | null) =>
+  role === "Admin" || role === "Eventmaster";
 const canCreateReviewsByRole = (role?: string | null) =>
   role === "Admin" || role === "Boss" || role === "Eventmaster" || role === "User";
 const normalizeUserRole = (role?: unknown) => {
@@ -796,8 +798,6 @@ export default function CalendarPage() {
   });
   const [editMenuItems, setEditMenuItems] = useState<string[]>([]);
   const [editMenuSlots, setEditMenuSlots] = useState(0);
-  const [editNameAuto, setEditNameAuto] = useState("");
-  const [editNameDirty, setEditNameDirty] = useState(false);
   const [editStatus, setEditStatus] = useState({
     loading: false,
     error: "",
@@ -999,8 +999,6 @@ export default function CalendarPage() {
       });
       setEditMenuItems([]);
       setEditMenuSlots(0);
-      setEditNameAuto("");
-      setEditNameDirty(false);
       setEditStatus({ loading: false, error: "", success: "" });
       return;
     }
@@ -1008,14 +1006,6 @@ export default function CalendarPage() {
     const menuItems = parseMenuItems(selectedEvent.menu);
     const normalizedCertification =
       normalizeCertification(selectedEvent.certificacion) || DEFAULT_CERTIFICATION;
-    const selectedDateValue = parseDateWithoutTime(selectedEvent.fecha);
-    const autoName = buildAutoEventName({
-      eventType: selectedEvent.eventType,
-      establecimiento: selectedEvent.establecimiento ?? "",
-      certificacion: normalizedCertification,
-      promocion: selectedEvent.promocion ?? "",
-      date: selectedDateValue
-    });
     const selectedName = selectedEvent.nombre ?? "";
     setEditForm({
       nombre: selectedName,
@@ -1032,8 +1022,6 @@ export default function CalendarPage() {
     });
     setEditMenuItems(menuItems);
     setEditMenuSlots(menuItems.length);
-    setEditNameAuto(autoName);
-    setEditNameDirty(selectedName.trim() !== "" && autoName !== "" && selectedName !== autoName);
     setEditStatus({ loading: false, error: "", success: "" });
   }, [selectedEvent]);
 
@@ -1941,35 +1929,6 @@ export default function CalendarPage() {
     bulkEventNameDirty
   ]);
 
-  useEffect(() => {
-    if (!selectedEvent) return;
-    const editDate = parseDateInput(editForm.fecha);
-    const autoName = buildAutoEventName({
-      eventType: editForm.eventType,
-      establecimiento: editForm.establecimiento,
-      certificacion: editForm.certificacion,
-      promocion: editForm.promocion,
-      date: editDate
-    });
-    setEditNameAuto((prev) => (prev === autoName ? prev : autoName));
-    if (!autoName) return;
-    const shouldUpdate =
-      !editNameDirty || editForm.nombre.trim() === "" || editForm.nombre === editNameAuto;
-    if (!shouldUpdate || editForm.nombre === autoName) return;
-    setEditForm((prev) => (prev.nombre === autoName ? prev : { ...prev, nombre: autoName }));
-    setEditNameDirty(false);
-  }, [
-    selectedEvent,
-    editForm.eventType,
-    editForm.establecimiento,
-    editForm.certificacion,
-    editForm.promocion,
-    editForm.fecha,
-    editForm.nombre,
-    editNameAuto,
-    editNameDirty
-  ]);
-
   const declareCalendarDays = useMemo(
     () => buildMiniCalendarDays(declareYear, declareMonth),
     [declareMonth, declareYear]
@@ -2508,6 +2467,7 @@ export default function CalendarPage() {
   }, [reportActiveUserSet, reportDeclaredHoursRecords]);
   const canCreateEvents = canManageImportesByRole(normalizedUserRole);
   const canEditDetails = canManageImportesByRole(normalizedUserRole);
+  const canEditEventName = canEditEventNameByRole(normalizedUserRole);
   const canEditAttendees = Boolean(username);
   const showControlTable = canManageImportesByRole(normalizedUserRole);
   const canManageImportes = canManageImportesByRole(normalizedUserRole);
@@ -3502,6 +3462,7 @@ export default function CalendarPage() {
     if (!selectedEvent) return;
 
     const canEditDetails = normalizedUserRole !== "User";
+    const canEditEventName = canEditEventNameByRole(normalizedUserRole);
     const trimmedName = editForm.nombre.trim();
     const attendeeList = editForm.attendees;
     const selectedDateValue = canEditDetails
@@ -3531,20 +3492,9 @@ export default function CalendarPage() {
       return;
     }
 
-    const autoName = canEditDetails
-      ? buildAutoEventName({
-          eventType: editForm.eventType,
-          establecimiento: editForm.establecimiento,
-          certificacion: editForm.certificacion,
-          promocion: editForm.promocion,
-          date: selectedDateValue
-        })
-      : "";
-    const effectiveName = canEditDetails
-      ? (editNameDirty ? trimmedName : autoName || trimmedName).trim()
-      : selectedEventName;
+    const effectiveName = canEditEventName ? trimmedName : selectedEventName;
 
-    if (canEditDetails && !effectiveName) {
+    if (canEditEventName && !effectiveName) {
       setEditStatus({
         loading: false,
         error: "Indica el nombre del evento.",
@@ -7755,9 +7705,8 @@ export default function CalendarPage() {
                       onChange={(event) => {
                         const value = event.target.value;
                         setEditForm((prev) => ({ ...prev, nombre: value }));
-                        setEditNameDirty(value.trim() !== "" && value !== editNameAuto);
                       }}
-                      disabled={!canEditDetails}
+                      disabled={!canEditEventName}
                     />
                   </label>
                   <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
