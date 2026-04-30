@@ -1764,6 +1764,15 @@ export default function CalendarPage() {
 
   const formatDisplayTime = (value?: string | null) => {
     if (!value) return "—";
+    const rawValue = value.trim();
+    const embeddedTimeMatch = rawValue.match(/(?:T|\s)(\d{2}):(\d{2})/);
+    if (embeddedTimeMatch) {
+      return `${embeddedTimeMatch[1]}:${embeddedTimeMatch[2]}`;
+    }
+    const plainTimeMatch = rawValue.match(/^(\d{2}):(\d{2})/);
+    if (plainTimeMatch) {
+      return `${plainTimeMatch[1]}:${plainTimeMatch[2]}`;
+    }
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return "—";
     return parsed.toLocaleTimeString("es-ES", {
@@ -5638,7 +5647,8 @@ export default function CalendarPage() {
                                       </span>
                                       <span className="text-slate-500">·</span>
                                       <span className="text-slate-600">
-                                        {formatDisplayTime(group.event.horaInicio)}
+                                        {formatDisplayTime(group.event.horaInicio)} -{" "}
+                                        {formatDisplayTime(group.event.horaFin)}
                                       </span>
                                     </div>
                                   </summary>
@@ -5653,10 +5663,11 @@ export default function CalendarPage() {
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                       <span className="font-semibold text-slate-500">
-                                        Inicio:
+                                        Horario:
                                       </span>
                                       <span>
-                                        {formatDisplayTime(group.event.horaInicio)}
+                                        {formatDisplayTime(group.event.horaInicio)} -{" "}
+                                        {formatDisplayTime(group.event.horaFin)}
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
@@ -6163,7 +6174,8 @@ export default function CalendarPage() {
                                               </span>
                                               <span className="text-slate-500">·</span>
                                               <span className="text-slate-600">
-                                                {formatDisplayTime(event.horaInicio)}
+                                                {formatDisplayTime(event.horaInicio)} -{" "}
+                                                {formatDisplayTime(event.horaFin)}
                                               </span>
                                             </div>
                                           </summary>
@@ -6176,10 +6188,11 @@ export default function CalendarPage() {
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                               <span className="font-semibold text-slate-500">
-                                                Inicio:
+                                                Horario:
                                               </span>
                                               <span>
-                                                {formatDisplayTime(event.horaInicio)}
+                                                {formatDisplayTime(event.horaInicio)} -{" "}
+                                                {formatDisplayTime(event.horaFin)}
                                               </span>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
