@@ -1,3 +1,8 @@
+## v0.2.93
+- En los acordeones de **Mis eventos** y **Tabla de control**, el resumen de cada evento muestra ahora el rango horario completo en formato **hora inicio - hora fin**.
+- En el detalle desplegable de esos mismos acordeones, el campo de tiempo se renombra de **Inicio** a **Horario** y pasa a mostrar **hora inicio - hora fin**.
+- Se consolida la versión de la app en `0.2.93`.
+
 ## v0.2.92
 - Se mantiene la generación automática del nombre del evento exclusivamente en la creación (individual y múltiple), y se elimina su sobrescritura automática durante la edición.
 - En el modal de edición, el campo **Nombre** pasa a ser completamente manual: si Admin/Eventmaster lo cambia, se guarda exactamente el valor introducido.

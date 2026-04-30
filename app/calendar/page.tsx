@@ -5638,7 +5638,8 @@ export default function CalendarPage() {
                                       </span>
                                       <span className="text-slate-500">·</span>
                                       <span className="text-slate-600">
-                                        {formatDisplayTime(group.event.horaInicio)}
+                                        {formatDisplayTime(group.event.horaInicio)} -{" "}
+                                        {formatDisplayTime(group.event.horaFin)}
                                       </span>
                                     </div>
                                   </summary>
@@ -5653,10 +5654,11 @@ export default function CalendarPage() {
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                       <span className="font-semibold text-slate-500">
-                                        Inicio:
+                                        Horario:
                                       </span>
                                       <span>
-                                        {formatDisplayTime(group.event.horaInicio)}
+                                        {formatDisplayTime(group.event.horaInicio)} -{" "}
+                                        {formatDisplayTime(group.event.horaFin)}
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
@@ -6163,7 +6165,8 @@ export default function CalendarPage() {
                                               </span>
                                               <span className="text-slate-500">·</span>
                                               <span className="text-slate-600">
-                                                {formatDisplayTime(event.horaInicio)}
+                                                {formatDisplayTime(event.horaInicio)} -{" "}
+                                                {formatDisplayTime(event.horaFin)}
                                               </span>
                                             </div>
                                           </summary>
@@ -6176,10 +6179,11 @@ export default function CalendarPage() {
                                             </div>
                                             <div className="flex flex-wrap gap-2">
                                               <span className="font-semibold text-slate-500">
-                                                Inicio:
+                                                Horario:
                                               </span>
                                               <span>
-                                                {formatDisplayTime(event.horaInicio)}
+                                                {formatDisplayTime(event.horaInicio)} -{" "}
+                                                {formatDisplayTime(event.horaFin)}
                                               </span>
                                             </div>
                                             <div className="flex flex-wrap gap-2">
