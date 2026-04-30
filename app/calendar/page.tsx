@@ -1764,6 +1764,15 @@ export default function CalendarPage() {
 
   const formatDisplayTime = (value?: string | null) => {
     if (!value) return "—";
+    const rawValue = value.trim();
+    const embeddedTimeMatch = rawValue.match(/(?:T|\s)(\d{2}):(\d{2})/);
+    if (embeddedTimeMatch) {
+      return `${embeddedTimeMatch[1]}:${embeddedTimeMatch[2]}`;
+    }
+    const plainTimeMatch = rawValue.match(/^(\d{2}):(\d{2})/);
+    if (plainTimeMatch) {
+      return `${plainTimeMatch[1]}:${plainTimeMatch[2]}`;
+    }
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return "—";
     return parsed.toLocaleTimeString("es-ES", {

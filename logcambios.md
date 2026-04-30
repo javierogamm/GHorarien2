@@ -1,3 +1,9 @@
+## v0.2.94
+- Se corrige la visualización de hora en los acordeones de **Mis eventos** y **Tabla de control** para evitar desfases por zona horaria al parsear `horaInicio`/`horaFin`.
+- Ahora, cuando el valor viene con formato fecha-hora (`YYYY-MM-DDTHH:mm...`) o hora plana (`HH:mm`), la UI muestra la hora exacta embebida (sin conversión de `Date`), evitando casos como `16:00` mostrado como `18:00`.
+- Se mantiene la visualización de rango en formato **hora inicio - hora fin** en ambos acordeones.
+- Se consolida la versión de la app en `0.2.94`.
+
 ## v0.2.93
 - En los acordeones de **Mis eventos** y **Tabla de control**, el resumen de cada evento muestra ahora el rango horario completo en formato **hora inicio - hora fin**.
 - En el detalle desplegable de esos mismos acordeones, el campo de tiempo se renombra de **Inicio** a **Horario** y pasa a mostrar **hora inicio - hora fin**.
