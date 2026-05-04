@@ -1,3 +1,8 @@
+## v0.2.95
+- Se corrige un bug en la vista **semanal**: al navegar con **Siguiente semana** y **Semana anterior**, ahora se cargan y muestran correctamente los eventos del rango semanal visualizado.
+- El filtrado de eventos del calendario pasa a depender del rango real de la semana cuando la vista activa es semanal, manteniendo en vista mensual el filtrado por mes/año.
+- Se consolida la versión de la app en `0.2.95`.
+
 ## v0.2.94
 - Se corrige la visualización de hora en los acordeones de **Mis eventos** y **Tabla de control** para evitar desfases por zona horaria al parsear `horaInicio`/`horaFin`.
 - Ahora, cuando el valor viene con formato fecha-hora (`YYYY-MM-DDTHH:mm...`) o hora plana (`HH:mm`), la UI muestra la hora exacta embebida (sin conversión de `Date`), evitando casos como `16:00` mostrado como `18:00`.

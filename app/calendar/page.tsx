@@ -3675,15 +3675,28 @@ export default function CalendarPage() {
   const currentUserRecord = targetUserRecord;
   const canDeleteEvent = canDeleteEventsByRole(normalizedUserRole);
 
-  const calendarEvents = useMemo(
-    () =>
-      allEvents.filter((eventItem) => {
+  const calendarEvents = useMemo(() => {
+    if (calendarView === "weekly") {
+      const weekStart = new Date(weekAnchorDate);
+      weekStart.setHours(0, 0, 0, 0);
+      const dayIndex = (weekStart.getDay() + 6) % 7;
+      weekStart.setDate(weekStart.getDate() - dayIndex);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+
+      return allEvents.filter((eventItem) => {
         const eventDate = parseDateWithoutTime(eventItem.fecha);
         if (!eventDate) return false;
-        return isSameMonthAndYear(eventDate, currentMonth, currentYear);
-      }),
-    [allEvents, currentMonth, currentYear]
-  );
+        return eventDate >= weekStart && eventDate < weekEnd;
+      });
+    }
+
+    return allEvents.filter((eventItem) => {
+      const eventDate = parseDateWithoutTime(eventItem.fecha);
+      if (!eventDate) return false;
+      return isSameMonthAndYear(eventDate, currentMonth, currentYear);
+    });
+  }, [allEvents, calendarView, currentMonth, currentYear, weekAnchorDate]);
 
   const myEvents = useMemo(() => {
     const grouped = new Map<string, MyEventGroup>();
