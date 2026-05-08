@@ -43,12 +43,9 @@ const asText = (value: unknown, fallback = ""): string => {
   return fallback;
 };
 
-const parsePromotion = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
+const parsePromotion = (value: unknown): string | null => {
   const trimmed = asText(value).trim();
-  if (!trimmed) return null;
-  const parsed = Number.parseInt(trimmed, 10);
-  return Number.isNaN(parsed) ? null : parsed;
+  return trimmed || null;
 };
 
 const parseComputaHoras = (value: unknown): boolean => {
