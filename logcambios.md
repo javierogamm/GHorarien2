@@ -1,3 +1,9 @@
+## v0.2.96
+- Se amplía el selector de **Certificación** con las nuevas categorías tipadas **UPDATE** y **ONBOARDING**, manteniendo su flujo con campo de promoción.
+- Cuando la certificación seleccionada es **Otros**, el campo asociado en los modales pasa a mostrarse como **Detalles** en lugar de **Promoción**.
+- La persistencia de `promocion` deja de convertir el valor a número, permitiendo guardar textos libres para los detalles de **Otros** y conservar promociones alfanuméricas.
+- Se consolida la versión de la app en `0.2.96`.
+
 ## v0.2.95
 - Se corrige un bug en la vista **semanal**: al navegar con **Siguiente semana** y **Semana anterior**, ahora se cargan y muestran correctamente los eventos del rango semanal visualizado.
 - El filtrado de eventos del calendario pasa a depender del rango real de la semana cuando la vista activa es semanal, manteniendo en vista mensual el filtrado por mes/año.

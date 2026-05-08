@@ -107,6 +107,17 @@ const DECLARE_MIN_DURATION_MINUTES = 15;
 const DECLARE_MAX_DURATION_MINUTES = MAX_DECLARABLE_HOURS * 60;
 const DECLARE_START_MAX_MINUTES = DECLARE_RANGE_END_MINUTES - DECLARE_MIN_DURATION_MINUTES;
 const DEFAULT_CERTIFICATION: CertificationOption = "OTROS";
+const DETAIL_CERTIFICATION: CertificationOption = "OTROS";
+const PROMOTION_FIELD_LABEL = "Promoción";
+const DETAILS_FIELD_LABEL = "Detalles";
+const getPromotionFieldLabel = (certification?: string | CertificationOption | null) =>
+  normalizeCertification(certification) === DETAIL_CERTIFICATION
+    ? DETAILS_FIELD_LABEL
+    : PROMOTION_FIELD_LABEL;
+const getPromotionEmptyLabel = (certification?: string | CertificationOption | null) =>
+  normalizeCertification(certification) === DETAIL_CERTIFICATION
+    ? "Sin detalles"
+    : "Sin promoción";
 const DEFAULT_ESTABLISHMENT = "Rte. Goya (Hotel Diagonal Plaza)";
 const DEFAULT_TALLER_ESTABLISHMENT_ID = 11;
 const MENU_MAX_ITEMS = 8;
@@ -5885,7 +5896,11 @@ export default function CalendarPage() {
                                 </div>
                                 <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
                                   <span>Fecha: {formatDisplayDate(eventItem.fecha)}</span>
-                                  <span>Promo: {eventItem.promocion?.trim() || "Sin promoción"}</span>
+                                  <span>
+                                    {getPromotionFieldLabel(eventItem.certificacion)}:{" "}
+                                    {eventItem.promocion?.trim() ||
+                                      getPromotionEmptyLabel(eventItem.certificacion)}
+                                  </span>
                                   <span className="text-amber-600">★ {eventStarsLabel}</span>
                                 </div>
                               </div>
@@ -5949,7 +5964,11 @@ export default function CalendarPage() {
                                     </div>
                                     <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-slate-500">
                                       <span>Fecha: {formatDisplayDate(eventItem.fecha)}</span>
-                                      <span>Promo: {eventItem.promocion?.trim() || "Sin promoción"}</span>
+                                      <span>
+                                        {getPromotionFieldLabel(eventItem.certificacion)}:{" "}
+                                        {eventItem.promocion?.trim() ||
+                                          getPromotionEmptyLabel(eventItem.certificacion)}
+                                      </span>
                                     </div>
                                   </div>
                                 ))}
@@ -7113,7 +7132,7 @@ export default function CalendarPage() {
                   </select>
                 </label>
                 <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                  Promoción
+                  {getPromotionFieldLabel(eventCertificacion)}
                   <input
                     className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
                     type="text"
@@ -7397,7 +7416,7 @@ export default function CalendarPage() {
                     </select>
                   </label>
                   <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                    Promoción
+                    {getPromotionFieldLabel(bulkEventCertificacion)}
                     <input
                       className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none"
                       type="text"
@@ -7906,7 +7925,7 @@ export default function CalendarPage() {
                     </select>
                   </label>
                   <label className="flex flex-col gap-2 text-sm font-medium text-slate-600">
-                    Promoción
+                    {getPromotionFieldLabel(editForm.certificacion)}
                     <input
                       className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 shadow-sm focus:border-indigo-400 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                       type="text"
