@@ -2667,10 +2667,32 @@ export default function CalendarPage() {
     () => selectableEstablishments.map((item) => item.nombre),
     [selectableEstablishments]
   );
-  const restaurantsList = useMemo(
-    () => sortEstablishments(establishments),
-    [establishments]
-  );
+  const restaurantsList = useMemo(() => {
+    const reviewSummaries = new Map<string, { total: number; count: number }>();
+
+    reviews.forEach((review) => {
+      const restaurantName = review.establecimiento?.trim();
+      if (!restaurantName) return;
+
+      const currentSummary = reviewSummaries.get(restaurantName) ?? {
+        total: 0,
+        count: 0
+      };
+      currentSummary.total += normalizeReviewStars(review.stars);
+      currentSummary.count += 1;
+      reviewSummaries.set(restaurantName, currentSummary);
+    });
+
+    return [...establishments].sort((left, right) => {
+      const leftSummary = reviewSummaries.get(left.nombre) ?? { total: 0, count: 0 };
+      const rightSummary = reviewSummaries.get(right.nombre) ?? { total: 0, count: 0 };
+      const leftAverage = leftSummary.count > 0 ? leftSummary.total / leftSummary.count : 0;
+      const rightAverage = rightSummary.count > 0 ? rightSummary.total / rightSummary.count : 0;
+
+      if (rightAverage !== leftAverage) return rightAverage - leftAverage;
+      return left.nombre.localeCompare(right.nombre);
+    });
+  }, [establishments, reviews]);
   const filteredEstablishments = useMemo(() => {
     const term = establishmentSearch.trim().toLowerCase();
     if (!term) return selectableEstablishments;
@@ -3795,6 +3817,35 @@ export default function CalendarPage() {
       averages.set(key, entry.count > 0 ? entry.total / entry.count : 0);
     });
     return averages;
+  }, [reviews]);
+
+  const reviewsByRestaurant = useMemo(() => {
+    const grouped = new Map<string, EventReviewRecord[]>();
+
+    reviews.forEach((review) => {
+      const restaurantName = review.establecimiento?.trim();
+      if (!restaurantName) return;
+
+      const restaurantReviews = grouped.get(restaurantName) ?? [];
+      restaurantReviews.push(review);
+      grouped.set(restaurantName, restaurantReviews);
+    });
+
+    grouped.forEach((restaurantReviews, restaurantName) => {
+      grouped.set(
+        restaurantName,
+        [...restaurantReviews].sort((left, right) => {
+          const leftDate = new Date(left.$createdAt ?? "").getTime();
+          const rightDate = new Date(right.$createdAt ?? "").getTime();
+          const safeLeftDate = Number.isFinite(leftDate) ? leftDate : 0;
+          const safeRightDate = Number.isFinite(rightDate) ? rightDate : 0;
+          if (safeRightDate !== safeLeftDate) return safeRightDate - safeLeftDate;
+          return (left.user ?? "").localeCompare(right.user ?? "");
+        })
+      );
+    });
+
+    return grouped;
   }, [reviews]);
 
   const reviewsAccordionByEstablishment = useMemo(() => {
@@ -5105,9 +5156,8 @@ export default function CalendarPage() {
                   const statusValue = restaurant.estado ?? "aceptado";
                   const averageStars = reviewAveragesByRestaurant.get(restaurant.nombre) ?? 0;
                   const roundedAverageStars = averageStars > 0 ? Math.round(averageStars * 10) / 10 : 0;
-                  const restaurantReviewCount = reviews.filter(
-                    (review) => review.establecimiento?.trim() === restaurant.nombre
-                  ).length;
+                  const restaurantReviews = reviewsByRestaurant.get(restaurant.nombre) ?? [];
+                  const restaurantReviewCount = restaurantReviews.length;
                   return (
                     <details
                       key={restaurant.$id}
@@ -5235,6 +5285,43 @@ export default function CalendarPage() {
                                   ? `${renderStars(Math.round(roundedAverageStars))} (${roundedAverageStars.toFixed(1)}/10)`
                                   : "Sin reviews"}
                               </span>
+                            </div>
+                            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                              <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                Valoraciones individuales
+                              </div>
+                              {restaurantReviews.length === 0 ? (
+                                <div className="px-3 py-4 text-xs text-slate-400">
+                                  No hay valoraciones registradas para este restaurante.
+                                </div>
+                              ) : (
+                                <div className="overflow-x-auto">
+                                  <table className="min-w-full divide-y divide-slate-100 text-left text-xs text-slate-600">
+                                    <thead className="bg-white text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                      <tr>
+                                        <th className="px-3 py-2">Usuario</th>
+                                        <th className="px-3 py-2">Valoración</th>
+                                        <th className="px-3 py-2">Comentarios</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 bg-white">
+                                      {restaurantReviews.map((reviewItem) => (
+                                        <tr key={reviewItem.$id}>
+                                          <td className="px-3 py-2 font-semibold text-slate-700">
+                                            {reviewItem.user?.trim() || "Usuario"}
+                                          </td>
+                                          <td className="whitespace-nowrap px-3 py-2 font-semibold text-amber-700">
+                                            {renderStars(normalizeReviewStars(reviewItem.stars))} ({normalizeReviewStars(reviewItem.stars)}/10)
+                                          </td>
+                                          <td className="px-3 py-2 text-slate-500">
+                                            {reviewItem.notas?.trim() || "Sin comentarios."}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-semibold text-slate-500">Maps:</span>

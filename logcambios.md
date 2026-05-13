@@ -1,3 +1,8 @@
+## v0.2.97
+- En **Restaurantes**, el listado principal pasa a ordenarse de arriba a abajo por la valoración media de cada restaurante y, en caso de empate, por nombre alfabético.
+- Al desplegar un restaurante, se añade una tabla de **Valoraciones individuales** con usuario, valoración y comentarios tomados de las reviews del restaurante.
+- Se consolida la versión de la app en `0.2.97`.
+
 ## v0.2.96
 - Se amplía el selector de **Certificación** con las nuevas categorías tipadas **UPDATE** y **ONBOARDING**, manteniendo su flujo con campo de promoción.
 - Cuando la certificación seleccionada es **Otros**, el campo asociado en los modales pasa a mostrarse como **Detalles** en lugar de **Promoción**.
