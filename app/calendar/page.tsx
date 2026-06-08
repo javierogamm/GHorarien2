@@ -558,6 +558,110 @@ const downloadTextFile = (filename: string, content: string, mimeType: string) =
   URL.revokeObjectURL(url);
 };
 
+const escapeICalText = (value: string) =>
+  value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+
+const toICalLocalDateTime = (dateValue: string, timeValue: string) => {
+  const dateMatch = dateValue.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const timeMatch = timeValue.match(/(?:T|^)(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!dateMatch || !timeMatch) return null;
+
+  const [, year, month, day] = dateMatch;
+  const [, hours, minutes, seconds = "00"] = timeMatch;
+  return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+};
+
+const addHoursToICalLocalDateTime = (value: string, hoursToAdd: number) => {
+  const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
+  if (!match) return null;
+
+  const [, year, month, day, hours, minutes, seconds] = match;
+  const endDate = new Date(
+    Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hours) + hoursToAdd,
+      Number(minutes),
+      Number(seconds)
+    )
+  );
+  const pad = (part: number) => String(part).padStart(2, "0");
+
+  return `${endDate.getUTCFullYear()}${pad(endDate.getUTCMonth() + 1)}${pad(
+    endDate.getUTCDate()
+  )}T${pad(endDate.getUTCHours())}${pad(endDate.getUTCMinutes())}${pad(
+    endDate.getUTCSeconds()
+  )}`;
+};
+
+const getIcalEventDurationHours = (eventType: EventCategory) =>
+  eventType === "Comida" ? 2 : 3;
+
+const toICalUtcDateTime = (date: Date) =>
+  date
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+
+const buildSingleEventICal = (event: CalendarEventDisplay) => {
+  const startDate = toICalLocalDateTime(event.fecha, event.horaInicio);
+  const endDate = startDate
+    ? addHoursToICalLocalDateTime(
+        startDate,
+        getIcalEventDurationHours(event.eventType)
+      )
+    : null;
+  if (!startDate || !endDate) {
+    throw new Error("El evento no tiene una fecha y un horario válidos para exportar.");
+  }
+
+  const description = [
+    event.notas?.trim() ? `Notas: ${event.notas.trim()}` : "",
+    event.attendees.length > 0
+      ? `Asistentes: ${event.attendees.join(", ")}`
+      : "Asistentes: Sin asistentes"
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const uidSource = event.groupKey || event.$id || `${event.nombre}-${event.fecha}`;
+  const uid = `${encodeURIComponent(uidSource)}@ghorarien`;
+  const lastModified = event.$updatedAt ? new Date(event.$updatedAt) : null;
+
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//GHorarien//Calendar//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${toICalUtcDateTime(new Date())}`,
+    lastModified && !Number.isNaN(lastModified.getTime())
+      ? `LAST-MODIFIED:${toICalUtcDateTime(lastModified)}`
+      : "",
+    `SUMMARY:${escapeICalText(event.nombre?.trim() || "Evento")}`,
+    description ? `DESCRIPTION:${escapeICalText(description)}` : "",
+    event.establecimiento?.trim()
+      ? `LOCATION:${escapeICalText(event.establecimiento.trim())}`
+      : "",
+    `CATEGORIES:${escapeICalText(EVENT_CATEGORY_META[event.eventType]?.label ?? event.eventType)}`,
+    `DTSTART:${startDate}`,
+    `DTEND:${endDate}`,
+    "STATUS:CONFIRMED",
+    "TRANSP:OPAQUE",
+    "END:VEVENT",
+    "END:VCALENDAR",
+    ""
+  ]
+    .filter(Boolean)
+    .join("\r\n");
+};
+
 const parseImporteInput = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return { valid: true, value: 0 } as const;
@@ -679,6 +783,11 @@ export default function CalendarPage() {
     success: "",
     revealUrl: false,
     url: ""
+  });
+  const [myEventsIcalStatus, setMyEventsIcalStatus] = useState({
+    loading: false,
+    error: "",
+    success: ""
   });
   const [hoursRefreshToken, setHoursRefreshToken] = useState(0);
   const [hoursSummary, setHoursSummary] = useState({
@@ -2110,6 +2219,51 @@ export default function CalendarPage() {
     }
   };
 
+  const handleExportMyEventsIcal = async () => {
+    if (!targetUser || myEvents.length === 0) return;
+
+    setMyEventsIcalStatus({ loading: true, error: "", success: "" });
+
+    try {
+      const calendarIcsUrl = await getCalendarIcsUrl();
+      const response = await fetch(
+        `${calendarIcsUrl}?user=${encodeURIComponent(targetUser)}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error(`No se pudieron exportar los eventos (HTTP ${response.status}).`);
+      }
+
+      const icsContent = await response.text();
+      const userSlug =
+        targetUser
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "") || "usuario";
+      downloadTextFile(
+        `mis-eventos-${userSlug}-${formatDateTime(new Date())}.ics`,
+        icsContent,
+        "text/calendar;charset=utf-8"
+      );
+
+      setMyEventsIcalStatus({
+        loading: false,
+        error: "",
+        success: "Eventos exportados en formato iCalendar para Outlook 365."
+      });
+    } catch (error) {
+      setMyEventsIcalStatus({
+        loading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error al exportar los eventos en formato iCalendar.",
+        success: ""
+      });
+    }
+  };
+
   const handleDownloadCalendarIcs = async () => {
     setCalendarIcsStatus((prev) => ({ ...prev, loading: true, error: "", success: "", revealUrl: false }));
 
@@ -3458,6 +3612,43 @@ export default function CalendarPage() {
 
   const closeEventModal = () => {
     setSelectedEvent(null);
+  };
+
+  const handleExportSelectedEventIcal = () => {
+    if (!selectedEvent) return;
+
+    try {
+      const icsContent = buildSingleEventICal(selectedEvent);
+      const eventSlug =
+        (selectedEvent.nombre || "evento")
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "") || "evento";
+      const eventDate = formatDateInput(selectedEvent.fecha).replace(/-/g, "");
+
+      downloadTextFile(
+        `${eventSlug}-${eventDate || "sin-fecha"}.ics`,
+        `\ufeff${icsContent}`,
+        "text/calendar;charset=utf-8"
+      );
+      setEditStatus((prev) => ({
+        ...prev,
+        error: "",
+        success: "Evento exportado en formato iCalendar para Outlook 365."
+      }));
+    } catch (error) {
+      setEditStatus((prev) => ({
+        ...prev,
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo exportar el evento en formato iCalendar.",
+        success: ""
+      }));
+    }
   };
 
   const handleDeleteEvent = async () => {
@@ -5549,6 +5740,19 @@ export default function CalendarPage() {
                   <TableModuleIcon title="" className="h-4 w-4" />
                   Exportar Excel
                 </button>
+                <button
+                  type="button"
+                  onClick={handleExportMyEventsIcal}
+                  disabled={myEvents.length === 0 || myEventsIcalStatus.loading}
+                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                    myEvents.length === 0 || myEventsIcalStatus.loading
+                      ? "cursor-not-allowed border-emerald-100 bg-emerald-50 text-emerald-300"
+                      : "border-emerald-200 bg-emerald-500 text-white shadow-sm hover:-translate-y-0.5 hover:bg-emerald-600"
+                  }`}
+                >
+                  <CalendarModuleIcon title="" className="h-4 w-4" />
+                  {myEventsIcalStatus.loading ? "Exportando ICAL..." : "Exportar ICAL"}
+                </button>
                 {normalizedUserRole === "Admin" ? (
                   <>
                     <button
@@ -5610,6 +5814,18 @@ export default function CalendarPage() {
             {reviewsStatus.error ? (
               <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
                 {reviewsStatus.error}
+              </div>
+            ) : null}
+
+            {myEventsIcalStatus.error ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {myEventsIcalStatus.error}
+              </div>
+            ) : null}
+
+            {myEventsIcalStatus.success ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {myEventsIcalStatus.success}
               </div>
             ) : null}
 
@@ -8153,6 +8369,14 @@ export default function CalendarPage() {
                     className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
                   >
                     Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportSelectedEventIcal}
+                    className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600"
+                  >
+                    <CalendarModuleIcon title="" className="h-4 w-4" />
+                    Exportar ICAL
                   </button>
                   {canDeleteEvent ? (
                     <button

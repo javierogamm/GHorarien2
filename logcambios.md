@@ -1,3 +1,21 @@
+## v0.2.100
+- Todas las exportaciones iCalendar calculan ahora la hora de finalización a partir de la hora de inicio del evento, sin utilizar la hora de fin almacenada.
+- Los eventos de tipo **Comida** se exportan con una duración fija de **2 horas** y el resto de eventos con una duración fija de **3 horas**.
+- El cálculo contempla el cambio de día cuando la duración del evento supera la medianoche, tanto en la exportación individual como en las exportaciones globales o por usuario.
+- Se consolida la versión de la app en `0.2.100`.
+
+## v0.2.99
+- Se añade el botón **Exportar ICAL** dentro del modal de edición/detalle de cada evento, disponible para todos los usuarios.
+- La exportación individual genera un archivo `.ics` con nombre, fecha, horario, categoría, establecimiento, notas y asistentes del evento abierto, preparado para importarse en Outlook 365.
+- El archivo iCalendar utiliza horas locales sin conversión de zona horaria, identificador estable, fecha de modificación y codificación UTF-8 para conservar correctamente los textos.
+- Se consolida la versión de la app en `0.2.99`.
+
+## v0.2.98
+- Se añade el botón **Exportar ICAL** en **Mis eventos**, disponible para descargar los eventos del usuario seleccionado en un archivo `.ics` importable en Outlook 365.
+- El endpoint iCalendar admite ahora el parámetro `user` para generar exportaciones individuales, manteniendo sin cambios el feed global usado por administradores.
+- Los calendarios generados incorporan `METHOD:PUBLISH` para mejorar su identificación al importarlos en clientes compatibles con iCalendar.
+- Se consolida la versión de la app en `0.2.98`.
+
 ## v0.2.97
 - En **Restaurantes**, el listado principal pasa a ordenarse de arriba a abajo por la valoración media de cada restaurante y, en caso de empate, por nombre alfabético.
 - Al desplegar un restaurante, se añade una tabla de **Valoraciones individuales** con usuario, valoración y comentarios tomados de las reviews del restaurante.

@@ -1,6 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import { fetchAllEvents, type CalendarEvent } from "../../../services/eventsService";
+import {
+  fetchAllEvents,
+  fetchEventsForUser,
+  type CalendarEvent
+} from "../../../services/eventsService";
 import { buildEventGroupKey } from "../../../utils/eventGrouping";
 
 const ICS_PROD_ID = "-//MyApp//Calendar//EN";
@@ -55,6 +59,9 @@ const toEventDate = (fecha: string, hora: string, fallbackHour = "00:00:00"): Da
   return new Date(`${datePart}T${fallbackHour}`);
 };
 
+const getIcalEventDurationHours = (eventType: CalendarEvent["eventType"]): number =>
+  eventType === "Comida" ? 2 : 3;
+
 /**
  * Crea un UID estable por evento agrupado para evitar un VEVENT por cada usuario.
  */
@@ -107,7 +114,9 @@ const buildEventBlock = (groupedEvent: GroupedCalendarEvent): string => {
   const { baseEvent, attendees, key, lastModified } = groupedEvent;
 
   const startDate = toEventDate(baseEvent.fecha, baseEvent.horaInicio, "00:00:00");
-  const endDate = toEventDate(baseEvent.fecha, baseEvent.horaFin, "23:59:59");
+  const endDate = new Date(
+    startDate.getTime() + getIcalEventDurationHours(baseEvent.eventType) * 60 * 60 * 1000
+  );
 
   const summary = escapeICalText(baseEvent.nombre?.trim() || "Evento");
   const descriptionParts = [
@@ -135,12 +144,16 @@ const buildEventBlock = (groupedEvent: GroupedCalendarEvent): string => {
 
 /**
  * Endpoint público: /api/calendar.ics
- * Devuelve un feed iCalendar completo sin autenticación ni parámetros.
+ * Devuelve el feed global o, con `?user=...`, el calendario individual solicitado.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Se obtienen los eventos existentes desde el servicio actual de datos.
-    const events = await fetchAllEvents();
+    const requestedUser = request.nextUrl.searchParams.get("user")?.trim() ?? "";
+
+    // Sin usuario mantiene el feed global; con usuario genera una exportación individual.
+    const events = requestedUser
+      ? await fetchEventsForUser(requestedUser)
+      : await fetchAllEvents();
     const groupedEvents = groupEventsForIcs(events);
 
     // Se arma el archivo ICS completo con cabecera VCALENDAR + todos los VEVENT.
@@ -149,6 +162,7 @@ export async function GET() {
       "VERSION:2.0",
       `PRODID:${ICS_PROD_ID}`,
       "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
       ...groupedEvents.map((event) => buildEventBlock(event)),
       "END:VCALENDAR"
     ].join("\r\n");
