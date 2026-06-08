@@ -558,6 +558,78 @@ const downloadTextFile = (filename: string, content: string, mimeType: string) =
   URL.revokeObjectURL(url);
 };
 
+const escapeICalText = (value: string) =>
+  value
+    .replace(/\\/g, "\\\\")
+    .replace(/\r?\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+
+const toICalLocalDateTime = (dateValue: string, timeValue: string) => {
+  const dateMatch = dateValue.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const timeMatch = timeValue.match(/(?:T|^)(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!dateMatch || !timeMatch) return null;
+
+  const [, year, month, day] = dateMatch;
+  const [, hours, minutes, seconds = "00"] = timeMatch;
+  return `${year}${month}${day}T${hours}${minutes}${seconds}`;
+};
+
+const toICalUtcDateTime = (date: Date) =>
+  date
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d{3}Z$/, "Z");
+
+const buildSingleEventICal = (event: CalendarEventDisplay) => {
+  const startDate = toICalLocalDateTime(event.fecha, event.horaInicio);
+  const endDate = toICalLocalDateTime(event.fecha, event.horaFin);
+  if (!startDate || !endDate) {
+    throw new Error("El evento no tiene una fecha y un horario válidos para exportar.");
+  }
+
+  const description = [
+    event.notas?.trim() ? `Notas: ${event.notas.trim()}` : "",
+    event.attendees.length > 0
+      ? `Asistentes: ${event.attendees.join(", ")}`
+      : "Asistentes: Sin asistentes"
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const uidSource = event.groupKey || event.$id || `${event.nombre}-${event.fecha}`;
+  const uid = `${encodeURIComponent(uidSource)}@ghorarien`;
+  const lastModified = event.$updatedAt ? new Date(event.$updatedAt) : null;
+
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//GHorarien//Calendar//ES",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${toICalUtcDateTime(new Date())}`,
+    lastModified && !Number.isNaN(lastModified.getTime())
+      ? `LAST-MODIFIED:${toICalUtcDateTime(lastModified)}`
+      : "",
+    `SUMMARY:${escapeICalText(event.nombre?.trim() || "Evento")}`,
+    description ? `DESCRIPTION:${escapeICalText(description)}` : "",
+    event.establecimiento?.trim()
+      ? `LOCATION:${escapeICalText(event.establecimiento.trim())}`
+      : "",
+    `CATEGORIES:${escapeICalText(EVENT_CATEGORY_META[event.eventType]?.label ?? event.eventType)}`,
+    `DTSTART:${startDate}`,
+    `DTEND:${endDate}`,
+    "STATUS:CONFIRMED",
+    "TRANSP:OPAQUE",
+    "END:VEVENT",
+    "END:VCALENDAR",
+    ""
+  ]
+    .filter(Boolean)
+    .join("\r\n");
+};
+
 const parseImporteInput = (value: string) => {
   const trimmed = value.trim();
   if (!trimmed) return { valid: true, value: 0 } as const;
@@ -3508,6 +3580,43 @@ export default function CalendarPage() {
 
   const closeEventModal = () => {
     setSelectedEvent(null);
+  };
+
+  const handleExportSelectedEventIcal = () => {
+    if (!selectedEvent) return;
+
+    try {
+      const icsContent = buildSingleEventICal(selectedEvent);
+      const eventSlug =
+        (selectedEvent.nombre || "evento")
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "") || "evento";
+      const eventDate = formatDateInput(selectedEvent.fecha).replace(/-/g, "");
+
+      downloadTextFile(
+        `${eventSlug}-${eventDate || "sin-fecha"}.ics`,
+        `\ufeff${icsContent}`,
+        "text/calendar;charset=utf-8"
+      );
+      setEditStatus((prev) => ({
+        ...prev,
+        error: "",
+        success: "Evento exportado en formato iCalendar para Outlook 365."
+      }));
+    } catch (error) {
+      setEditStatus((prev) => ({
+        ...prev,
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo exportar el evento en formato iCalendar.",
+        success: ""
+      }));
+    }
   };
 
   const handleDeleteEvent = async () => {
@@ -8228,6 +8337,14 @@ export default function CalendarPage() {
                     className="rounded-full border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800"
                   >
                     Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportSelectedEventIcal}
+                    className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-500 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600"
+                  >
+                    <CalendarModuleIcon title="" className="h-4 w-4" />
+                    Exportar ICAL
                   </button>
                   {canDeleteEvent ? (
                     <button

@@ -1,3 +1,9 @@
+## v0.2.99
+- Se añade el botón **Exportar ICAL** dentro del modal de edición/detalle de cada evento, disponible para todos los usuarios.
+- La exportación individual genera un archivo `.ics` con nombre, fecha, horario, categoría, establecimiento, notas y asistentes del evento abierto, preparado para importarse en Outlook 365.
+- El archivo iCalendar utiliza horas locales sin conversión de zona horaria, identificador estable, fecha de modificación y codificación UTF-8 para conservar correctamente los textos.
+- Se consolida la versión de la app en `0.2.99`.
+
 ## v0.2.98
 - Se añade el botón **Exportar ICAL** en **Mis eventos**, disponible para descargar los eventos del usuario seleccionado en un archivo `.ics` importable en Outlook 365.
 - El endpoint iCalendar admite ahora el parámetro `user` para generar exportaciones individuales, manteniendo sin cambios el feed global usado por administradores.
