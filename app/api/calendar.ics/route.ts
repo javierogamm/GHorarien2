@@ -1,6 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-import { fetchAllEvents, type CalendarEvent } from "../../../services/eventsService";
+import {
+  fetchAllEvents,
+  fetchEventsForUser,
+  type CalendarEvent
+} from "../../../services/eventsService";
 import { buildEventGroupKey } from "../../../utils/eventGrouping";
 
 const ICS_PROD_ID = "-//MyApp//Calendar//EN";
@@ -135,12 +139,16 @@ const buildEventBlock = (groupedEvent: GroupedCalendarEvent): string => {
 
 /**
  * Endpoint público: /api/calendar.ics
- * Devuelve un feed iCalendar completo sin autenticación ni parámetros.
+ * Devuelve el feed global o, con `?user=...`, el calendario individual solicitado.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Se obtienen los eventos existentes desde el servicio actual de datos.
-    const events = await fetchAllEvents();
+    const requestedUser = request.nextUrl.searchParams.get("user")?.trim() ?? "";
+
+    // Sin usuario mantiene el feed global; con usuario genera una exportación individual.
+    const events = requestedUser
+      ? await fetchEventsForUser(requestedUser)
+      : await fetchAllEvents();
     const groupedEvents = groupEventsForIcs(events);
 
     // Se arma el archivo ICS completo con cabecera VCALENDAR + todos los VEVENT.
@@ -149,6 +157,7 @@ export async function GET() {
       "VERSION:2.0",
       `PRODID:${ICS_PROD_ID}`,
       "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
       ...groupedEvents.map((event) => buildEventBlock(event)),
       "END:VCALENDAR"
     ].join("\r\n");

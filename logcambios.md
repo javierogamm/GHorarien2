@@ -1,3 +1,9 @@
+## v0.2.98
+- Se añade el botón **Exportar ICAL** en **Mis eventos**, disponible para descargar los eventos del usuario seleccionado en un archivo `.ics` importable en Outlook 365.
+- El endpoint iCalendar admite ahora el parámetro `user` para generar exportaciones individuales, manteniendo sin cambios el feed global usado por administradores.
+- Los calendarios generados incorporan `METHOD:PUBLISH` para mejorar su identificación al importarlos en clientes compatibles con iCalendar.
+- Se consolida la versión de la app en `0.2.98`.
+
 ## v0.2.97
 - En **Restaurantes**, el listado principal pasa a ordenarse de arriba a abajo por la valoración media de cada restaurante y, en caso de empate, por nombre alfabético.
 - Al desplegar un restaurante, se añade una tabla de **Valoraciones individuales** con usuario, valoración y comentarios tomados de las reviews del restaurante.

@@ -680,6 +680,11 @@ export default function CalendarPage() {
     revealUrl: false,
     url: ""
   });
+  const [myEventsIcalStatus, setMyEventsIcalStatus] = useState({
+    loading: false,
+    error: "",
+    success: ""
+  });
   const [hoursRefreshToken, setHoursRefreshToken] = useState(0);
   const [hoursSummary, setHoursSummary] = useState({
     obtained: 0,
@@ -2107,6 +2112,51 @@ export default function CalendarPage() {
         success: "",
         revealUrl: false
       }));
+    }
+  };
+
+  const handleExportMyEventsIcal = async () => {
+    if (!targetUser || myEvents.length === 0) return;
+
+    setMyEventsIcalStatus({ loading: true, error: "", success: "" });
+
+    try {
+      const calendarIcsUrl = await getCalendarIcsUrl();
+      const response = await fetch(
+        `${calendarIcsUrl}?user=${encodeURIComponent(targetUser)}`,
+        { cache: "no-store" }
+      );
+      if (!response.ok) {
+        throw new Error(`No se pudieron exportar los eventos (HTTP ${response.status}).`);
+      }
+
+      const icsContent = await response.text();
+      const userSlug =
+        targetUser
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "") || "usuario";
+      downloadTextFile(
+        `mis-eventos-${userSlug}-${formatDateTime(new Date())}.ics`,
+        icsContent,
+        "text/calendar;charset=utf-8"
+      );
+
+      setMyEventsIcalStatus({
+        loading: false,
+        error: "",
+        success: "Eventos exportados en formato iCalendar para Outlook 365."
+      });
+    } catch (error) {
+      setMyEventsIcalStatus({
+        loading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Error al exportar los eventos en formato iCalendar.",
+        success: ""
+      });
     }
   };
 
@@ -5549,6 +5599,19 @@ export default function CalendarPage() {
                   <TableModuleIcon title="" className="h-4 w-4" />
                   Exportar Excel
                 </button>
+                <button
+                  type="button"
+                  onClick={handleExportMyEventsIcal}
+                  disabled={myEvents.length === 0 || myEventsIcalStatus.loading}
+                  className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                    myEvents.length === 0 || myEventsIcalStatus.loading
+                      ? "cursor-not-allowed border-emerald-100 bg-emerald-50 text-emerald-300"
+                      : "border-emerald-200 bg-emerald-500 text-white shadow-sm hover:-translate-y-0.5 hover:bg-emerald-600"
+                  }`}
+                >
+                  <CalendarModuleIcon title="" className="h-4 w-4" />
+                  {myEventsIcalStatus.loading ? "Exportando ICAL..." : "Exportar ICAL"}
+                </button>
                 {normalizedUserRole === "Admin" ? (
                   <>
                     <button
@@ -5610,6 +5673,18 @@ export default function CalendarPage() {
             {reviewsStatus.error ? (
               <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
                 {reviewsStatus.error}
+              </div>
+            ) : null}
+
+            {myEventsIcalStatus.error ? (
+              <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+                {myEventsIcalStatus.error}
+              </div>
+            ) : null}
+
+            {myEventsIcalStatus.success ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                {myEventsIcalStatus.success}
               </div>
             ) : null}
 
