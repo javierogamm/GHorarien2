@@ -59,6 +59,9 @@ const toEventDate = (fecha: string, hora: string, fallbackHour = "00:00:00"): Da
   return new Date(`${datePart}T${fallbackHour}`);
 };
 
+const getIcalEventDurationHours = (eventType: CalendarEvent["eventType"]): number =>
+  eventType === "Comida" ? 2 : 3;
+
 /**
  * Crea un UID estable por evento agrupado para evitar un VEVENT por cada usuario.
  */
@@ -111,7 +114,9 @@ const buildEventBlock = (groupedEvent: GroupedCalendarEvent): string => {
   const { baseEvent, attendees, key, lastModified } = groupedEvent;
 
   const startDate = toEventDate(baseEvent.fecha, baseEvent.horaInicio, "00:00:00");
-  const endDate = toEventDate(baseEvent.fecha, baseEvent.horaFin, "23:59:59");
+  const endDate = new Date(
+    startDate.getTime() + getIcalEventDurationHours(baseEvent.eventType) * 60 * 60 * 1000
+  );
 
   const summary = escapeICalText(baseEvent.nombre?.trim() || "Evento");
   const descriptionParts = [

@@ -575,6 +575,33 @@ const toICalLocalDateTime = (dateValue: string, timeValue: string) => {
   return `${year}${month}${day}T${hours}${minutes}${seconds}`;
 };
 
+const addHoursToICalLocalDateTime = (value: string, hoursToAdd: number) => {
+  const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/);
+  if (!match) return null;
+
+  const [, year, month, day, hours, minutes, seconds] = match;
+  const endDate = new Date(
+    Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hours) + hoursToAdd,
+      Number(minutes),
+      Number(seconds)
+    )
+  );
+  const pad = (part: number) => String(part).padStart(2, "0");
+
+  return `${endDate.getUTCFullYear()}${pad(endDate.getUTCMonth() + 1)}${pad(
+    endDate.getUTCDate()
+  )}T${pad(endDate.getUTCHours())}${pad(endDate.getUTCMinutes())}${pad(
+    endDate.getUTCSeconds()
+  )}`;
+};
+
+const getIcalEventDurationHours = (eventType: EventCategory) =>
+  eventType === "Comida" ? 2 : 3;
+
 const toICalUtcDateTime = (date: Date) =>
   date
     .toISOString()
@@ -583,7 +610,12 @@ const toICalUtcDateTime = (date: Date) =>
 
 const buildSingleEventICal = (event: CalendarEventDisplay) => {
   const startDate = toICalLocalDateTime(event.fecha, event.horaInicio);
-  const endDate = toICalLocalDateTime(event.fecha, event.horaFin);
+  const endDate = startDate
+    ? addHoursToICalLocalDateTime(
+        startDate,
+        getIcalEventDurationHours(event.eventType)
+      )
+    : null;
   if (!startDate || !endDate) {
     throw new Error("El evento no tiene una fecha y un horario válidos para exportar.");
   }
