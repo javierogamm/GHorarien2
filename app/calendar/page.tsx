@@ -789,6 +789,8 @@ export default function CalendarPage() {
     error: "",
     success: ""
   });
+  const [isMyEventsIcalModalOpen, setIsMyEventsIcalModalOpen] = useState(false);
+  const [selectedMyEventIcalKeys, setSelectedMyEventIcalKeys] = useState<string[]>([]);
   const [hoursRefreshToken, setHoursRefreshToken] = useState(0);
   const [hoursSummary, setHoursSummary] = useState({
     obtained: 0,
@@ -2219,19 +2221,51 @@ export default function CalendarPage() {
     }
   };
 
+  const handleOpenMyEventsIcalModal = () => {
+    if (myEvents.length === 0) return;
+
+    setSelectedMyEventIcalKeys(
+      myEvents.map((group) => buildEventGroupKey(group.event))
+    );
+    setMyEventsIcalStatus({ loading: false, error: "", success: "" });
+    setIsMyEventsIcalModalOpen(true);
+  };
+
+  const handleCloseMyEventsIcalModal = () => {
+    if (myEventsIcalStatus.loading) return;
+    setIsMyEventsIcalModalOpen(false);
+  };
+
+  const handleMyEventIcalToggle = (eventKey: string) => {
+    setSelectedMyEventIcalKeys((current) =>
+      current.includes(eventKey)
+        ? current.filter((key) => key !== eventKey)
+        : [...current, eventKey]
+    );
+    setMyEventsIcalStatus((current) => ({ ...current, error: "", success: "" }));
+  };
+
   const handleExportMyEventsIcal = async () => {
-    if (!targetUser || myEvents.length === 0) return;
+    if (!targetUser || selectedMyEventIcalKeys.length === 0) return;
 
     setMyEventsIcalStatus({ loading: true, error: "", success: "" });
 
     try {
       const calendarIcsUrl = await getCalendarIcsUrl();
-      const response = await fetch(
-        `${calendarIcsUrl}?user=${encodeURIComponent(targetUser)}`,
-        { cache: "no-store" }
-      );
+      const response = await fetch(calendarIcsUrl, {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user: targetUser,
+          eventKeys: selectedMyEventIcalKeys
+        })
+      });
       if (!response.ok) {
-        throw new Error(`No se pudieron exportar los eventos (HTTP ${response.status}).`);
+        const responseMessage = await response.text();
+        throw new Error(
+          responseMessage || `No se pudieron exportar los eventos (HTTP ${response.status}).`
+        );
       }
 
       const icsContent = await response.text();
@@ -2250,8 +2284,11 @@ export default function CalendarPage() {
       setMyEventsIcalStatus({
         loading: false,
         error: "",
-        success: "Eventos exportados en formato iCalendar para Outlook 365."
+        success: `${selectedMyEventIcalKeys.length} evento${
+          selectedMyEventIcalKeys.length === 1 ? "" : "s"
+        } exportado${selectedMyEventIcalKeys.length === 1 ? "" : "s"} en formato ICS.`
       });
+      setIsMyEventsIcalModalOpen(false);
     } catch (error) {
       setMyEventsIcalStatus({
         loading: false,
@@ -5742,7 +5779,7 @@ export default function CalendarPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={handleExportMyEventsIcal}
+                  onClick={handleOpenMyEventsIcalModal}
                   disabled={myEvents.length === 0 || myEventsIcalStatus.loading}
                   className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
                     myEvents.length === 0 || myEventsIcalStatus.loading
@@ -5751,7 +5788,7 @@ export default function CalendarPage() {
                   }`}
                 >
                   <CalendarModuleIcon title="" className="h-4 w-4" />
-                  {myEventsIcalStatus.loading ? "Exportando ICAL..." : "Exportar ICAL"}
+                  {myEventsIcalStatus.loading ? "Descargando ICS..." : "Descargar ICS"}
                 </button>
                 {normalizedUserRole === "Admin" ? (
                   <>
@@ -6611,6 +6648,134 @@ export default function CalendarPage() {
             Usa el botón &quot;Tabla de control&quot; para ver el resumen agrupado.
           </div>
         ) : null}
+      </div>
+
+      <div
+        className={`fixed inset-0 z-[56] flex items-center justify-center bg-slate-900/50 px-4 py-10 backdrop-blur-sm transition ${
+          isMyEventsIcalModalOpen ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={handleCloseMyEventsIcalModal}
+      >
+        <div
+          className={`flex max-h-[85vh] w-full max-w-3xl flex-col rounded-[32px] border border-white/70 bg-white/95 p-6 shadow-soft transition ${
+            isMyEventsIcalModalOpen
+              ? "translate-y-0 scale-100"
+              : "translate-y-4 scale-95"
+          }`}
+          onClick={(event) => event.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="my-events-ical-title"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 id="my-events-ical-title" className="text-xl font-semibold text-slate-900">
+                Descargar eventos en ICS
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                Marca los eventos que quieras incluir en el archivo para Outlook 365.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCloseMyEventsIcalModal}
+              disabled={myEventsIcalStatus.loading}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cerrar
+            </button>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+            <p className="text-sm font-semibold text-emerald-800">
+              {selectedMyEventIcalKeys.length} de {myEvents.length} eventos seleccionados
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedMyEventIcalKeys(
+                    myEvents.map((group) => buildEventGroupKey(group.event))
+                  )
+                }
+                className="rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300"
+              >
+                Seleccionar todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedMyEventIcalKeys([])}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
+              >
+                Desmarcar todos
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+            {myEvents.map((group) => {
+              const eventKey = buildEventGroupKey(group.event);
+              const isSelected = selectedMyEventIcalKeys.includes(eventKey);
+              return (
+                <label
+                  key={eventKey}
+                  className={`flex cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 transition ${
+                    isSelected
+                      ? "border-emerald-200 bg-emerald-50/70"
+                      : "border-slate-200 bg-white hover:border-slate-300"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => handleMyEventIcalToggle(eventKey)}
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-slate-800">
+                      {group.event.nombre?.trim() || "Evento"}
+                    </span>
+                    <span className="mt-1 block text-xs text-slate-500">
+                      {formatDisplayDate(group.event.fecha)} · {formatDisplayTime(group.event.horaInicio)} · {getCategoryLabel(group.event.eventType)}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-slate-400">
+                      {group.event.establecimiento?.trim() || "Sin ubicación"}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+
+          {myEventsIcalStatus.error ? (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
+              {myEventsIcalStatus.error}
+            </div>
+          ) : null}
+
+          <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4">
+            <button
+              type="button"
+              onClick={handleCloseMyEventsIcalModal}
+              disabled={myEventsIcalStatus.loading}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleExportMyEventsIcal}
+              disabled={selectedMyEventIcalKeys.length === 0 || myEventsIcalStatus.loading}
+              className="rounded-full bg-emerald-500 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:hover:translate-y-0"
+            >
+              {myEventsIcalStatus.loading
+                ? "Preparando descarga..."
+                : `Descargar ${selectedMyEventIcalKeys.length || ""} evento${
+                    selectedMyEventIcalKeys.length === 1 ? "" : "s"
+                  }`}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div
