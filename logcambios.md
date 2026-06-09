@@ -1,3 +1,8 @@
+## v0.2.102
+- En **Mis eventos**, se elimina el botón duplicado **Descargar ICS** que descargaba el calendario completo para usuarios Admin.
+- Se conserva como única descarga ICS el botón que abre el modal de selección de eventos, manteniendo aparte la acción **Calendario ICS** para consultar la URL de sincronización.
+- Se consolida la versión de la app en `0.2.102`.
+
 ## v0.2.101
 - En **Mis eventos**, el botón **Descargar ICS** abre ahora un modal con todos los eventos disponibles para el usuario seleccionado.
 - El modal permite marcar o desmarcar eventos individualmente, seleccionar todos o desmarcar todos, mostrando en todo momento el total incluido en la descarga.

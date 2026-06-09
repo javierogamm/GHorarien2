@@ -2301,43 +2301,6 @@ export default function CalendarPage() {
     }
   };
 
-  const handleDownloadCalendarIcs = async () => {
-    setCalendarIcsStatus((prev) => ({ ...prev, loading: true, error: "", success: "", revealUrl: false }));
-
-    try {
-      const calendarIcsUrl = await getCalendarIcsUrl();
-      const response = await fetch(calendarIcsUrl, { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error(`No se pudo descargar el calendario (HTTP ${response.status}).`);
-      }
-
-      const icsContent = await response.text();
-      const userSlug = (targetUser || "usuario").trim().toLowerCase().replace(/\s+/g, "-");
-      downloadTextFile(
-        `calendario-outlook-${userSlug}-${formatDateTime(new Date())}.ics`,
-        icsContent,
-        "text/calendar;charset=utf-8"
-      );
-
-      setCalendarIcsStatus((prev) => ({
-        ...prev,
-        loading: false,
-        error: "",
-        success: "Archivo ICS descargado correctamente.",
-        revealUrl: true,
-        url: calendarIcsUrl
-      }));
-    } catch (error) {
-      setCalendarIcsStatus((prev) => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : "Error al descargar el calendario ICS.",
-        success: "",
-        revealUrl: false
-      }));
-    }
-  };
-
   const handleExportControlTable = () => {
     if (allEvents.length === 0) return;
     const headers = [
@@ -5799,19 +5762,6 @@ export default function CalendarPage() {
                     >
                       <CalendarModuleIcon title="" className="h-4 w-4" />
                       Calendario ICS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDownloadCalendarIcs}
-                      disabled={calendarIcsStatus.loading}
-                      className={`flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                        calendarIcsStatus.loading
-                          ? "cursor-wait border-indigo-100 bg-indigo-50 text-indigo-300"
-                          : "border-indigo-200 bg-indigo-500 text-white shadow-sm hover:-translate-y-0.5 hover:bg-indigo-600"
-                      }`}
-                    >
-                      <CalendarModuleIcon title="" className="h-4 w-4" />
-                      {calendarIcsStatus.loading ? "Descargando ICS..." : "Descargar ICS"}
                     </button>
                   </>
                 ) : null}
