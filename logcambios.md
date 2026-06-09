@@ -1,3 +1,9 @@
+## v0.2.101
+- En **Mis eventos**, el botón **Descargar ICS** abre ahora un modal con todos los eventos disponibles para el usuario seleccionado.
+- El modal permite marcar o desmarcar eventos individualmente, seleccionar todos o desmarcar todos, mostrando en todo momento el total incluido en la descarga.
+- La descarga iCalendar genera un único archivo `.ics` exclusivamente con los eventos confirmados y evita confirmar cuando no hay ninguna selección.
+- Se consolida la versión de la app en `0.2.101`.
+
 ## v0.2.100
 - Todas las exportaciones iCalendar calculan ahora la hora de finalización a partir de la hora de inicio del evento, sin utilizar la hora de fin almacenada.
 - Los eventos de tipo **Comida** se exportan con una duración fija de **2 horas** y el resto de eventos con una duración fija de **3 horas**.

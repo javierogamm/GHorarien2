@@ -143,47 +143,95 @@ const buildEventBlock = (groupedEvent: GroupedCalendarEvent): string => {
 };
 
 /**
+ * Construye la respuesta iCalendar compartida por las exportaciones globales,
+ * por usuario y por selección de eventos.
+ */
+const createICalendarResponse = (events: CalendarEvent[]) => {
+  const groupedEvents = groupEventsForIcs(events);
+  const icsBody = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    `PRODID:${ICS_PROD_ID}`,
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    ...groupedEvents.map((event) => buildEventBlock(event)),
+    "END:VCALENDAR"
+  ].join("\r\n");
+
+  return new NextResponse(icsBody, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/calendar; charset=utf-8",
+      "Cache-Control": "no-cache"
+    }
+  });
+};
+
+const createErrorResponse = (error: unknown) => {
+  const message = error instanceof Error ? error.message : "Error interno";
+
+  return new NextResponse(message, {
+    status: 500,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache"
+    }
+  });
+};
+
+/**
  * Endpoint público: /api/calendar.ics
  * Devuelve el feed global o, con `?user=...`, el calendario individual solicitado.
  */
 export async function GET(request: NextRequest) {
   try {
     const requestedUser = request.nextUrl.searchParams.get("user")?.trim() ?? "";
-
-    // Sin usuario mantiene el feed global; con usuario genera una exportación individual.
     const events = requestedUser
       ? await fetchEventsForUser(requestedUser)
       : await fetchAllEvents();
-    const groupedEvents = groupEventsForIcs(events);
 
-    // Se arma el archivo ICS completo con cabecera VCALENDAR + todos los VEVENT.
-    const icsBody = [
-      "BEGIN:VCALENDAR",
-      "VERSION:2.0",
-      `PRODID:${ICS_PROD_ID}`,
-      "CALSCALE:GREGORIAN",
-      "METHOD:PUBLISH",
-      ...groupedEvents.map((event) => buildEventBlock(event)),
-      "END:VCALENDAR"
-    ].join("\r\n");
-
-    // Se responde como texto ICS para que Outlook pueda suscribirse al feed.
-    return new NextResponse(icsBody, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/calendar; charset=utf-8",
-        "Cache-Control": "no-cache"
-      }
-    });
+    return createICalendarResponse(events);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Error interno";
+    return createErrorResponse(error);
+  }
+}
 
-    return new NextResponse(message, {
-      status: 500,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "no-cache"
-      }
-    });
+/**
+ * Genera un archivo iCalendar con una selección concreta de eventos de un usuario.
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = (await request.json()) as {
+      user?: unknown;
+      eventKeys?: unknown;
+    };
+    const requestedUser = typeof body.user === "string" ? body.user.trim() : "";
+    const requestedEventKeys = Array.isArray(body.eventKeys)
+      ? body.eventKeys.filter((key): key is string => typeof key === "string")
+      : [];
+
+    if (!requestedUser) {
+      return new NextResponse("El usuario es obligatorio.", { status: 400 });
+    }
+
+    if (requestedEventKeys.length === 0) {
+      return new NextResponse("Selecciona al menos un evento.", { status: 400 });
+    }
+
+    const selectedKeys = new Set(requestedEventKeys);
+    const userEvents = await fetchEventsForUser(requestedUser);
+    const selectedEvents = userEvents.filter((event) =>
+      selectedKeys.has(buildEventGroupKey(event))
+    );
+
+    if (selectedEvents.length === 0) {
+      return new NextResponse("No se encontraron eventos para la selección indicada.", {
+        status: 404
+      });
+    }
+
+    return createICalendarResponse(selectedEvents);
+  } catch (error) {
+    return createErrorResponse(error);
   }
 }
